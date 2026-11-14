@@ -240,3 +240,5 @@ Wave A is three Opus tasks and one Sonnet task and needs no visual sign-off: eve
 ### 16:45, ghost rig built but left off (owner's call)
 - The only ghost demo (`spook_animation_demo.html`) animates a different drawing (`ghost_2.svg`, teardrop body) from the game's ghost (`ghost.svg`, wavy tail and tongue). The rig is ported (idle, float, hurt) and registered as `ghost` but not enabled.
 - To enable: add `ghost: { still: 'idle', move: 'float', imgUnits: 244, hover: true }` to `RIG.creatures` in `actors.js`. The S5 ghosts would then look like Spook. Compare `Game/.shots/rig/ghost/walk-off.png` and `walk-on.png`.
+
+- Owner decided (14 Nov): keep the current ghost drawing in S5. The Spook rig stays registered but off; animating the game ghost needs a demo for `ghost.svg`.
