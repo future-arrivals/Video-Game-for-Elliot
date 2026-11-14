@@ -7,23 +7,29 @@ import { mkdtempSync, readFileSync, writeFileSync, mkdirSync, rmSync, statSync }
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { GAME_DIR } from './chrome.mjs';
-import { ASSET_LIST } from '../src/assets.js';
+import { ASSET_LIST, RIG_LIST } from '../src/assets.js';
 
 const tmp = mkdtempSync(join(tmpdir(), 'elliot-build-'));
 try {
   // 1. downscale the assets
-  const jobs = Object.entries(ASSET_LIST).map(([k, a]) => [join(GAME_DIR, a.path), join(tmp, k + '.png'), a.maxH * 2]);
+  const jobs = Object.entries(ASSET_LIST).map(([k, a]) => [join(GAME_DIR, a.path), join(tmp, k + '.png'), a.maxH * 2, !!a.palette]);
   const py = `
 import json, sys
 from PIL import Image
-for src, dst, h in json.loads(sys.argv[1]):
-    im = Image.open(src).convert('RGBA')
+for src, dst, h, pal in json.loads(sys.argv[1]):
+    im = Image.open(src)
+    if pal and im.mode == 'P' and im.height <= h:
+        im.save(dst, optimize=True)   # rig atlases: already a 256-colour palette PNG, keep it
+        continue
+    im = im.convert('RGBA')
     if im.height > h:
         im = im.resize((max(1, round(im.width * h / im.height)), h), Image.LANCZOS)
     im.save(dst, optimize=True)
 `;
   execFileSync('python3', ['-I', '-c', py, JSON.stringify(jobs)], { stdio: 'inherit' });
   const assets = Object.fromEntries(Object.keys(ASSET_LIST).map(k => [k, 'data:image/png;base64,' + readFileSync(join(tmp, k + '.png')).toString('base64')]));
+  // rig layouts (tools/rigparts.mjs), embedded next to their atlases
+  const rigs = Object.fromEntries(Object.entries(RIG_LIST).map(([id, p]) => [id, JSON.parse(readFileSync(join(GAME_DIR, p), 'utf8'))]));
 
   // 2. bundle the code
   const out = await build({
@@ -39,7 +45,7 @@ for src, dst, h in json.loads(sys.argv[1]):
 <link rel="icon" href="data:,"><title>Elliot's Paper Game</title>
 <style>html,body{margin:0;height:100%;overflow:hidden;background:#EFE6D2;touch-action:none}canvas{position:absolute;display:block;background:#FBF8F0}</style>
 </head><body><canvas id="game"></canvas>
-<script>window.__ASSETS__=${JSON.stringify(assets)};</script>
+<script>window.__ASSETS__=${JSON.stringify(assets)};window.__RIGS__=${JSON.stringify(rigs)};</script>
 <script>${js}</script>
 </body></html>
 `;

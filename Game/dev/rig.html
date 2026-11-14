@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<base href="../">  <!-- asset paths in src/assets.js are relative to Game/ -->
+<link rel="icon" href="data:,">
+<title>Rig viewer (dev)</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #EFE6D2; font: 13px Verdana, sans-serif; }
+  canvas { position: absolute; display: block; }
+  #hud { position: absolute; left: 8px; top: 6px; color: #3d382f; background: rgba(255,255,255,.7); padding: 2px 6px; border-radius: 6px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud"></div>
+<script type="module">
+// Shows a canvas rig on the demo pages' 960x600 stage, at the demo's scale and position, so a screenshot can be
+// laid next to the demo page itself.   Game/dev/rig.html?rig=monster&clip=idle&form=0&zoom=1
+// Keys: 1..6 clip, F form, Z zoom (camera push-in), Space pause, R restart, B benchmark.
+// window.__game = { ready, rig, setClip(name), tick(seconds), setForm(0|1), setZoom(bool), bench(n) } ;
+// any __game call stops the clock so frames are deterministic (T = clip time, like the demo's __<name>.seek()).
+import { loadAssets } from './src/assets.js';
+import { loadRig, rigPose, drawRig, drawRigFx } from './src/render/rig.js';
+
+const q = new URLSearchParams(location.search);
+const canvas = document.getElementById('c'), ctx = canvas.getContext('2d'), hud = document.getElementById('hud');
+const SW = 960, SH = 600, SX = 480, GY = 540;                    // the demos' stage
+const assets = await loadAssets();
+const rig = loadRig(assets, q.get('rig') || 'monster');
+if (!rig) throw new Error('no rig ' + (q.get('rig') || 'monster'));
+let clip = q.get('clip') || rig.order[0], form = +(q.get('form') ?? 0), zoom = q.get('zoom') !== '0';
+let T = 0, t0 = 0, paused = false, driven = false, pose = null, last = performance.now(), benchMsg = '';
+
+function fit() {
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  canvas.width = innerWidth * dpr; canvas.height = innerHeight * dpr;
+  canvas.style.width = innerWidth + 'px'; canvas.style.height = innerHeight + 'px';
+}
+addEventListener('resize', fit); fit();
+
+function stage(scroll) { // paper, ruled lines, ground, tufts (scrolling for the hop)
+  ctx.fillStyle = '#FBF8F0'; ctx.fillRect(-40, -40, SW + 80, SH + 80);
+  ctx.strokeStyle = 'rgba(120,150,190,.13)'; ctx.lineWidth = 1.5;
+  for (let y = 0; y < SH; y += 34) { ctx.beginPath(); ctx.moveTo(-40, y + .75); ctx.lineTo(SW + 40, y + .75); ctx.stroke(); }
+  ctx.fillStyle = 'rgba(234,223,196,.7)'; ctx.fillRect(-40, 545, SW + 80, 100);
+  ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(-20, 543); ctx.bezierCurveTo(120, 536, 240, 548, 380, 539); ctx.bezierCurveTo(520, 530, 640, 547, 780, 538); ctx.bezierCurveTo(860, 533, 920, 546, 990, 541); ctx.stroke();
+  const off = -(scroll % 240);
+  for (let i = -1; i < 6; i++) {
+    const x = i * 240 + off;
+    ctx.beginPath(); ctx.moveTo(x + 60, 580); ctx.lineTo(x + 54, 560); ctx.moveTo(x + 66, 580); ctx.lineTo(x + 68, 554); ctx.moveTo(x + 72, 580); ctx.lineTo(x + 80, 560); ctx.stroke();
+    ctx.strokeStyle = '#4aa24a'; ctx.beginPath(); ctx.moveTo(x + 172, 584); ctx.lineTo(x + 172, 562); ctx.stroke(); ctx.strokeStyle = '#1a1a1a';
+    ctx.fillStyle = '#FFD23C'; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.arc(x + 172, 556, 9, 0, 7); ctx.fill(); ctx.stroke(); ctx.lineWidth = 4;
+  }
+}
+
+function render() {
+  const t = T - t0;
+  pose = rigPose(rig, clip, t, { form, T, zoom }, pose);
+  const dpr = canvas.width / innerWidth, k = Math.min(innerWidth / SW, innerHeight / SH) * dpr;
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#EFE6D2'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.setTransform(k, 0, 0, k, (canvas.width - SW * k) / 2, (canvas.height - SH * k) / 2);
+  ctx.save(); ctx.beginPath(); ctx.rect(0, 0, SW, SH); ctx.clip();
+  ctx.translate(pose.shake[0], pose.shake[1]);                     // demo: the whole world shakes
+  stage(pose.scroll);
+  drawRig(ctx, rig, pose, SX, GY, rig.stagePx);                    // stagePx: the demo's px per unit
+  drawRigFx(ctx, rig, pose, SX, GY, rig.stagePx);
+  ctx.restore();
+  const c = rig.clips[clip];
+  hud.textContent = `${rig.id} · ${c.label} (${rig.order.indexOf(clip) + 1}) · t ${pose.t.toFixed(2)} / ${c.dur}s${c.loop ? ' loop' : ''} · ${form ? 'open' : 'folded'}${zoom ? ' · zoom' : ''}${benchMsg ? ' · ' + benchMsg : ''}`;
+}
+
+function setClip(name) { if (!rig.clips[name]) throw new Error('no clip ' + name); clip = name; t0 = T; if (driven) { T = 0; t0 = 0; } render(); return name; }
+function bench(n = 300) {
+  // pose + draw one rig n times (same clip, advancing time), CPU time of the canvas calls; then flush the GPU once
+  const t1 = performance.now(); let p = pose;
+  for (let i = 0; i < n; i++) p = rigPose(rig, clip, i / 60, { form, T: i / 60, zoom }, p);
+  const t2 = performance.now();
+  for (let i = 0; i < n; i++) { p = rigPose(rig, clip, i / 60, { form, T: i / 60, zoom }, p); drawRig(ctx, rig, p, SX, GY, rig.stagePx); }
+  const t3 = performance.now(); ctx.getImageData(0, 0, 1, 1); const t4 = performance.now();
+  const drawn = (() => { let k = 0; for (let j = 0; j < rig.nl; j++) { const pt = rig.L[j * 9]; if (p.vis[pt] && p.alphaP[pt] > .002) k++; } return k; })();
+  const res = { n, parts: rig.n, layers: rig.nl, drawn, poseMs: (t2 - t1) / n, poseDrawMs: (t3 - t2) / n, withFlushMs: (t4 - t2) / n };
+  benchMsg = `pose ${res.poseMs.toFixed(3)} ms, pose+draw ${res.poseDrawMs.toFixed(3)} ms (${drawn} layers)`;
+  render(); return res;
+}
+const drive = () => { driven = true; paused = true; };
+window.__game = {
+  ready: true, rig,
+  setClip: name => { drive(); return setClip(name); },
+  tick: s => { drive(); T += s; render(); return +(T - t0).toFixed(3); },
+  setForm: f => { drive(); form = +f; render(); return form; },
+  setZoom: z => { drive(); zoom = !!z; render(); return zoom; },
+  bench: n => { drive(); return bench(n); },
+};
+addEventListener('keydown', e => {
+  const k = e.key;
+  if (k >= '1' && k <= '9' && rig.order[+k - 1]) setClip(rig.order[+k - 1]);
+  else if (k === 'f' || k === 'F') form = form ? 0 : 1;
+  else if (k === 'z' || k === 'Z') zoom = !zoom;
+  else if (k === ' ') { e.preventDefault(); paused = !paused; }
+  else if (k === 'r' || k === 'R') t0 = T;
+  else if (k === 'b' || k === 'B') console.log(bench(300));
+});
+function loop(now) {
+  const dt = Math.min(.05, (now - last) / 1000); last = now;
+  if (!paused) T += dt;
+  if (!driven) render();
+  requestAnimationFrame(loop);
+}
+render(); requestAnimationFrame(loop);
+</script>
+</body>
+</html>

@@ -162,8 +162,9 @@ try {
     const out = join(GAME_DIR, 'assets/rigs', id); await mkdir(out, { recursive: true });
     const png = join(out, 'atlas.png');
     await writeFile(png, Buffer.from(res.png.split(',')[1], 'base64'));
-    // re-save with PIL's optimizer (the same tool build.mjs uses)
-    execFileSync('python3', ['-I', '-c', 'import sys\nfrom PIL import Image\nim=Image.open(sys.argv[1]);im.load();im.save(sys.argv[1],optimize=True)', png]);
+    // 256-colour palette with alpha (flat marker colours + their anti-aliasing): ~4x smaller than RGBA and not
+    // visibly different. build.mjs keeps it as a palette PNG (ASSET_LIST entry `palette: true`).
+    execFileSync('python3', ['-I', '-c', 'import sys\nfrom PIL import Image\nim=Image.open(sys.argv[1]).convert("RGBA")\nim.quantize(256,method=Image.Quantize.FASTOCTREE,dither=Image.Dither.NONE).save(sys.argv[1],optimize=True)', png]);
     await writeFile(join(out, 'rig.json'), JSON.stringify(res.rig) + '\n');
     for (const n of res.notes) console.log('  note:', n);
     const [AW, AH] = res.rig.atlas;

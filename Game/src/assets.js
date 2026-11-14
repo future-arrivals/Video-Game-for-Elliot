@@ -21,7 +21,14 @@ export const ASSET_LIST = {
   ghost: { path: '../Art/Characters/png/ghost.png', maxH: 130 },
   candy: { path: '../Art/Characters/png/candy.png', maxH: 40 },
   lollipop: { path: '../Art/Characters/png/lollipop.png', maxH: 40 },
+  // canvas rigs (src/render/rig.js): one packed parts atlas per character, from tools/rigparts.mjs. maxH is set
+  // high so the build never rescales an atlas (its JSON rectangles are in atlas pixels); palette: the build keeps
+  // the 256-colour PNG as it is.
+  rig_monster: { path: 'assets/rigs/monster/atlas.png', maxH: 1024, palette: true },
 };
+
+/** Rig layout JSON per character (tools/rigparts.mjs). Dev: fetched; build: embedded as window.__RIGS__. */
+export const RIG_LIST = { monster: 'assets/rigs/monster/rig.json' };
 
 function load(key, src) {
   return new Promise((ok, fail) => {
@@ -32,9 +39,18 @@ function load(key, src) {
   });
 }
 
-/** -> { img: {key: HTMLImageElement}, cache: {} }  (cache holds sprites the render modules bake) */
+async function loadRigJson(id, path) {
+  const embedded = typeof window !== 'undefined' && window.__RIGS__;
+  if (embedded) return [id, embedded[id] || null];
+  try { const r = await fetch(path); return [id, r.ok ? await r.json() : null]; } catch { return [id, null]; }
+}
+
+/** -> { img: {key: HTMLImageElement}, rigs: {id: rig JSON}, cache: {} }  (cache holds sprites the render modules bake) */
 export async function loadAssets() {
   const embedded = typeof window !== 'undefined' && window.__ASSETS__;
-  const pairs = await Promise.all(Object.entries(ASSET_LIST).map(([k, a]) => load(k, embedded ? embedded[k] : a.path)));
-  return { img: Object.fromEntries(pairs), cache: {} };
+  const [pairs, rigs] = await Promise.all([
+    Promise.all(Object.entries(ASSET_LIST).map(([k, a]) => load(k, embedded ? embedded[k] : a.path))),
+    Promise.all(Object.entries(RIG_LIST).map(([id, path]) => loadRigJson(id, path))),
+  ]);
+  return { img: Object.fromEntries(pairs), rigs: Object.fromEntries(rigs), cache: {} };
 }
