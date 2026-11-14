@@ -2,6 +2,7 @@
 // A prop is a list of parts (wobbly path + fill/stroke) baked once into its own sprite.
 // Ported from Source/a2_engine.js makeProp/drawParts/bakeProp, plus hedge, blanket, crate, corn, leaves.
 import { R, INK, PEN, PAPER, clamp, lerp, mk, wob, ell, tone, streaks } from './core.js';
+import { KINDS } from './propkinds.js';   // M2 kinds: gate, posts, plate, stone, do-over, giant pumpkin, door, reeds...
 
 // Field look (Task 7). All of it is opt-in through makeProp's `look` argument, so the battle screen,
 // which calls makeProp/drawParts without one, draws exactly as before.
@@ -13,7 +14,8 @@ const HEDGE_W = .8;              // hedge width when look.fit is set: keeps hedg
 
 const part = (g, fill, stroke, lw, dash) => ({ g, fill, stroke, lw, dash });
 /** Kinds tall enough to hide the lead; these fade to 50% when standing in front of it. */
-export const STANDEE = new Set(['hedge', 'boulder', 'post', 'scarecrow', 'sign', 'cart', 'hay', 'corn', 'crate', 'pumpkin']);
+export const STANDEE = new Set(['hedge', 'boulder', 'post', 'scarecrow', 'sign', 'cart', 'hay', 'corn', 'crate', 'pumpkin',
+  'gate', 'gateopen', 'candypost', 'bellpost', 'bellrung', 'doover', 'door', 'reeds', 'stall', 'baretree', 'jack']);
 
 /** Builds a prop whose feet are at world px (x, y). Returns {kind, x, y, parts, bb, ink, cache}.
  *  look (optional, field only): { k: scale about the feet, sat, line (pencil strength 0..1),
@@ -90,7 +92,7 @@ export function makeProp(kind, x, y, s, seed, ink, look) {
     P.push(part(wob(ell(x, y - 22, 21, 21, 16), true, .6, seed), '#FFF1A8', '#E8C94A', 2.5));
   } else if (kind === 'spot') {       // dashed "a power fits here"
     P.push(part(wob([[x - 62, y - 18], [x + 62, y - 22], [x + 64, y + 10], [x - 62, y + 12]], true, 1, seed), 'rgba(255,255,255,.5)', INK, 3.5, [9, 8]));
-  }
+  } else if (KINDS[kind]) KINDS[kind](P, part, x, y, s, seed, L, lw);
   let bb = [1e9, 1e9, -1e9, -1e9];
   for (const q of P) { const b = q.g.bb; bb = [Math.min(bb[0], b[0]), Math.min(bb[1], b[1]), Math.max(bb[2], b[2]), Math.max(bb[3], b[3])]; }
   const pr = { kind, x, y, parts: P, bb, ink: !!ink, standee: STANDEE.has(kind), cache: null, k: 1 };
@@ -100,7 +102,7 @@ export function makeProp(kind, x, y, s, seed, ink, look) {
   return pr;
 }
 
-const FLAT = new Set(['leaves', 'vine', 'blanket', 'glow', 'spot', 'rail']);
+const FLAT = new Set(['leaves', 'vine', 'blanket', 'glow', 'spot', 'rail', 'plate', 'platedown', 'stone', 'lily', 'mat']);
 function applyLook(pr, L) {
   pr.k = L.k ?? 1;
   if (!pr.ink) for (const q of pr.parts) {        // item 2 (quieter) and item 3 (depth tint) for pencil
@@ -150,4 +152,8 @@ export function drawProp(ctx, pr, dy = 0, alpha = 1) {
   const [x0, y0, x1, y1] = pr.bb;
   if (alpha < 1) { ctx.globalAlpha = alpha; ctx.drawImage(pr.cache, x0, y0 + dy, x1 - x0, y1 - y0); ctx.globalAlpha = 1; }
   else ctx.drawImage(pr.cache, x0, y0 + dy, x1 - x0, y1 - y0);
+}
+/** Draws a prop baked at one place shifted by (dx, dy) world px (stones are baked once, drawn on any tile). */
+export function drawPropAt(ctx, pr, dx, dy) {
+  const [x0, y0, x1, y1] = pr.bb; ctx.drawImage(pr.cache, x0 + dx, y0 + dy, x1 - x0, y1 - y0);
 }

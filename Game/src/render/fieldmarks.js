@@ -7,8 +7,8 @@ import { drawPsShape } from '../input/touch.js';
 
 const LEAD_RING = { on: true, w: 86, h: 26, fill: 'rgba(255,232,120,.72)', line: '#E2BF3A', lw: 4 };  // ~1.8 tiles: a highlighter puddle
 const SWAP_POP = { on: true, secs: .35, scale: .12 };     // new lead pops 1.0 -> 1.12 -> 1.0, ring draws in
-const POWER_OUTLINE = { on: true, pad: 10, padTop: 5, dash: [9, 7], lw: 3.6, under: 'rgba(255,253,244,.92)', march: 18, ghost: .4 };  // ghost: see-through pass over actors in front  // march: px/s when ready
-const BADGE = { on: true, h: 36, bob: 2.5, hop: 11, hopSecs: .4, lift: 72, dx: 58, cross: '#4F84CF', ready: '#FFF1A8' };  // lift/dx: above-right of the target, clear of the candy and the tallest lead
+const POWER_OUTLINE = { on: true, pad: 10, padTop: 5, dash: [9, 7], lw: 3.6, under: 'rgba(255,253,244,.92)', march: 18, ghost: .4, ghostFlat: .8 };  // ghostFlat: water (flat on the ground, right behind a bridger facing back)  // ghost: see-through pass over actors in front  // march: px/s when ready
+const BADGE = { on: true, h: 36, bob: 2.5, hop: 11, hopSecs: .4, lift: 72, dx: 58, cross: '#4F84CF', ready: '#FFF1A8', ryRef: 26.7, minY: 50, sideGap: 14 };  // minY: a badge that would sit higher than this (world px; the HUD tags) goes beside the target instead  // ryRef: the boulder outline's half-height (lift was measured from its centre)  // lift/dx: above-right of the target, clear of the candy and the tallest lead
 const CRUMBS = { on: true, n: 7 };
 const BOULDER_SCALE_GUESS = .74;                           // matches stagebake BOULDER_SCALE (outline size)
 
@@ -61,11 +61,18 @@ export function drawCrumbs(ctx, M, key) {
   const s = M.crumbs.get(key); if (s) ctx.drawImage(s.c, s.x, s.y, s.w, s.h);
 }
 
-/** Outline geometry for the target tile: around the boulder if one is there, else around the tile. */
+/** Outline geometry for the target, fitted to the thing (kind from target.kind; M1 targets have none):
+ *  boulder: round the boulder (top kept low so the candy behind shows); water: flat on the water tile;
+ *  post and bell: a tall ellipse round the whole post; doover: round the do-over pumpkin. */
+const POWER_OF = { boulder: 'eat', water: 'bridge', post: 'reach', bell: 'reach', doover: 'reset' };
+const SHAPE = { post: { rx: 27, h: 128, foot: .82 }, bell: { rx: 31, h: 124, foot: .82, dx: 8 }, doover: { rx: 36, ry: 29, lift: 22, foot: .8 }, water: { rx: 30, ry: 18 } };
 function targetShape(view, fs, t) {
-  const x = wx(t.i + .5), feet = wy(t.j + .8);
+  const x = wx(t.i + .5), k = BOULDER_SCALE_GUESS, P = POWER_OUTLINE.pad, kind = t.kind || 'boulder';
+  if (kind === 'post' || kind === 'bell') { const S = SHAPE[kind], feet = wy(t.j + S.foot); return { cx: x + (S.dx || 0), cy: feet - S.h / 2 + 4, rx: S.rx, ry: S.h / 2 + 4, side: kind === 'post' }; }
+  if (kind === 'doover') { const S = SHAPE.doover; return { cx: x, cy: wy(t.j + S.foot) - S.lift, rx: S.rx, ry: S.ry }; }
+  if (kind === 'water') return { cx: x, cy: wy(t.j + .5), rx: SHAPE.water.rx, ry: SHAPE.water.ry, flat: true };
+  const feet = wy(t.j + .8);
   const hasBoulder = (fs.boulders || []).some(b => b.i === t.i && b.j === t.j) && view.boulderSprites.has(t.i + ',' + t.j);
-  const k = BOULDER_SCALE_GUESS, P = POWER_OUTLINE.pad;
   // the top edge stays low (padTop) so the candy behind a boulder still shows above the outline
   const pt = POWER_OUTLINE.padTop, ry = 26 * k + (P + pt) / 2;
   return hasBoulder ? { cx: x, cy: feet - 24 * k + (P - pt) / 2, rx: 34 * k + P, ry } : { cx: x, cy: wy(t.j + .5), rx: 24 + P * .5, ry: 15 + P * .5 };
@@ -75,11 +82,11 @@ function targetShape(view, fs, t) {
  *  again faintly (ghost = true) after everything so it still shows through a character standing in front. */
 export function drawTargetOutline(ctx, view, fs, t, ghost = false) {
   if (!POWER_OUTLINE.on || (ghost && !POWER_OUTLINE.ghost)) return;
-  const s = targetShape(view, fs, t), key = t.i * 7 + t.j;
+  const s = targetShape(view, fs, t), key = (t.kind || 'boulder') + t.i + ',' + t.j;
   const o = view.outlines || (view.outlines = new Map());
-  let p = o.get(key); if (!p) { p = wob(ell(s.cx, s.cy, s.rx, s.ry, 18, .05, key), true, 1, key, 10); o.set(key, p); }
+  let p = o.get(key); if (!p) { const sd = t.i * 7 + t.j; p = wob(ell(s.cx, s.cy, s.rx, s.ry, 18, .05, sd), true, 1, sd, 10); o.set(key, p); }
   ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-  if (ghost) ctx.globalAlpha = POWER_OUTLINE.ghost;
+  if (ghost) ctx.globalAlpha = s.flat ? POWER_OUTLINE.ghostFlat : POWER_OUTLINE.ghost;
   else { ctx.strokeStyle = POWER_OUTLINE.under; ctx.lineWidth = POWER_OUTLINE.lw + 4; ctx.stroke(p.p); }
   ctx.setLineDash(POWER_OUTLINE.dash); ctx.lineDashOffset = t.ready ? -(fs.time || 0) * POWER_OUTLINE.march : 0;
   ctx.strokeStyle = INK; ctx.lineWidth = POWER_OUTLINE.lw; ctx.stroke(p.p);
@@ -99,13 +106,20 @@ export function drawTargetBadge(ctx, view, fs, t) {
   if (nudge >= 0 && nudge < 1) dy -= BADGE.hop * Math.sin(Math.PI * nudge) * (1 + .3 * Math.sin(Math.PI * nudge * 2));
   const h = BADGE.h, rr = h / 2, v = rec.folded, ph = h - 7, pw = v.s.w * ph / v.s.h;
   const w = ready ? pw + h + 10 : Math.max(h, pw + 12);
-  const x0 = s.cx + BADGE.dx - (ready ? h * .55 : w / 2), y0 = s.cy - BADGE.lift - rr + dy, by = y0 + rr;
+  // above and to the right of the target; beside it (right) when that would be too high (tall posts, the back row)
+  const side = s.side || s.cy - s.ry - (BADGE.lift - BADGE.ryRef) < BADGE.minY;
+  const x0 = side ? s.cx + s.rx + BADGE.sideGap : s.cx + BADGE.dx - (ready ? h * .55 : w / 2);
+  const y0 = (side ? Math.max(BADGE.minY - rr, s.cy - s.ry * .35 - rr) : s.cy - s.ry - (BADGE.lift - BADGE.ryRef) - rr) + dy, by = y0 + rr;
   const line = ready ? INK : PEN, fill = ready ? BADGE.ready : PAPER;
   ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-  // tail from the pill's lower left down to the outline's upper right
-  const tx = x0 + Math.min(18, w * .3);
   ctx.fillStyle = fill; ctx.strokeStyle = line; ctx.lineWidth = ready ? 2.8 : 2.2;
-  ctx.beginPath(); ctx.moveTo(tx - 6, y0 + h - 3); ctx.lineTo(s.cx + s.rx * .55, s.cy - s.ry * .7); ctx.lineTo(tx + 7, y0 + h - 2); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.beginPath();
+  if (side) { ctx.moveTo(x0 + 6, by - 7); ctx.lineTo(s.cx + s.rx * .9, Math.min(s.cy + s.ry * .6, Math.max(s.cy - s.ry * .6, by + 10))); ctx.lineTo(x0 + 6, by + 7); }
+  else {   // tail from the pill's lower left down to the outline's upper right
+    const tx = x0 + Math.min(18, w * .3);
+    ctx.moveTo(tx - 6, y0 + h - 3); ctx.lineTo(s.cx + s.rx * .55, s.cy - s.ry * .7); ctx.lineTo(tx + 7, y0 + h - 2);
+  }
+  ctx.closePath(); ctx.fill(); ctx.stroke();
   ctx.beginPath(); ctx.roundRect(x0, y0, w, h, rr); ctx.fill(); ctx.stroke();
   ctx.drawImage(v.s.c, x0 + (ready ? 6 : (w - pw) / 2), by - ph / 2, pw, ph);
   if (ready) {
@@ -116,13 +130,15 @@ export function drawTargetBadge(ctx, view, fs, t) {
   ctx.restore();
 }
 
-/** Dev only: ?target=20,1&ready=1|0 [&nudge=1] [&eaten=1] (read inside the render code, never the rules). */
+/** Dev only: ?target=20,1&ready=1|0 [&kind=water|post|bell|doover] [&by=fish] [&nudge=1] [&eaten=1]
+ *  (read inside the render code, never the rules). */
 export function readDevMarks() {
   if (typeof location === 'undefined') return {};
   const q = new URLSearchParams(location.search), out = {};
   if (q.has('target')) {
     const [i, j] = q.get('target').split(',').map(Number);
-    if (Number.isFinite(i) && Number.isFinite(j)) out.target = { i, j, power: 'eat', by: q.get('by') || 'monster', ready: q.get('ready') === '1', nudgeAt: q.has('nudge') ? Number(q.get('nudge')) : undefined };
+    const kind = q.get('kind') || 'boulder';
+    if (Number.isFinite(i) && Number.isFinite(j)) out.target = { i, j, kind, power: POWER_OF[kind] || 'eat', by: q.get('by') || 'monster', ready: q.get('ready') === '1', nudgeAt: q.has('nudge') ? Number(q.get('nudge')) : undefined };
   }
   if (q.get('eaten') === '1') out.eaten = true;
   return out;

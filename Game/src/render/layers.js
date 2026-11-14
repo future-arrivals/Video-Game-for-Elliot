@@ -10,6 +10,7 @@ const FAR_HAZE = .1;             // item 3: cool pale wash over the far sheet (0
 const MID_HAZE = .05;            // item 3: a lighter wash over the mid hedge row
 const HAZE = '#E3EBEE';          // the cool haze colour
 const CORNER_FRAME = true;       // item 5: dark-ish pre-blurred clumps fixed in the bottom corners
+const EERIE = { wash: 'rgba(120,128,200,.10)', vignette: 'rgba(50,40,80,.30)' };   // S5: cooler, a little darker at the edges
 
 export function bakeSky() {
   const c = mk(W * R.DPR, H * R.DPR), g = c.getContext('2d'); g.scale(R.DPR, R.DPR);
@@ -66,11 +67,13 @@ export function bakeMid(stageW, opts = {}) {
 }
 
 /** Afternoon light: warm diagonal wash, 3 light shafts, vignette (screen size). */
-export function bakeLight(dusk = false) {
+/** opts (field only): { eerie: true } swaps the warm wash and vignette for cooler ones (S5 Ghost Field). */
+export function bakeLight(dusk = false, opts = {}) {
   const c = mk(W * R.DPR, H * R.DPR), g = c.getContext('2d'); g.scale(R.DPR, R.DPR);
-  let gr = g.createLinearGradient(0, 0, W, H); gr.addColorStop(0, dusk ? 'rgba(150,80,160,.20)' : 'rgba(255,196,110,.20)'); gr.addColorStop(1, dusk ? 'rgba(240,120,60,.16)' : 'rgba(255,196,110,0)'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  const ee = !dusk && opts.eerie;
+  let gr = g.createLinearGradient(0, 0, W, H); gr.addColorStop(0, dusk ? 'rgba(150,80,160,.20)' : ee ? EERIE.wash : 'rgba(255,196,110,.20)'); gr.addColorStop(1, dusk ? 'rgba(240,120,60,.16)' : 'rgba(255,196,110,0)'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
   for (const [a, w] of [[60, 70], [210, 40], [330, 90]]) { const sg = g.createLinearGradient(a, 0, a + 160, H); sg.addColorStop(0, `rgba(255,240,200,${dusk ? .05 : .13})`); sg.addColorStop(1, 'rgba(255,240,200,0)'); g.fillStyle = sg; g.beginPath(); g.moveTo(a, 0); g.lineTo(a + w, 0); g.lineTo(a + w + 260, H); g.lineTo(a + 260, H); g.fill(); }
-  gr = g.createRadialGradient(W / 2, H / 2, W * .32, W / 2, H / 2, W * .66); gr.addColorStop(0, 'rgba(70,45,20,0)'); gr.addColorStop(1, dusk ? 'rgba(40,20,50,.42)' : 'rgba(80,50,20,.26)'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  gr = g.createRadialGradient(W / 2, H / 2, W * .32, W / 2, H / 2, W * .66); gr.addColorStop(0, 'rgba(70,45,20,0)'); gr.addColorStop(1, dusk ? 'rgba(40,20,50,.42)' : ee ? EERIE.vignette : 'rgba(80,50,20,.26)'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
   return c;
 }
 

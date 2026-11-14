@@ -21,7 +21,7 @@
 // A fresh game is the monster alone in S1. Stage travel is not built here yet: an exit shows the bubble.
 // Dev query parameters: x, y (lead tile position), form (folded|open), party (1|3; default 1, the monster
 // alone), lead (id; without party=, it implies party=3), bat (patrol|asleep|ignore), zoom, fresh (1 = ignore
-// the save). Any of them starts without the save.
+// the save), stage (S1..S7: start in that stage; x, y are tiles within it). Any of them starts without the save.
 import { W, H, INK, PEN, PAPER, FONT, wx, wy, clamp, eOutCubic, rng } from '../render/core.js';
 import { createStageView, renderStage } from '../render/stageview.js';
 import { createCamera, updateCamera, toScreen } from '../render/camera.js';
@@ -39,7 +39,7 @@ const REST_CUE = 1.4;
 const CANDY_FX = .7;
 const CRUMB_FX = .6;
 const STEP_EVERY = .3;       // seconds between footstep taps
-const DEV_KEYS = ['x', 'y', 'form', 'party', 'lead', 'bat', 'fresh'];
+const DEV_KEYS = ['x', 'y', 'form', 'party', 'lead', 'bat', 'fresh', 'stage'];
 const ALL = ['monster', 'fish', 'icecream'];
 
 const anyPress = f => !!f && (Object.values(f.pressed || {}).some(Boolean) || (f.taps && f.taps.length > 0));
@@ -181,7 +181,7 @@ function makeField(data, q, saved) {
   const lead = q.get('lead');
   if (lead && ids.includes(lead)) { while (ids[0] !== lead) ids.push(ids.shift()); }
   const world = createWorld(data, { party: ids });
-  const stage = parseStage(data.stages[0]);
+  const stage = parseStage(data.stages.find(s => s.id === q.get('stage')) ?? data.stages[0]);
   let at = null;
   if (q.has('x') || q.has('y') || q.get('form') === 'open') {
     at = {

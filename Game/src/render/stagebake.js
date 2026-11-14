@@ -4,6 +4,7 @@
 import { R, PAPER, PEN, TILE_W, wx, wy, mk, rng, clamp, lerp, wob, ell, tone, streaks } from './core.js';
 import { makeProp, drawParts, bakeProp } from './props.js';
 import { candyArt } from './sprites.js';
+import { prepareWater, drawWater, drawRibbons } from './water.js';
 
 // 1. Cluster the scenery: a few patches along the back and front edges, calm ground between them.
 const CLUSTER = true;                 // false = the old even scatter
@@ -30,8 +31,33 @@ const HATCH_PATCHES = 7;
 // Ink sizes that keep the alcove readable: hedges fit their tile column, the boulder sits between them.
 const BOULDER_SCALE = .74;
 
+// 8. Each stage's own mix (Task 4). S1 keeps the patch fractions above. A patch: one big prop (or none) at
+// `at` (the nearest free tile is used), then its small things huddled round it. Wide kinds need the tiles
+// either side free. In water: reeds (standing) and lily pads (flat), at the listed water tiles.
+// S2 a pond, S3 a market, S4 and S6 sparse (puzzles), S5 emptier and eerier (bare trees, jack-o'-lanterns).
+const DRESS = {
+  S2: { patches: [{ at: [31, 0], big: 'hay', small: ['pumpkin', 'leaves', 'pumpkin'] }, { at: [5, 3], big: null, small: ['pumpkin', 'leaves', 'pumpkin'] }],
+    reeds: [[8, 0], [22, 0], [8, 3], [22, 4]], lilies: [[10, 1], [12, 4], [19, 1], [20, 3], [17, 0], [10, 4]], tufts: 3, hatch: 6 },
+  S3: { patches: [{ at: [19, 0], big: 'stall', small: ['crate', 'pumpkin', 'crate'] }, { at: [28, 1], big: 'crate', small: ['crate', 'pumpkin'] },
+    { at: [5, 8], big: 'cart', small: ['crate', 'pumpkin'] }, { at: [28, 8], big: 'hay', small: ['pumpkin', 'leaves'] }], tufts: 3, hatch: 6 },
+  S4: { patches: [{ at: [7, 0], big: null, small: ['pumpkin', 'leaves'] }, { at: [21, 0], big: 'hay', small: ['pumpkin'] }, { at: [7, 8], big: null, small: ['leaves', 'pumpkin'] }], tufts: 2, hatch: 4 },
+  S5: { patches: [{ at: [9, 0], big: 'baretree', small: ['jack', 'stalks'] }, { at: [20, 1], big: 'baretree', small: ['stalks'] }, { at: [17, 8], big: null, small: ['jack', 'leaves'] }], tufts: 1, hatch: 4 },
+  S6: { patches: [{ at: [9, 0], big: 'hay', small: ['pumpkin', 'pumpkin'] }, { at: [7, 8], big: null, small: ['pumpkin', 'leaves'] }, { at: [27, 8], big: null, small: ['pumpkin'] }], tufts: 2, hatch: 4 },
+};
+const WIDE = new Set(['cart', 'scarecrow', 'stall']);
+const STALKS = { mix: '#B9A27E', amt: .45 };   // dead corn in S5: the corn prop, browned
+
+/** Every tile something playable stands on (scenery and grass hatching keep clear of these). */
+export function playTiles(stage) {
+  const extra = []; for (let j = 0; j < stage.depth; j++) for (let i = 0; i < stage.width; i++) if ('kvmf'.includes(stage.tileAt(i, j))) extra.push([i, j]);
+  return [...stage.candy, ...stage.rest, ...stage.boulders, ...stage.hedges, stage.start, ...stage.spawns.map(s => s.at), ...stage.exits.map(e => e.at),
+    ...(stage.plates || []), ...(stage.gates || []), ...(stage.posts || []).map(p => p.at), ...(stage.joins || []).map(f => f.at), ...(stage.doOver || []),
+    ...(stage.lollipop ? [stage.lollipop] : []), ...(stage.door || []), ...(stage.pumpkin || []), ...extra];
+}
+
 const PATH_TILES = ':';
-const isPathTile = (stage, i, j) => { const t = stage.tileAt(i, j); return t === ':' || ('S<>'.includes(t) && t !== '#' && (stage.tileAt(i - 1, j) === ':' || stage.tileAt(i + 1, j) === ':')); };
+// 'v' (the M4 pumpkin lane) carries the path across it on a path row
+const isPathTile = (stage, i, j) => { const t = stage.tileAt(i, j); return t === ':' || ('S<>v'.includes(t) && t !== '#' && (stage.tileAt(i - 1, j) === ':' || stage.tileAt(i + 1, j) === ':')); };
 const pathRows = stage => { const s = new Set(); for (let j = 0; j < stage.depth; j++) for (let i = 0; i < stage.width; i++) if (stage.tileAt(i, j) === PATH_TILES) s.add(j); return [...s]; };
 
 /** Pencil look for a scenery prop whose feet are at tile depth y (0 back .. 8 front). */
@@ -47,11 +73,11 @@ export function rowLook(y, extra = {}) {
 }
 
 // ---------------------------------------------------------------- scenery
-export function placeScenery(view, stage, seed) {
+export function placeScenery(view, stage, seed, ribbonTiles = []) {
   const r = rng(seed), key = (i, j) => i + ',' + j, taken = new Set();
-  const play = [...stage.candy, ...stage.rest, ...stage.boulders, ...stage.hedges, stage.start, ...stage.spawns.map(s => s.at), ...stage.exits.map(e => e.at)];
   const near = new Set();
-  for (const [i, j] of play) for (let di = -CLEAR_PLAY; di <= CLEAR_PLAY; di++) for (let dj = -CLEAR_PLAY; dj <= CLEAR_PLAY; dj++) near.add(key(i + di, j + dj));
+  for (const [i, j] of playTiles(stage)) for (let di = -CLEAR_PLAY; di <= CLEAR_PLAY; di++) for (let dj = -CLEAR_PLAY; dj <= CLEAR_PLAY; dj++) near.add(key(i + di, j + dj));
+  for (const [i, j] of ribbonTiles) near.add(key(i, j));
   // a creature's patrol rectangle stays clear too: it moves there
   for (const s of stage.spawns) if (s.patrol && s.patrol.length) {
     const is = s.patrol.map(p => p[0]), js = s.patrol.map(p => p[1]);
@@ -60,10 +86,11 @@ export function placeScenery(view, stage, seed) {
   const prows = pathRows(stage);
   const offPath = j => prows.every(p => Math.abs(j - p) > CLEAR_PATH);
   const free = (i, j) => stage.tileAt(i, j) === '.' && !near.has(key(i, j)) && !taken.has(key(i, j)) && (!CLUSTER || offPath(j));
-  const add = (k, tx, ty, s = 1) => { const p = makeProp(k, wx(tx), wy(ty), s, (r() * 1e6) | 0, false, rowLook(ty)); view.props.push(bakeProp(p)); return p; };
+  const add = (k, tx, ty, s = 1, tint) => { const p = makeProp(k, wx(tx), wy(ty), s, (r() * 1e6) | 0, false, rowLook(ty, tint)); bakeProp(p); (k === 'lily' ? view.flat : view.props).push(p); return p; };
   const tuft = (tx, ty) => view.tufts.push({ x: wx(tx), y: wy(ty), s: (.7 + r() * .5) * (DEPTH.on ? lerp(DEPTH.kBack, DEPTH.kFront, clamp(ty / 8)) : 1), ph: r() * 6 });
 
   if (!CLUSTER) { scatter(stage, r, free, add, tuft, taken, key); return signpost(view, stage, free, add, taken, key); }
+  if (DRESS[stage.id]) { dress(DRESS[stage.id], stage, r, free, add, tuft, taken, key); return signpost(view, stage, free, add, taken, key); }
 
   const patch = (fc, back, n) => {
     // find a free centre near the wanted spot, searching outward
@@ -87,6 +114,32 @@ export function placeScenery(view, stage, seed) {
   PATCHES_BACK.forEach((f, n) => patch(f, true, n));
   PATCHES_FRONT.forEach((f, n) => patch(f, false, n));
   signpost(view, stage, free, add, taken, key);
+}
+
+// A stage's own mix (DRESS): patches at chosen tiles, then the pond's reeds and lily pads.
+function dress(D, stage, r, free, add, tuft, taken, key) {
+  for (const pt of D.patches) {
+    let [ci, cj] = pt.at, ok = false;
+    const fits = (i, j) => free(i, j) && (!WIDE.has(pt.big) || (free(i - 1, j) && free(i + 1, j)));
+    for (let d = 0; d < 6 && !ok; d++) for (const sg of [1, -1]) for (const dj of [0, sg, -sg]) { const i = ci + d * sg, j = cj + dj; if (j >= 0 && j < stage.depth && fits(i, j)) { ci = i; cj = j; ok = true; break; } if (ok) break; }
+    if (!ok) continue;
+    if (pt.big) { add(pt.big, ci + .5, cj + .75); taken.add(key(ci, cj)); if (WIDE.has(pt.big)) { taken.add(key(ci - 1, cj)); taken.add(key(ci + 1, cj)); } }
+    let m = 0;
+    for (let tries = 0; m < pt.small.length && tries < 30; tries++) {
+      const i = ci + Math.round((r() - .5) * 4), j = clamp(cj + Math.round((r() - .5) * 2), 0, stage.depth - 1);
+      if (!free(i, j)) continue;
+      taken.add(key(i, j));
+      const kind = pt.small[m++], tx = i + .25 + r() * .5, ty = j + .6 + r() * .25;
+      if (kind === 'pumpkin') { add('pumpkin', tx, ty, .55 + r() * .4); if (r() < .4) add('pumpkin', tx + .45, ty + .2, .45 + r() * .2); }
+      else if (kind === 'jack') add('jack', tx, ty, .6 + r() * .25);
+      else if (kind === 'stalks') add('corn', i + .5, j + .75, .85, STALKS);
+      else if (kind === 'crate') add('crate', tx, ty, 1);
+      else add(kind, i + .5, j + .6);
+    }
+    for (let k = 0; k < (D.tufts ?? 3); k++) { const tx = ci + (r() - .5) * 4, ty = clamp(cj + .3 + r() * .6, 0, 8.9); if (stage.tileAt(Math.floor(tx), Math.floor(ty)) === '.') tuft(tx, ty); }
+  }
+  for (const [i, j] of D.reeds || []) if (stage.tileAt(i, j) === '~') add('reeds', i + .5, j + .8, .9 + r() * .25);
+  for (const [i, j] of D.lilies || []) if (stage.tileAt(i, j) === '~') add('lily', i + .3 + r() * .4, j + .4 + r() * .3, .8 + r() * .4);
 }
 
 function signpost(view, stage, free, add, taken, key) {   // toward the next stage, beside the right exit
@@ -128,6 +181,7 @@ export const CHUNK_W = 600, CHUNK_Y0 = 0, CHUNK_Y1 = 430;
 
 export function bakeGround(view, stage, seed) {
   const { stageW } = view, BSg = Math.min(R.BS, 2);
+  view.water = prepareWater(stage, seed);
   // grain tile
   const gt = mk(160, 160), gg = gt.getContext('2d'), r = rng(3);
   for (let i = 0; i < GRAIN.specks; i++) { gg.fillStyle = r() < .5 ? `rgba(90,70,40,${GRAIN.dark})` : 'rgba(255,255,255,.35)'; gg.fillRect(r() * 160, r() * 160, 1 + r() * 1.5, 1 + r() * 1.5); }
@@ -153,10 +207,11 @@ export function bakeGround(view, stage, seed) {
   for (let x = X0 + 20; x < X1; x += 66) { fence.push(makeProp('post', x, 92, 1, (fr() * 1e6) | 0, false, { ...fl, k: 1 })); fence.push(makeProp('rail', x, 92, x + 66, (fr() * 1e6) | 0, false, { ...fl, k: 1 })); }
   // pencil grass hatching: short slanted strokes in small patches, off the path and away from playables
   const hatches = [], hr = rng(seed + 13), prows = pathRows(stage);
-  for (let n = 0, tries = 0; n < HATCH_PATCHES && tries < 80; tries++) {
+  const avoid = DRESS[stage.id] ? [...playTiles(stage), ...stage.water, ...(view.ribbons || []).flatMap(rb => rb.tiles)] : [...stage.candy, ...stage.hedges, ...stage.rest, ...stage.boulders];
+  for (let n = 0, tries = 0; n < (DRESS[stage.id]?.hatch ?? HATCH_PATCHES) && tries < 80; tries++) {
     const i = Math.floor(hr() * stage.width), j = Math.floor(hr() * stage.depth);
     if (stage.tileAt(i, j) !== '.' || prows.some(p => Math.abs(p - j) < 1.5)) continue;
-    if ([...stage.candy, ...stage.hedges, ...stage.rest, ...stage.boulders].some(([a, b]) => Math.abs(a - i) <= 1 && Math.abs(b - j) <= 1)) continue;
+    if (avoid.some(([a, b]) => Math.abs(a - i) <= 1 && Math.abs(b - j) <= 1)) continue;
     hatches.push({ x: wx(i + hr()), y: wy(j + .3 + hr() * .5), n: 5 + Math.floor(hr() * 4), s: hr() * 1e6 | 0, j }); n++;
   }
   // fold creases: a few near-vertical folds across the whole sheet
@@ -185,8 +240,10 @@ export function bakeGround(view, stage, seed) {
       for (let m = 0; m < h.n; m++) { const hx = h.x + (m - h.n / 2) * 4 * k + hr2() * 2, hy = h.y + hr2() * 3; g.beginPath(); g.moveTo(hx, hy); g.lineTo(hx + 3 * k, hy - (6 + hr2() * 4) * k); g.stroke(); }
       g.globalAlpha = 1;
     }
+    drawWater(g, view.water, x0, x0 + CHUNK_W);
     g.fillStyle = '#F2E2BD'; g.strokeStyle = PEN; g.lineWidth = 2;
     for (const p of paths) { g.fill(p.p); if (STREAKS) streaks(g, p.p, [Math.max(p.bb[0], x0 - 10), p.bb[1], Math.min(p.bb[2], x0 + CHUNK_W + 10), p.bb[3]], PATH_STREAK.col, 900 + x0, { ang: 0, spread: .22, len: [16, 44], lw: [3, 5], alpha: PATH_STREAK.alpha }); g.stroke(p.p); }
+    if (view.ribbons) drawRibbons(g, view.ribbons, x0, x0 + CHUNK_W);
     g.save(); g.clip(sheet.p);
     for (const [a, b] of creases) if (Math.max(a, b) > x0 - 40 && Math.min(a, b) < x0 + CHUNK_W + 40) {
       g.lineWidth = 1; g.strokeStyle = `rgba(120,95,60,${CREASE.dark})`; g.beginPath(); g.moveTo(a, 80); g.lineTo(b, CHUNK_Y1); g.stroke();

@@ -7,9 +7,20 @@ import { blit } from './sprites.js';
 import { prepareActors, drawMember, drawCreature, memberSize } from './actors.js';
 import { bakeSky, bakeFar, bakeMid, bakeLight, bakeForeground, bakeCornerFrame } from './layers.js';
 import { placeScenery, placeInk, bakeGround, CHUNK_W, CHUNK_Y0, CHUNK_Y1 } from './stagebake.js';
+import { prepareRibbons } from './water.js';
+import { bakeObjects, drawFlatObjects, pushObjectItems, drawFriend } from './stageobjs.js';
 import { bakeMarks, leadState, drawLeadRing, drawCrumbs, drawTargetOutline, drawTargetBadge, readDevMarks } from './fieldmarks.js';
 
-const PUMPKIN_SCALE = { S1: .4, S2: .55, S3: .7, S4: .8, S5: .9, S6: 1.3 };
+const PUMPKIN_SCALE = { S1: .4, S2: .55, S3: .7, S4: .8, S5: .9, S6: 1.15 };   // S6: as big as still hides fully behind the pumpkin-house standee
+const PUMPKIN_PX = stageW => stageW * .25 - 60;   // far-sheet x of the landmark (on screen near the stage's right end)
+// A stage with the giant pumpkin standee (S6): the far landmark is placed so that, with the camera at the
+// stage's right end, it sits exactly behind the standee; walking right, the near pumpkin slides over the far one.
+const pumpkinPx = (stage, stageW) => {
+  if (!stage.pumpkin || !stage.pumpkin.length) return PUMPKIN_PX(stageW);
+  const is = stage.pumpkin.map(p => p[0]), cx = wx((Math.min(...is) + Math.max(...is) + 1) / 2);
+  return cx - .75 * (stageW - W / 2);
+};
+const EERIE = { S5: true };                        // S5 Ghost Field: a cooler light overlay (layers.js bakeLight)
 const DRIFT_LEAF = { fill: 'rgba(232,206,170,.55)', line: 'rgba(170,150,120,.45)', lw: 1 };  // drifting leaves are scenery: pale pencil, no ink
 const TUFT = { col: '#9fbf7f', lw: 2 };   // item 2: tufts quieter (were #9fbf7f, 2 px)
 const hash = s => [...String(s)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 7);
@@ -18,12 +29,14 @@ const hash = s => [...String(s)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0
 export function createStageView(stage, assets) {
   const stageW = stage.width * TILE_W, seed = hash(stage.id);
   const actors = prepareActors(assets);
-  const view = { stage, stageW, assets, actors, sky: bakeSky(), light: bakeLight(false),
-    far: bakeFar(stageW, PUMPKIN_SCALE[stage.id] ?? .4, stageW * .25 - 60, 9, { depth: true }),
+  const view = { stage, stageW, assets, actors, sky: bakeSky(), light: bakeLight(false, { eerie: !!EERIE[stage.id] }),
+    far: bakeFar(stageW, PUMPKIN_SCALE[stage.id] ?? .4, pumpkinPx(stage, stageW), 9, { depth: true }),
     mid: bakeMid(stageW, { depth: true }), fg: bakeForeground(stageW, seed + 1), frame: bakeCornerFrame(),
     props: [], flat: [], tufts: [], chunks: [] };
-  placeScenery(view, stage, seed);
+  view.ribbons = prepareRibbons(stage, seed);
+  placeScenery(view, stage, seed, view.ribbons.flatMap(rb => rb.tiles));
   placeInk(view, stage, seed, assets);
+  bakeObjects(view, stage, assets);
   bakeGround(view, stage, seed);
   view.marks = bakeMarks(stage);
   const dev = readDevMarks();                       // dev query: target=20,1&ready=1 / eaten=1
@@ -60,6 +73,7 @@ export function renderStage(ctx, view, fs, cam, timeMs) {
   const vx0 = cam.cx - W / 2 / cam.z - 80, vx1 = cam.cx + W / 2 / cam.z + 80;
   for (const ch of view.chunks) if (ch.x0 + CHUNK_W > vx0 && ch.x0 < vx1) ctx.drawImage(ch.c, ch.x0 - 2, CHUNK_Y0, CHUNK_W + 4, CHUNK_Y1 - CHUNK_Y0);
   for (const p of view.flat) drawProp(ctx, p);
+  drawFlatObjects(ctx, view, fs);
   // eaten boulders leave pencil crumbs (dev: eaten=1 pretends every boulder was eaten)
   const boulders = view.devEaten ? [] : fs.boulders;
   for (const [i, j] of view.stage.boulders) if (!boulders.some(b => b.i === i && b.j === j)) drawCrumbs(ctx, view.marks, i + ',' + j);
@@ -74,6 +88,7 @@ export function renderStage(ctx, view, fs, cam, timeMs) {
   for (const b of boulders) { const p = view.boulderSprites.get(b.i + ',' + b.j); if (p) items.push({ y: p.y, p }); }
   fs.candy.forEach((c, n) => { if (!c.taken) { const p = view.candySprites.get(c.i + ',' + c.j); if (p) items.push({ y: p.y, p, bob: Math.sin(t * .004 + n * 1.7) * 3 }); } });
   for (const tf of view.tufts) if (tf.x > vx0 && tf.x < vx1) items.push({ y: tf.y, tf });
+  pushObjectItems(view, fs, items, t, vx0, vx1);
   for (const c of fs.creatures) items.push({ y: wy(c.y), c });
   fs.party.forEach((m, n) => items.push({ y: wy(m.y) + (n === 0 ? .01 : 0), m, lead: n === 0 }));
   if (target) items.push({ y: wy(target.j + .95), target });     // just in front of the target's row (its hedges)
@@ -89,6 +104,7 @@ export function renderStage(ctx, view, fs, cam, timeMs) {
       for (let b = -1; b <= 1; b++) { const ang = sw + b * .45; ctx.beginPath(); ctx.moveTo(tf.x + b * 3, tf.y); ctx.quadraticCurveTo(tf.x + b * 3 + Math.sin(ang) * 5 * tf.s, tf.y - 6 * tf.s, tf.x + b * 3 + Math.sin(ang) * 10 * tf.s, tf.y - 12 * tf.s * Math.cos(ang)); ctx.stroke(); }
     } else if (it.c) drawCreature(ctx, view.assets, it.c, wx(it.c.x), wy(it.c.y), t);
     else if (it.target) drawTargetOutline(ctx, view, fs, it.target);
+    else if (it.friend) drawFriend(ctx, view, it.friend, t);
     else {
       const x = wx(it.m.x), y = wy(it.m.y);
       if (it.lead) drawLeadRing(ctx, view.marks, x, y, ls.draw);
