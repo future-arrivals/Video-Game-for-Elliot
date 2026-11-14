@@ -17,7 +17,7 @@ It runs in a phone browser in landscape, played with a PlayStation controller ov
 | Character art | Done: all 12 characters redrawn as clean SVG, plus creatures and items | `Art/Characters/` |
 | Look | Chosen: "Paper Page", cinematic version (A2) | `Art/Style/style-A2.html` |
 | Design for the first area | Done, reviewed twice | `Design/slice-design.md` |
-| The game itself | Not started | (will go in `Game/`) |
+| The game itself | Milestone 1 built (14 Nov): walk stage S1, team follows, fold, bat, one full battle. Tested by script only: not yet on a real phone, controller or TV | `Game/` (open `Game/dist/elliot-game.html`) |
 
 ## Decisions made
 
@@ -84,9 +84,21 @@ Only these are needed before building. The full list, in three short sessions, i
 | `Source/a2_engine.js`, `a2_template.html`, `build_a2.py` | Source of the animated scene. The game's drawing code should start from this. |
 | `Source/scripts.zip` | The scripts that generate every character SVG |
 
+## The game build
+
+- Source is small ES modules in `Game/src/`; `cd Game && npm run build` writes the single self-contained file `Game/dist/elliot-game.html`.
+- Checks: `npm test` (rules), `node tools/battle-check.mjs` (battle screen), `node tools/play.mjs` (a scripted playthrough: win, lose, reload mid-battle, run).
+- Keyboard for testing: arrows or WASD move; `K` Cross, `L` Circle, `I` Triangle, `J` Square; `Q`/`E` L1/R1; hold `Shift` for R2; `Enter` pause.
+- The plan, with what each module does, is `docs/superpowers/plans/2026-11-14-m1-walk-and-fight.md`.
+- M1 starts with all three characters so following and swapping can be tried; add `?party=1` for the monster alone, `?fresh` to ignore the save.
+
 ## Next step
 
-Build milestone 1 (section 13 of the design doc): walking on a stage, teammates following, one creature, and one complete battle, in the A2 look.
+1. Test M1 by hand: on the phone, with the PlayStation controller, cast to the TV.
+2. The visual depth pass (Task 7 in the plan): seven approved changes for focus, depth and texture.
+3. Then milestone 2.
+
+Milestone 1 as originally specified (section 13 of the design doc): walking on a stage, teammates following, one creature, and one complete battle, in the A2 look.
 
 - One self-contained HTML file, plain canvas, no libraries.
 - Controller through the browser's Gamepad API, plus on-screen touch controls.

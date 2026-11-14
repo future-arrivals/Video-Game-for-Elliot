@@ -447,6 +447,15 @@ function rest(state, stage, i, j) {
   state.restAt = { stageId: stage.id, i, j };
 }
 
+// Does the lead count as touching this creature? Positions are feet points in tile units
+// (one tile is 48 px across and 30 px deep on screen). `lead` is a Member, `c` a Creature.
+// TODO(human): decide the contact rule. The default below is the design doc's box (0.35 tiles
+// either side, half a row in depth), which is much narrower than the art: the monster is drawn
+// about 2.4 tiles wide and the bat about 1.5.
+export function touches(lead, c) {
+  return Math.abs(lead.x - c.x) <= CONTACT_X && Math.abs(lead.y - c.y) <= CONTACT_Y;
+}
+
 // Edge-triggered: a battle starts when the lead begins touching a patrolling creature.
 function checkContact(state, events) {
   const sim = state._sim;
@@ -455,7 +464,7 @@ function checkContact(state, events) {
   let hit = null;
   for (const c of state.creatures) {
     if (c.mode === 'asleep') continue;
-    if (Math.abs(lead.x - c.x) <= CONTACT_X && Math.abs(lead.y - c.y) <= CONTACT_Y) {
+    if (touches(lead, c)) {
       touching.push(c.uid);
       if (!hit && c.mode === 'patrol' && !sim.touching.includes(c.uid)) hit = c;
     }
