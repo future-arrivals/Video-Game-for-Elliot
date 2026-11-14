@@ -5,7 +5,8 @@ import { W, H, R, INK, PAPER, PEN, FONT, mk, rng, wob, ell, clamp, lerp, eOutCub
 import { bakeSky, bakeFar, bakeMid, bakeLight, bakeForeground } from '../layers.js';
 import { makeProp, drawParts } from '../props.js';
 import { burst, speedLines, ring } from '../fx.js';
-import { drawMember, drawCreature, prepareActors } from '../actors.js';
+import { drawMember, drawCreature, prepareActors, RIG } from '../actors.js';
+import { loadRig } from '../rig.js';
 import { LAYOUT } from './layout.js';
 import { digit } from './ui.js';
 import { drawWeb } from './icons.js';
@@ -73,6 +74,7 @@ function scratch() {
 /** Draws drawFn normally, then (if a > 0) the same silhouette washed white at opacity a (max .7). */
 function withFlash(ctx, a, drawFn) {
   drawFn(ctx);
+  if (typeof a === 'function') a = a();                  // decided after drawing (the player's depends on whether a clip played)
   if (!(a > 0)) return;
   const g = scratch(); drawFn(g);
   g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-atop'; g.fillStyle = '#FFFDF4'; g.fillRect(0, 0, off.width, off.height); g.globalCompositeOperation = 'source-over';
@@ -151,18 +153,29 @@ function droppedCandy(ctx, assets, x, y, win) {
   }
 }
 
-/** The active character, large in the near foreground. p: { member, dx, dy, scale, ko 0..1, flash, pulse, squash, alpha, pace } */
+// While a rig's hurt clip plays, the clip's own white flash is the one flash of the hit: the battle's flash is skipped.
+const HURT_CLIP_OWNS_FLASH = true;
+
+/** The active character, large in the near foreground. p: { member, dx, dy, scale, ko 0..1, flash, pulse, squash, alpha, pace,
+ *  hurtMs (real ms since the last hit it took, or null), winMs (ms since the battle was won, or null), calm (reduce flash) } */
 export function drawPlayer(ctx, assets, p, t) {
   const L = LAYOUT.player, x = L.x + (p.dx || 0), y = L.y + (p.dy || 0);
+  // the rig clip to play: happy once the battle is won, hurt after a hit; null when none is due (idle resumes)
+  let clip = null;
+  if (!p.ko) {
+    const rg = RIG.on ? loadRig(assets, p.member.id) : null, h = p.winMs != null && p.winMs >= 0 ? ['happy', p.winMs] : p.hurtMs != null && p.hurtMs >= 0 ? ['hurt', p.hurtMs] : null;
+    if (h) { const cd = rg && rg.clips[h[0]]; if (cd && h[1] / 1000 < cd.dur) clip = { name: h[0], t: h[1] / 1000 }; }
+  }
+  let played = false;
   const draw = g => {
     g.save(); g.translate(x, y);
     if (p.ko) { g.translate(30 * eOutCubic(clamp(p.ko)), 0); g.rotate(1.3 * eOutCubic(clamp(p.ko))); g.globalAlpha = 1 - .35 * clamp(p.ko); }
     const sq = p.squash || 0; g.scale(p.scale * (1 + sq * .1), p.scale * (1 - sq * .08));
     if (p.alpha != null && p.alpha < 1) g.globalAlpha = p.alpha;
-    drawMember(g, assets, p.member, 0, 0, t, { shadow: !p.ko, pace: p.pace || 'battle' });
+    played = drawMember(g, assets, p.member, 0, 0, t, { shadow: !p.ko, pace: p.pace || 'battle', clip, flash: !p.calm }) === true && !!clip;
     g.restore();
   };
-  withFlash(ctx, p.flash, draw);
+  withFlash(ctx, () => (played && clip.name === 'hurt' && HURT_CLIP_OWNS_FLASH ? 0 : p.flash), draw);
   outlinePulse(ctx, x, y - 90, 90, 110, p.pulse);
   if (p.ko >= 1) {
     ctx.save(); ctx.fillStyle = INK; ctx.textAlign = 'center';

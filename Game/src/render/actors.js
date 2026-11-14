@@ -8,14 +8,15 @@
 // Characters without usable hinge data use the A2 flip: squash to an edge, the other form springs out.
 import { INK, PAPER, FONT, mk, clamp, eOutCubic, eInOutCubic } from './core.js';
 import { bakeSprite, alphaBounds, tinted, radial, paperFilled } from './sprites.js';
-import { loadRig, rigPose, drawRig } from './rig.js';
+import { loadRig, rigPose, drawRig, drawRigFx } from './rig.js';
 
 // Animated rigs for the walking view (see rig.js). on: false draws the bitmaps exactly as before.
+// battleFx: while a clip override (opts.clip, the battle's hurt and happy) plays, also draw its stars and word pop.
 // A character with no rig always uses the bitmaps. SPLIT: Scoops has two separate drawings (rigs `icecream` open and
 // `icecream_folded`); they are used only when the member is settled, and a fold or unfold in progress falls back to the
 // bitmap hinge flip, which hides the change of picture. FLIP: the rig art faces the opposite way to
 // the bitmap, so true mirrors it when the bitmap is not mirrored.
-export const RIG = { on: true, clips: { monster: { still: 'idle', move: 'hop' }, fish: { still: 'idle', move: 'walk' }, icecream: { still: 'idle', move: 'walk' } }, flip: { monster: false, fish: false, icecream: false },
+export const RIG = { on: true, battleFx: true, clips: { monster: { still: 'idle', move: 'hop' }, fish: { still: 'idle', move: 'walk' }, icecream: { still: 'idle', move: 'walk' } }, flip: { monster: false, fish: false, icecream: false },
   split: { icecream: { open: 'icecream', folded: 'icecream_folded' } },
   // Creatures in the walking view (spider only): clip while still / while moving (patrol, chase, return); imgUnits: the
   // bitmap's full height in the rig's drawing units (spider.png is 615 px at 3.722 px per unit), so the rig is drawn at
@@ -149,7 +150,7 @@ function drawFlip(ctx, r, form, u) {
   }
 }
 
-/** Draws a party member with feet at (sx, sy) in the current transform.
+/** Draws a party member with feet at (sx, sy) in the current transform. Returns true when an opts.clip override played.
  *  opts: { alpha = 1, shadow = true, lead = false (draws the back/front facing marker),
  *          pace = 'field' | 'battle' (which hinge curve; see hingeCurve),
  *          follower = false (field: smaller and paler, see FOLLOWER_SCALE),
@@ -166,7 +167,7 @@ export function drawMember(ctx, assets, member, sx, sy, timeMs, opts = {}) {
   const fol = !!opts.follower, ks = (fol ? FOLLOWER_SCALE : 1) * (opts.pop || 1);
   if (opts.shadow !== false) { const sw = r.folded.s.w * .75 * ks; ctx.drawImage(A.shadow.c, sx - sw / 2, sy - 7 * ks, sw, 14 * ks); }
   if (opts.lead && (member.facing === 'back' || member.facing === 'front')) drawFacingMarker(ctx, sx, sy, member.facing);
-  if (rig) { drawMemberRig(ctx, rig, r, member, sx, sy, timeMs, opts, ks, fol); return; }
+  if (rig) return drawMemberRig(ctx, rig, r, member, sx, sy, timeMs, opts, ks, fol);
   ctx.save(); if (opts.alpha != null && opts.alpha < 1) ctx.globalAlpha *= opts.alpha;
   ctx.translate(sx, sy - lift * ks); if (tilt) ctx.rotate(tilt); ctx.scale(member.faceX < 0 ? -ks : ks, ks);
   if (settled) drawRec(ctx, v, fol ? v.pale : v.s);
@@ -180,11 +181,15 @@ export function drawMember(ctx, assets, member, sx, sy, timeMs, opts = {}) {
 function drawMemberRig(ctx, rig, r, member, sx, sy, timeMs, opts, ks, fol) {
   const o = member.foldAnim >= 1 ? (member.form === 'open' ? 1 : 0) : hingeCurve(member.form, clamp(member.foldAnim), opts.pace).o;
   const cl = RIG.clips[member.id] || {}, t = timeMs / 1000;
-  let pose = rigPoses.get(rig); const clip = member.moving ? cl.move : cl.still;
-  pose = rigPose(rig, clip, t, { form: clamp(o), T: t }, pose); rigPoses.set(rig, pose);
+  let pose = rigPoses.get(rig); let clip = member.moving ? cl.move : cl.still, ct = t;
+  const ov = opts.clip, cd = ov && rig.clips[ov.name], over = !!cd && cd.forms.includes(o >= .5 ? 1 : 0);
+  if (over) { clip = ov.name; ct = ov.t; }
+  pose = rigPose(rig, clip, ct, { form: clamp(o), T: t }, pose); rigPoses.set(rig, pose);
   let a = opts.alpha != null ? opts.alpha : 1; if (fol) a *= .85;
   const flip = (member.faceX < 0) !== !!RIG.flip[member.id];
-  drawRig(ctx, rig, pose, sx, sy, r.k * ks, { flip, alpha: a, shadow: false, glow: false });
+  drawRig(ctx, rig, pose, sx, sy, r.k * ks, { flip, alpha: a, shadow: false, glow: false, flash: opts.flash !== false });
+  if (over && RIG.battleFx) drawRigFx(ctx, rig, pose, sx, sy, r.k * ks, { flip });
+  return over;
 }
 
 function drawFacingMarker(ctx, x, y, facing) {

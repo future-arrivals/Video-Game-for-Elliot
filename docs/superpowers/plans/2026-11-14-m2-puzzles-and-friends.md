@@ -231,3 +231,8 @@ Wave A is three Opus tasks and one Sonnet task and needs no visual sign-off: eve
 - Half-height hedges (`HEDGE_LOW`) in front of plug boulders and gates in the puzzle stages so they can be seen.
 - Leftovers: pause menu and its do-over; hero unfold on join; rung bell still targeted; open Heartfin covers the S6 door; crumbs may be missing after reload when a stage had both an eaten and a pushed boulder; candy count ticks before the flying candy lands; spider maw and thread; bat and ghost rigs; battle rigs; `fieldscene.js` is 312 lines.
 - Not verified by a person: any of this by hand, on any device; the sounds by ear.
+
+### 16:35, battle clips
+- `drawMember` takes `opts.clip = { name, t }`; `RIG.battleFx` draws the clip's particles and word pop. Battle scenery passes hurt on a damaging hit and happy on a win; `vm.player` gained `hurtMs`, `winMs`, `calm` (built in battlescene.js). `HURT_CLIP_OWNS_FLASH` keeps it to one flash per hit.
+- Only Munch was screenshotted in battle; Heartfin and Scoops in battle and `RIG.on = false` are unchecked.
+- Final state: 134 tests, 14 battle checks, 71 playthrough checks pass on the dev page and the built file (1549 KB).
