@@ -199,3 +199,11 @@ Wave A is three Opus tasks and one Sonnet task and needs no visual sign-off: eve
   - Save v2: `{ v: 2, stageId, world, lead: { x, y, faceX, facing, form }, settings[, pendingBattle] }`; `toSave(world, fieldState, settings, pendingBattle)`; load with `enterStage(s.world, stage, data, { at: s.lead })`. `scene.world` is exposed by fieldscene.js.
   - Dev: a fresh game is the monster alone; `party=3` gives all three; `lead=X` implies `party=3`.
   - Creature: `c.sees`, `c.sight {x0,y0,x1,y1}` (recomputed even when asleep: drawing skips asleep creatures); events `spotted`, `gaveUp`.
+
+### 15:30, Task 7a done (commit e6f21c4)
+- Rig runtime: `src/render/rig.js`. `loadRig(assets, id)`, `rigPose(rig, clip, t, { form, T, zoom }, out)`, `drawRig(ctx, rig, pose, sx, sy, scale, { flip, alpha, shadow, glow, flashMax })`, `drawRigFx(...)` for particles and word pops. (sx, sy) is the feet point; scale is screen px per drawing unit, same as drawMember.
+- Munch (`monster`) has six clips: idle, hop, unfold, chomp, hurt, happy. Looping clips wrap; one-shots clamp to a rest pose.
+- `loadRig` returns null for a character with no rig: the caller falls back to the bitmap.
+- Decision for wiring (Task 7c): hurt keeps `flashMax` 0.7 and drops the demo's second white pulse (one flash only, TV-safe).
+- Scoops needs two rigs (`icecream`, `icecream_folded`), chosen by form. Heartfin port started with a Sonnet agent; other ports wait for usage.
+- Usage at 15:28: 60% of the 5-hour window, resets 19:30 local.
