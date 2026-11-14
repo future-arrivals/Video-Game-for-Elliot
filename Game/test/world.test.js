@@ -192,9 +192,12 @@ test('movement goes through canStand: water, a closed gate and a waiting friend 
   run(g, stages.S4, inp({ moveX: 1 }), 1);
   assert.ok(g.party[0].x > 17, `through the open gate, x=${g.party[0].x}`);
   // S2: walk along row 6 into the waiting fish at (12,6)
+  // (Task 2: touching a waiting friend makes it join, which frees its tile, so the stop is checked on canStand)
   const s2 = enterStage(w, stages.S2, data, { at: { x: 10.5, y: 6.5 } });
-  run(s2, stages.S2, inp({ moveX: 1 }), 2);
-  assert.ok(s2.party[0].x <= 12 - 0.35 + 1e-6, `stopped by the fish, x=${s2.party[0].x}`);
+  assert.equal(canStand(s2, stages.S2, 12, 6), false, 'the waiting fish blocks its tile');
+  const ev = run(s2, stages.S2, inp({ moveX: 1 }), 2);
+  assert.deepEqual(ev.filter((e) => e.t === 'join'), [{ t: 'join', id: 'fish' }]);
+  assert.ok(s2.party[0].x > 12, `walks on once the fish has joined, x=${s2.party[0].x}`);
   // a stone makes water walkable
   const st = enterStage(w, stages.S4, data, { at: { x: 14.5, y: 6.5 } });
   st.stones.push({ i: 15, j: 6 });

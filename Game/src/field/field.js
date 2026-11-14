@@ -19,10 +19,19 @@
 //   creatures: { [uid]: { spawn, speed, dist, ignore } } spawn = index into stage.spawns,
 //              speed = patrol tiles/s, dist = distance travelled along the patrol loop,
 //              ignore = seconds of 'ignore' left.
-//   eat:       { i, j } while an Eat waits for the lead's hinge to settle (see powers.js).
+//   actionFrom: [x, y] the lead's position when a bridge started (powers.js moves the lead from there).
 //   joinIds:   [id] the join tiles this stage has ('fish', 'icecream'); world.js leaveStage reads it.
+//   maxHearts: { [id]: hearts } every character's full hearts (a friend joins at full hearts).
+// The power in progress is state.action (powers.js); while it runs the lead is busy and pickups, tiles,
+// exits and contact wait until it lands (a creature touching mid-power starts its battle after the landing).
+// After the ground changes under the team (a bridge ends, a boulder moves, the team is placed) the follower
+// trail is trimmed at the first tile the team cannot stand on (puzzles.js trimTrail), so followers bunch up
+// behind the lead instead of standing on water.
 
-import { handleButtons, isBusy, advanceHinges, cancelPowers, computeTarget, checkCandy, checkTile } from './powers.js';
+import {
+  handleButtons, isBusy, advanceHinges, advancePowers, cancelPowers, computeTarget, checkCandy, checkTile,
+} from './powers.js';
+import { onBridge, trimTrail, checkPuzzleTiles } from './puzzles.js';
 import { resetCreature, stepCreature } from './creatures.js';
 
 const RADIUS = 0.35;          // lead footprint, tiles
@@ -84,7 +93,8 @@ export function createField({ stage, data, party, memory = null, candyCount = 0,
     lollipop: stage.lollipop ? { i: stage.lollipop[0], j: stage.lollipop[1], taken: !!lollipop } : null,
     action: null,
     target: null,
-    _sim: { trail: [], lastTile: [0, 0], touching: [], blocked: false, creatures: {}, joinIds: stage.joins.map((f) => f.id) },
+    _sim: { trail: [], lastTile: [0, 0], touching: [], blocked: false, creatures: {}, joinIds: stage.joins.map((f) => f.id),
+      maxHearts: Object.fromEntries(Object.values(chars).map((c) => [c.id, c.hearts ?? 1])) },
   };
 
   // lead position: `at` if the team can stand there, else the entrance (or the nearest standable tile)
@@ -120,7 +130,7 @@ export function createField({ stage, data, party, memory = null, candyCount = 0,
 
 // Can the team stand on tile (i, j) right now? Not: outside the stage, a hedge, the giant pumpkin, a post,
 // the do-over pumpkin, a boulder (live list), a closed gate, a friend waiting to join, or water without a
-// stone. Movement and powers both ask this. (Task 2: a live bridge's water tiles are standable; add it here.)
+// stone or a live bridge (the water tiles of a bridge in progress). Movement and powers both ask this.
 export function canStand(state, stage, i, j) {
   i = Math.floor(i); j = Math.floor(j);
   if (i < 0 || j < 0 || i >= stage.width || j >= stage.depth) return false;
@@ -129,12 +139,12 @@ export function canStand(state, stage, i, j) {
   if (at(state.friends)) return false;
   const gate = state.gates?.find((g) => g.i === i && g.j === j);
   if (gate && !gate.open) return false;
-  if (stage.tileAt(i, j) === '~') return at(state.stones);
+  if (stage.tileAt(i, j) === '~') return at(state.stones) || onBridge(state, i, j);
   return true;
 }
 
 // The tile itself if the team can stand there, else the nearest tile that can (rings outward).
-function standableNear(state, stage, [i0, j0]) {
+export function standableNear(state, stage, [i0, j0]) {
   for (let r = 0; r < stage.width + stage.depth; r++) {
     for (let dj = -r; dj <= r; dj++) {
       for (let di = -r; di <= r; di++) {
@@ -147,7 +157,7 @@ function standableNear(state, stage, [i0, j0]) {
 }
 
 // Puts the lead at (x, y), restarts the trail behind it and lines the followers up on it.
-function placeTeam(state, stage, x, y) {
+export function placeTeam(state, stage, x, y) {
   const lead = state.party[0];
   lead.x = x;
   lead.y = y;
@@ -155,6 +165,7 @@ function placeTeam(state, stage, x, y) {
   const behind = FOLLOW_GAP * (state.party.length - 1);
   const tx = clamp(x - lead.faceX * behind, 0.5, stage.width - 0.5);
   sim.trail = Math.abs(tx - x) > EPS ? [[x, y], [tx, y]] : [[x, y]];
+  trimTrail(state, stage);
   sim.lastTile = [Math.floor(x), Math.floor(y)];
   sim.touching = [];
   sim.blocked = false;
@@ -171,7 +182,7 @@ export function stepField(state, stage, input, dt) {
   const events = [];
   const sim = state._sim;
   const pressed = (input && input.pressed) || {};
-  const busy = isBusy(state);         // mid-eat: buttons and movement are dropped until the eat lands
+  const busy = isBusy(state);         // mid-power: buttons and movement are dropped until it lands
   if (handleButtons(state, stage, pressed, events)) updateFollowers(state, false);
   const still = busy || isBusy(state);
 
@@ -194,23 +205,27 @@ export function stepField(state, stage, input, dt) {
   do {
     const h = Math.min(remaining, MAX_SUBSTEP);
     remaining -= h;
+    const changed = advancePowers(state, stage, h, events);   // hinges, wind-ups; a bridge moves the lead
     const r = moveLead(state, stage, mx * speed * h, my * speed * h);
     moved += r.moved;
     blocked = blocked || r.blocked;
     updateTrail(state);
+    if (changed) trimTrail(state, stage);
     updateFollowers(state, r.moved > EPS);
     for (const c of state.creatures) stepCreature(state, stage, c, h, events);
+    if (isBusy(state)) continue;
     checkCandy(state, events);
     checkTile(state, stage, events, (i, j) => rest(state, stage, i, j));
+    if (checkPuzzleTiles(state, stage, events)) updateFollowers(state, false);
     if (checkContact(state, events)) break;
   } while (remaining > EPS);
+  if (remaining > EPS) advanceHinges(state, remaining);   // a battle cut the frame short
 
   lead.moving = moved > EPS;
   for (let k = 1; k < state.party.length; k++) state.party[k].moving = lead.moving;
   if (blocked && !sim.blocked) events.push({ t: 'bump' });
   sim.blocked = blocked;
 
-  advanceHinges(state, Math.max(0, Number(dt) || 0), events);
   state.time += Math.max(0, Number(dt) || 0);
   state.target = computeTarget(state, stage);
   return events;

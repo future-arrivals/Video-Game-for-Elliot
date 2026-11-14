@@ -18,11 +18,17 @@
 //   rest point and lollipop back
 // restWorld(world, data?) -> void         full hearts; every stage's asleep list cleared
 //
-// doOver lives with the puzzles (next task).
+// doOver(world, stage, data, state = null) -> FieldState   the pause-menu do-over (the do-over pumpkin does
+//   the same from inside stepField). Boulders back where the map has them, every stone gone, the team at the
+//   stage's left entrance; candy taken, posts, open gates, joined friends and hearts are kept. With the live
+//   FieldState it resets that state in place and returns it; without one it builds a fresh FieldState from
+//   the World. Either way the World's memory of the stage is updated. (Rules: puzzles.js resetPuzzle.)
 
 import defaultData from '../data/slice.gen.js';
 import { parseStage } from './stage.js';
 import { createField } from './field.js';
+import { resetPuzzle } from './puzzles.js';
+import { computeTarget } from './powers.js';
 
 const pairs = (list) => list.map((p) => [p.i, p.j]);
 
@@ -67,6 +73,15 @@ export function restWorld(world, data = defaultData) {
   const max = Object.fromEntries((data.characters ?? []).map((c) => [c.id, c.hearts]));
   for (const m of world.party) if (typeof max[m.id] === 'number') m.hearts = max[m.id];
   for (const mem of Object.values(world.stages)) mem.asleep = [];
+}
+
+export function doOver(world, stage, data, state = null) {
+  const f = state ?? enterStage(world, stage, data);
+  resetPuzzle(f, stage);
+  f.target = computeTarget(f, stage);
+  leaveStage(world, f);
+  world.stageId = stage.id;
+  return f;
 }
 
 function memoryOf(state) {

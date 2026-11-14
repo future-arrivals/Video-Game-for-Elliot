@@ -37,17 +37,27 @@ const LOS_STEP = 0.1;                        // tiles between line-of-sight samp
 
 // ---------------------------------------------------------------- blockers (one place to update)
 
-// Does tile (i, j) stop creature c's line of sight? Standees: hedges and boulders (stage.isSolid).
+// Standees that change during play: a closed gate or a friend waiting to join.
+function liveStandee(state, i, j) {
+  const at = (list) => Array.isArray(list) && list.some((p) => p.i === i && p.j === j);
+  return at(state.friends) || (state.gates ?? []).some((g) => g.i === i && g.j === j && !g.open);
+}
+
+// Does tile (i, j) stop creature c's line of sight? Standees: hedges, boulders, posts, 'Q', the do-over
+// pumpkin (stage.isSolid), closed gates and waiting friends. Ghosts see through hedges only. Water does not.
 function blocksSight(state, stage, c, i, j) {
-  if (!stage.isSolid(i, j, state.boulders)) return false;
+  if (!stage.isSolid(i, j, state.boulders) && !liveStandee(state, i, j)) return false;
   if (SEES_THROUGH_HEDGES[c.kind] && stage.tileAt(i, j) === '#' && !hasBoulder(state, i, j)) return false;
   return true;
 }
 
-// Can creature c not walk into tile (i, j) while chasing? Walkers: any solid tile. Bat and ghost:
-// solid tiles except hedges. (A 'return' ignores this on purpose: it can never get stuck.)
+// Can creature c not walk into tile (i, j) while chasing? Walkers: what the team cannot stand on (solid
+// tiles, closed gates, waiting friends, water without a stone). Bat and ghost: the same except hedges and
+// water. (A 'return' ignores this on purpose: it can never get stuck.)
 function blocksMove(state, stage, c, i, j) {
-  if (!stage.isSolid(i, j, state.boulders)) return false;
+  const wet = !OVER_HEDGES[c.kind] && stage.tileAt(i, j) === '~'
+    && !(state.stones ?? []).some((s) => s.i === i && s.j === j);
+  if (!stage.isSolid(i, j, state.boulders) && !liveStandee(state, i, j) && !wet) return false;
   if (OVER_HEDGES[c.kind] && stage.tileAt(i, j) === '#' && !hasBoulder(state, i, j) && inGrid(stage, i, j)) return false;
   return true;
 }
