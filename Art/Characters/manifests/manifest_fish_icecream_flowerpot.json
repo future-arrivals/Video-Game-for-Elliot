@@ -1,0 +1,361 @@
+{
+ "scale_note": "units = SVG user units; folded long side ~400. Outline stroke #1a1a1a width 9 (fine face/handwriting/grid details 4-7 where 9 would fill the shape in); doodles 7 in his marker colour.",
+ "sprites": [
+  {
+   "file": "svg/fish_folded.svg",
+   "png": "png/fish_folded.png",
+   "character": "pink fish",
+   "form": "folded",
+   "viewBox": [
+    55.0,
+    2.0,
+    422.0,
+    377.0
+   ],
+   "size": [
+    422.0,
+    377.0
+   ],
+   "part_ids": [
+    "part-head",
+    "part-tail"
+   ],
+   "hinge": {
+    "type": "horizontal",
+    "y": 162.155,
+    "note": "part-head shown above y, part-tail shown below y (part-tail carries translate(0,-627.9) relative to the unfolded geometry). Same ink as unfolded: identical path data."
+   }
+  },
+  {
+   "file": "svg/fish_unfolded.svg",
+   "png": "png/fish_unfolded.png",
+   "character": "pink fish",
+   "form": "unfolded",
+   "viewBox": [
+    0.0,
+    0.0,
+    564.0,
+    1007.0
+   ],
+   "size": [
+    564.0,
+    1007.0
+   ],
+   "part_ids": [
+    "part-fin-left",
+    "part-fin-right",
+    "part-head",
+    "part-seg-1",
+    "part-seg-2",
+    "part-seg-3",
+    "part-seg-4",
+    "part-tail",
+    "part-seg-5"
+   ],
+   "hinge": {
+    "type": "horizontal",
+    "head_bottom_y": 162.155,
+    "tail_top_y": 790.0749999999999,
+    "note": "Unfold = slide part-tail down by 627.9 while part-seg-1..5 and part-fin-left/right appear in order head-to-tail between the two lines.",
+    "segment_order_top_to_bottom": [
+     "part-seg-1 (Mommy)",
+     "part-seg-2 (two hearts)",
+     "part-seg-3 (Elliot)",
+     "part-seg-4 (Mom, scribbled out)",
+     "part-seg-5 (I love U)"
+    ]
+   }
+  },
+  {
+   "file": "svg/icecream_folded.svg",
+   "png": "png/icecream_folded.png",
+   "character": "ice cream",
+   "form": "folded",
+   "viewBox": [
+    0.0,
+    0.0,
+    361.0,
+    431.0
+   ],
+   "size": [
+    361.0,
+    431.0
+   ],
+   "part_ids": [
+    "part-fx",
+    "part-cherries",
+    "part-cone",
+    "part-scoop-1",
+    "part-scoop-5"
+   ],
+   "hinge": {
+    "type": "horizontal",
+    "y": 253.992,
+    "note": "Fold edge between part-scoop-5 (red, above) and part-scoop-1 (teal strip, below). The folded form is a separate drawing on the outside of the flap (bigger eyes, taller cone), so its geometry is not shared with the unfolded form; cross-fade or flip the flap rather than morphing paths."
+   }
+  },
+  {
+   "file": "svg/icecream_unfolded.svg",
+   "png": "png/icecream_unfolded.png",
+   "character": "ice cream",
+   "form": "unfolded",
+   "viewBox": [
+    0.0,
+    0.0,
+    531.0,
+    838.0
+   ],
+   "size": [
+    531.0,
+    838.0
+   ],
+   "part_ids": [
+    "part-fx",
+    "part-arms",
+    "part-cone",
+    "part-scoop-1",
+    "part-scoop-2",
+    "part-scoop-3",
+    "part-scoop-4",
+    "part-cherries",
+    "part-scoop-5"
+   ],
+   "hinge": {
+    "type": "horizontal",
+    "top_y": 239.56,
+    "bottom_y": 651.86,
+    "note": "Tower opens between the bottom of part-scoop-5 (red, top_y) and the visible teal strip of part-scoop-1 (bottom_y); part-scoop-4,3,2 and part-arms appear in between. Scoops numbered bottom (1, sleepy teal) to top (5, red cherry)."
+   }
+  },
+  {
+   "file": "svg/flowerpot_folded.svg",
+   "png": "png/flowerpot_folded.png",
+   "character": "red flowerpot monster",
+   "form": "folded",
+   "viewBox": [
+    22.0,
+    1.0,
+    411.0,
+    419.0
+   ],
+   "size": [
+    411.0,
+    419.0
+   ],
+   "part_ids": [
+    "part-pot",
+    "part-stem",
+    "part-flower"
+   ],
+   "hinge": {
+    "type": "horizontal",
+    "y": 194.88500000000002,
+    "note": "part-flower and the top of part-stem above y; part-pot below, translated by -430.2. Same ink as unfolded: identical path data."
+   }
+  },
+  {
+   "file": "svg/flowerpot_unfolded.svg",
+   "png": "png/flowerpot_unfolded.png",
+   "character": "red flowerpot monster",
+   "form": "unfolded",
+   "viewBox": [
+    0.0,
+    0.0,
+    444.0,
+    850.0
+   ],
+   "size": [
+    444.0,
+    850.0
+   ],
+   "part_ids": [
+    "part-bulbs",
+    "part-shoot",
+    "part-pot",
+    "part-stem",
+    "part-flower"
+   ],
+   "hinge": {
+    "type": "horizontal",
+    "stem_top_y": 194.88500000000002,
+    "stem_bottom_y": 625.1,
+    "note": "Grow part-stem with scaleY anchored at stem_bottom_y (soil line); move part-flower up with the stem top. part-shoot and part-bulbs attach to the stem sides and should fade/scale in once the stem is long."
+   }
+  },
+  {
+   "file": "svg/doodle_pink_heart.svg",
+   "png": "png/doodle_pink_heart.png",
+   "character": "flowerpot doodle",
+   "form": "stand-alone",
+   "viewBox": [
+    27.0,
+    42.0,
+    137.0,
+    172.0
+   ],
+   "size": [
+    137.0,
+    172.0
+   ],
+   "part_ids": [
+    "doodle"
+   ],
+   "hinge": null,
+   "placement_in_flowerpot_unfolded": {
+    "x": 27,
+    "y": 42
+   },
+   "note": "viewBox origin is already in flowerpot_unfolded coordinates: draw at (x,y) to sit where he drew it. For the folded pot, doodles below the fold shift by -430.2 in y; the striped heart and smiley bulbs are hidden when folded."
+  },
+  {
+   "file": "svg/doodle_green_square.svg",
+   "png": "png/doodle_green_square.png",
+   "character": "flowerpot doodle",
+   "form": "stand-alone",
+   "viewBox": [
+    -73.0,
+    623.0,
+    167.0,
+    192.0
+   ],
+   "size": [
+    167.0,
+    192.0
+   ],
+   "part_ids": [
+    "doodle"
+   ],
+   "hinge": null,
+   "placement_in_flowerpot_unfolded": {
+    "x": -73,
+    "y": 623
+   },
+   "note": "viewBox origin is already in flowerpot_unfolded coordinates: draw at (x,y) to sit where he drew it. For the folded pot, doodles below the fold shift by -430.2 in y; the striped heart and smiley bulbs are hidden when folded."
+  },
+  {
+   "file": "svg/doodle_green_circle.svg",
+   "png": "png/doodle_green_circle.png",
+   "character": "flowerpot doodle",
+   "form": "stand-alone",
+   "viewBox": [
+    332.0,
+    676.0,
+    160.0,
+    105.0
+   ],
+   "size": [
+    160.0,
+    105.0
+   ],
+   "part_ids": [
+    "doodle"
+   ],
+   "hinge": null,
+   "placement_in_flowerpot_unfolded": {
+    "x": 332,
+    "y": 676
+   },
+   "note": "viewBox origin is already in flowerpot_unfolded coordinates: draw at (x,y) to sit where he drew it. For the folded pot, doodles below the fold shift by -430.2 in y; the striped heart and smiley bulbs are hidden when folded."
+  },
+  {
+   "file": "svg/doodle_green_heart.svg",
+   "png": "png/doodle_green_heart.png",
+   "character": "flowerpot doodle",
+   "form": "stand-alone",
+   "viewBox": [
+    276.0,
+    477.0,
+    204.0,
+    188.0
+   ],
+   "size": [
+    204.0,
+    188.0
+   ],
+   "part_ids": [
+    "doodle"
+   ],
+   "hinge": null,
+   "placement_in_flowerpot_unfolded": {
+    "x": 276,
+    "y": 477
+   },
+   "note": "viewBox origin is already in flowerpot_unfolded coordinates: draw at (x,y) to sit where he drew it. For the folded pot, doodles below the fold shift by -430.2 in y; the striped heart and smiley bulbs are hidden when folded."
+  },
+  {
+   "file": "svg/doodle_green_sprigs.svg",
+   "png": "png/doodle_green_sprigs.png",
+   "character": "flowerpot doodle",
+   "form": "stand-alone",
+   "viewBox": [
+    -1.0,
+    544.0,
+    326.0,
+    116.0
+   ],
+   "size": [
+    326.0,
+    116.0
+   ],
+   "part_ids": [
+    "doodle"
+   ],
+   "hinge": null,
+   "placement_in_flowerpot_unfolded": {
+    "x": -1,
+    "y": 544
+   },
+   "note": "viewBox origin is already in flowerpot_unfolded coordinates: draw at (x,y) to sit where he drew it. For the folded pot, doodles below the fold shift by -430.2 in y; the striped heart and smiley bulbs are hidden when folded."
+  },
+  {
+   "file": "svg/doodle_bulb_small.svg",
+   "png": "png/doodle_bulb_small.png",
+   "character": "flowerpot doodle",
+   "form": "stand-alone",
+   "viewBox": [
+    1.0,
+    431.0,
+    61.0,
+    72.0
+   ],
+   "size": [
+    61.0,
+    72.0
+   ],
+   "part_ids": [
+    "doodle"
+   ],
+   "hinge": null,
+   "placement_in_flowerpot_unfolded": {
+    "x": 1,
+    "y": 431
+   },
+   "note": "viewBox origin is already in flowerpot_unfolded coordinates: draw at (x,y) to sit where he drew it. For the folded pot, doodles below the fold shift by -430.2 in y; the striped heart and smiley bulbs are hidden when folded."
+  },
+  {
+   "file": "svg/doodle_bulb_big.svg",
+   "png": "png/doodle_bulb_big.png",
+   "character": "flowerpot doodle",
+   "form": "stand-alone",
+   "viewBox": [
+    7.0,
+    485.0,
+    78.0,
+    101.0
+   ],
+   "size": [
+    78.0,
+    101.0
+   ],
+   "part_ids": [
+    "doodle"
+   ],
+   "hinge": null,
+   "placement_in_flowerpot_unfolded": {
+    "x": 7,
+    "y": 485
+   },
+   "note": "viewBox origin is already in flowerpot_unfolded coordinates: draw at (x,y) to sit where he drew it. For the folded pot, doodles below the fold shift by -430.2 in y; the striped heart and smiley bulbs are hidden when folded."
+  }
+ ]
+}

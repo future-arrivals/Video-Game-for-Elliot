@@ -1,0 +1,166 @@
+{
+ "scale_note": "Characters are ~400 SVG units on their long side; stroke #1a1a1a, width 9 (characters) / 5-7 (small details and effects). PNGs are 1024 px on the long side, transparent.",
+ "sprites": [
+  {
+   "file": "svg/firecat.svg",
+   "png": "png/firecat.png",
+   "character": "Fire cat (son's name). Best reading: a white block/marshmallow-like creature standing upright with its head on fire; two dot eyes, big glossy black nose/mouth, two grey curled cheeks/whiskers, grey bottom with a frown line and two stubby grey legs",
+   "viewBox": [
+    -3.0,
+    -3.0,
+    212.0,
+    428.0
+   ],
+   "viewBox_size": [
+    212.0,
+    428.0
+   ],
+   "part_ids": [
+    "part-flame",
+    "part-body"
+   ],
+   "facing": "front",
+   "notes": "Upright = flame on top (page orientation of the sheet, matching the Elliot signature). Flame part can flicker independently."
+  },
+  {
+   "file": "svg/beaver.svg",
+   "png": "png/beaver.png",
+   "character": "Beaver chewing a log",
+   "viewBox": [
+    -3.0,
+    -5.0,
+    374.0,
+    433.0
+   ],
+   "viewBox_size": [
+    374.0,
+    433.0
+   ],
+   "part_ids": [
+    "part-tail",
+    "part-body",
+    "part-log",
+    "part-face",
+    "part-paws"
+   ],
+   "facing": "front",
+   "notes": "Tail sits on its left (viewer's left). Safe to mirror."
+  },
+  {
+   "file": "svg/orangeowl.svg",
+   "png": "png/orangeowl.png",
+   "character": "Orange owl: an orange fruit with an owl face mask, stalk and leaf, plus an orange-slice wheel at its bottom right",
+   "viewBox": [
+    -3.0,
+    -5.0,
+    239.0,
+    431.0
+   ],
+   "viewBox_size": [
+    239.0,
+    431.0
+   ],
+   "part_ids": [
+    "part-stalk",
+    "part-body",
+    "part-wing",
+    "part-slice"
+   ],
+   "facing": "front",
+   "notes": "Wing (part-wing) on viewer's right, small wing nub on left. Safe to mirror."
+  },
+  {
+   "file": "svg/juicebox.svg",
+   "png": "png/juicebox.png",
+   "character": "Green apple juice box with a bent blue straw",
+   "viewBox": [
+    -5.0,
+    -5.0,
+    295.0,
+    424.0
+   ],
+   "viewBox_size": [
+    295.0,
+    424.0
+   ],
+   "part_ids": [
+    "part-straw",
+    "part-body"
+   ],
+   "facing": "front-left",
+   "notes": "3/4 view: front panel faces the viewer, dark-green side panel visible on the right, straw bends to the left. Flip horizontally to face right."
+  },
+  {
+   "file": "svg/fx_flame.svg",
+   "png": "png/fx_flame.png",
+   "character": "Effect: the fire cat's flame on its own (same coordinates/scale as firecat part-flame)",
+   "viewBox": [
+    15.0,
+    -3.0,
+    194.0,
+    218.0
+   ],
+   "viewBox_size": [
+    194.0,
+    218.0
+   ],
+   "part_ids": [
+    "part-flame"
+   ],
+   "facing": "none",
+   "notes": "Same scale as the characters.",
+   "suggested_draw_scale_vs_characters": 1.0
+  },
+  {
+   "file": "svg/fx_orangeslice.svg",
+   "png": "png/fx_orangeslice.png",
+   "character": "Effect: the orange-slice wheel from the orange owl",
+   "viewBox": [
+    2.0,
+    3.0,
+    119.0,
+    113.0
+   ],
+   "viewBox_size": [
+    119.0,
+    113.0
+   ],
+   "part_ids": [
+    "part-slice"
+   ],
+   "facing": "none",
+   "notes": "Drawn at 3x the owl's scale so outlines stay readable; draw at scale 0.33 to match the owl, or larger as a projectile.",
+   "suggested_draw_scale_vs_characters": 0.33
+  },
+  {
+   "file": "svg/fx_woodchips.svg",
+   "png": "png/fx_woodchips.png",
+   "character": "Effect: wood chips / shavings from around the beaver (10 pieces, each its own group chip-1..chip-10 for scattering)",
+   "viewBox": [
+    -3.0,
+    -7.0,
+    477.0,
+    345.0
+   ],
+   "viewBox_size": [
+    477.0,
+    345.0
+   ],
+   "part_ids": [
+    "chip-1",
+    "chip-2",
+    "chip-3",
+    "chip-4",
+    "chip-5",
+    "chip-6",
+    "chip-7",
+    "chip-8",
+    "chip-9",
+    "chip-10"
+   ],
+   "facing": "none",
+   "notes": "Drawn at 2x the beaver's scale; draw at scale 0.5 to match the beaver.",
+   "suggested_draw_scale_vs_characters": 0.5
+  }
+ ]
+}

@@ -1,0 +1,234 @@
+{
+ "spec": "Hand-placed bezier paths (Catmull-Rom through hand-read points -> cubic C), stroke #1a1a1a round caps/joins; pumpkin & ghost_big stroke 9 (6-7 for small ghosts/faces/web); doodles ~250 units, stroke 7. Flat fills only. Scripts: tools/pumpkin2/.",
+ "pumpkin_hinge": {
+  "top_hinge_line_y": 190,
+  "bottom_hinge_line_y": 612,
+  "hinge_x_range": [
+   6,
+   400
+  ],
+  "inside_span_y": [
+   190,
+   612
+  ],
+  "folded_part_bottom_translate": [
+   0,
+   -422
+  ],
+  "description": "Both hinges are horizontal. part-top ends at y=190; part-inside spans y 190..612; part-bottom starts at y=612. pumpkin_folded uses identical part-top/part-bottom geometry with part-bottom transform translate(0,-422) and no part-inside: the lower teeth tips then sit on the upper mouth line, side outlines continue straight through the hinge.",
+  "animate": "Unfold by t in 0..1: translate part-bottom by (0,-422*(1-t)); reveal part-inside from y=190 down to 190+422*t (or scale (1,t) about y=190). Draw order: part-bottom, part-inside, part-top (ghosts in part-inside overlap the lower teeth slightly, as he drew them).",
+  "ghosts_inside": 6,
+  "ghost_ids": {
+   "ghost-1": "big ghost (boss)",
+   "ghost-2": "top-left ghost hanging over the left wall",
+   "ghost-3": "peeking ghost under the teeth; its head (arc + two eyes) is drawn on the shell in part-top as group ghost-3-head, as he drew it, so it also shows when folded",
+   "ghost-4": "bottom-left small ghost",
+   "ghost-5": "bottom-middle grinning ghost",
+   "ghost-6": "bottom-right three-eyed ghost"
+  }
+ },
+ "sprites": [
+  {
+   "file": "svg/pumpkin_unfolded.svg",
+   "png": "png/pumpkin_unfolded.png",
+   "character": "pumpkin",
+   "form": "unfolded (mouth open)",
+   "viewBox": [
+    -12.0,
+    -14.0,
+    430.0,
+    773.0
+   ],
+   "viewBox_size": [
+    430.0,
+    773.0
+   ],
+   "part_ids": [
+    "part-bottom",
+    "part-inside",
+    "ghost-1",
+    "ghost-3",
+    "ghost-4",
+    "ghost-5",
+    "ghost-6",
+    "ghost-2",
+    "part-top",
+    "ghost-3-head"
+   ]
+  },
+  {
+   "file": "svg/pumpkin_folded.svg",
+   "png": "png/pumpkin_folded.png",
+   "character": "pumpkin",
+   "form": "folded (mouth shut)",
+   "viewBox": [
+    -12.0,
+    -14.0,
+    429.0,
+    351.0
+   ],
+   "viewBox_size": [
+    429.0,
+    351.0
+   ],
+   "part_ids": [
+    "part-bottom",
+    "part-top",
+    "ghost-3-head"
+   ]
+  },
+  {
+   "file": "svg/ghost_big.svg",
+   "png": "png/ghost_big.png",
+   "character": "big ghost from inside the pumpkin (boss): big black eyes with highlights, black open mouth, right arm raised",
+   "form": "creature (boss)",
+   "viewBox": [
+    51.0,
+    239.0,
+    272.0,
+    342.0
+   ],
+   "viewBox_size": [
+    272.0,
+    342.0
+   ],
+   "part_ids": []
+  },
+  {
+   "file": "svg/ghost.svg",
+   "png": "png/ghost.png",
+   "character": "droopy-faced ghost with tongue out and arms out (drawn beside the pumpkin)",
+   "form": "creature",
+   "viewBox": [
+    -12.0,
+    -5.0,
+    278.0,
+    222.0
+   ],
+   "viewBox_size": [
+    278.0,
+    222.0
+   ],
+   "part_ids": []
+  },
+  {
+   "file": "svg/ghost_2.svg",
+   "png": "png/ghost_2.png",
+   "character": "small grinning ghost with pointed tail and two arms (bottom-middle ghost inside the pumpkin)",
+   "form": "creature",
+   "viewBox": [
+    -10.0,
+    -3.0,
+    282.0,
+    244.0
+   ],
+   "viewBox_size": [
+    282.0,
+    244.0
+   ],
+   "part_ids": []
+  },
+  {
+   "file": "svg/ghost_3.svg",
+   "png": "png/ghost_3.png",
+   "character": "wide three-eyed ghost with tongue (bottom-right ghost inside the pumpkin)",
+   "form": "creature",
+   "viewBox": [
+    -8.0,
+    -9.0,
+    277.0,
+    197.0
+   ],
+   "viewBox_size": [
+    277.0,
+    197.0
+   ],
+   "part_ids": []
+  },
+  {
+   "file": "svg/bat.svg",
+   "png": "png/bat.png",
+   "character": "smiley stick-figure bat with zigzag wings",
+   "form": "creature",
+   "viewBox": [
+    -8.0,
+    2.0,
+    282.0,
+    196.0
+   ],
+   "viewBox_size": [
+    282.0,
+    196.0
+   ],
+   "part_ids": []
+  },
+  {
+   "file": "svg/spider.svg",
+   "png": "png/spider.png",
+   "character": "angry spider-bat with teeth, six legs and zigzag wings",
+   "form": "creature",
+   "viewBox": [
+    -2.0,
+    -3.0,
+    275.0,
+    165.0
+   ],
+   "viewBox_size": [
+    275.0,
+    165.0
+   ],
+   "part_ids": []
+  },
+  {
+   "file": "svg/lollipop.svg",
+   "png": "png/lollipop.png",
+   "character": "spiral lollipop",
+   "form": "pickup",
+   "viewBox": [
+    4.0,
+    10.0,
+    275.0,
+    240.0
+   ],
+   "viewBox_size": [
+    275.0,
+    240.0
+   ],
+   "part_ids": []
+  },
+  {
+   "file": "svg/candy.svg",
+   "png": "png/candy.png",
+   "character": "wrapped candy",
+   "form": "pickup",
+   "viewBox": [
+    2.0,
+    4.0,
+    279.0,
+    154.0
+   ],
+   "viewBox_size": [
+    279.0,
+    154.0
+   ],
+   "part_ids": []
+  },
+  {
+   "file": "svg/orange_object.svg",
+   "png": "png/orange_object.png",
+   "character": "orange mitten/hand joined by a small oval to a lumpy shape",
+   "form": "pickup/prop",
+   "viewBox": [
+    -7.0,
+    -3.0,
+    279.0,
+    226.0
+   ],
+   "viewBox_size": [
+    279.0,
+    226.0
+   ],
+   "part_ids": []
+  }
+ ]
+}

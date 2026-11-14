@@ -1,0 +1,262 @@
+{
+ "spec": {
+  "stroke": "#1a1a1a round caps/joins; 9 main outlines, 6 small details (items: 7 main, 6 details); 3.5 light-blue scribble texture strokes inside the mouth only",
+  "units": "monster: photo-crop units x1.15 (folded long side ~422); items ~250 long side",
+  "method": "hand-placed points joined by Catmull-Rom cubic beziers (tools/monster2); no tracing"
+ },
+ "sprites": {
+  "monster_unfolded": {
+   "svg": "svg/monster_unfolded.svg",
+   "png": "png/monster_unfolded.png",
+   "character": "fuzzy orange monster (starter)",
+   "form": "unfolded",
+   "viewBox": [
+    -9.0,
+    -1.0,
+    513.0,
+    642.0
+   ],
+   "size": [
+    513.0,
+    642.0
+   ],
+   "part_ids": [
+    "part-inside",
+    "arm-mid-left",
+    "arm-low-left",
+    "boot-shaft",
+    "arm-mid-right",
+    "arm-low-right",
+    "boot-face",
+    "food-round",
+    "food-sausage",
+    "food-fish-1",
+    "food-fish-2",
+    "food-triangle",
+    "food-pizza",
+    "food-fish-3",
+    "part-bottom",
+    "leg-right-long",
+    "boot-foot",
+    "leg-right-short",
+    "leg-left-1",
+    "leg-left-2",
+    "fur-left",
+    "fur-right",
+    "fringe-bottom",
+    "jaw-bottom",
+    "part-top",
+    "arm-top-l1",
+    "arm-top-l2",
+    "arm-top-l3",
+    "arm-top-r1",
+    "arm-top-r2",
+    "arm-top-r3",
+    "pin-left",
+    "pin-right",
+    "boot-toe",
+    "fringe-top",
+    "head-top",
+    "eye-left",
+    "eye-right"
+   ],
+   "hinge": {
+    "top_hinge_line": [
+     [
+      135.7,
+      151.79999999999998
+     ],
+     [
+      308.2,
+      151.79999999999998
+     ]
+    ],
+    "bottom_hinge_line": [
+     [
+      140.29999999999998,
+      505.99999999999994
+     ],
+     [
+      317.4,
+      505.99999999999994
+     ]
+    ],
+    "close_mouth": "translate(0,-354.2) on #part-bottom, hide #part-inside",
+    "translate_y": -354.2,
+    "how": "Unfolded = part-inside + part-bottom + part-top at rest. To close, slide part-bottom up by translate_y (bowl top line lands exactly on the head base line, lower teeth hang below it) and hide part-inside. monster_folded.svg is exactly that state.",
+    "notes": "part-inside also holds the limbs drawn on the hidden middle panel (arm-mid-*, arm-low-*, boot-shaft, boot-face). The boot is split: boot-toe (part-top), boot-shaft + boot-face (part-inside), boot-foot (part-bottom); folded it is toe directly on foot."
+   }
+  },
+  "monster_folded": {
+   "svg": "svg/monster_folded.svg",
+   "png": "png/monster_folded.png",
+   "character": "fuzzy orange monster (starter)",
+   "form": "folded",
+   "viewBox": [
+    57.0,
+    -1.0,
+    422.0,
+    287.0
+   ],
+   "size": [
+    422.0,
+    287.0
+   ],
+   "part_ids": [
+    "part-bottom",
+    "leg-right-long",
+    "boot-foot",
+    "leg-right-short",
+    "leg-left-1",
+    "leg-left-2",
+    "fur-left",
+    "fur-right",
+    "fringe-bottom",
+    "jaw-bottom",
+    "part-top",
+    "arm-top-l1",
+    "arm-top-l2",
+    "arm-top-l3",
+    "arm-top-r1",
+    "arm-top-r2",
+    "arm-top-r3",
+    "pin-left",
+    "pin-right",
+    "boot-toe",
+    "fringe-top",
+    "head-top",
+    "eye-left",
+    "eye-right"
+   ],
+   "hinge": {
+    "part_bottom_transform": "translate(0,-354.2)"
+   }
+  },
+  "pizza": {
+   "svg": "svg/pizza.svg",
+   "png": "png/pizza.png",
+   "character": "pizza",
+   "form": "item",
+   "what": "pizza slice: ochre cheese, black olives, red pepperoni, big pink-red centre piece, black blob on the tip",
+   "viewBox": [
+    14.0,
+    11.0,
+    235.0,
+    182.0
+   ],
+   "size": [
+    235.0,
+    182.0
+   ],
+   "monster_group": "food-pizza"
+  },
+  "sausage": {
+   "svg": "svg/sausage.svg",
+   "png": "png/sausage.png",
+   "character": "sausage",
+   "form": "item",
+   "what": "red striped sausage with a smiling face (two links, lower one with crossing lines)",
+   "viewBox": [
+    9.0,
+    11.0,
+    84.0,
+    240.0
+   ],
+   "size": [
+    84.0,
+    240.0
+   ],
+   "monster_group": "food-sausage"
+  },
+  "fish_1": {
+   "svg": "svg/fish_1.svg",
+   "png": "png/fish_1.png",
+   "character": "fish_1",
+   "form": "item",
+   "what": "heart-shaped fish-like face, angry eyes, yellow squiggle (top-left of mouth)",
+   "viewBox": [
+    13.0,
+    11.0,
+    185.0,
+    233.0
+   ],
+   "size": [
+    185.0,
+    233.0
+   ],
+   "monster_group": "food-fish-1"
+  },
+  "fish_2": {
+   "svg": "svg/fish_2.svg",
+   "png": "png/fish_2.png",
+   "character": "fish_2",
+   "form": "item",
+   "what": "heart-shaped fish-like face, angry eyes, yellow squiggle (top-right of mouth)",
+   "viewBox": [
+    15.0,
+    14.0,
+    142.0,
+    230.0
+   ],
+   "size": [
+    142.0,
+    230.0
+   ],
+   "monster_group": "food-fish-2"
+  },
+  "fish_3": {
+   "svg": "svg/fish_3.svg",
+   "png": "png/fish_3.png",
+   "character": "fish_3",
+   "form": "item",
+   "what": "small heart face with big round eyes, smile and one raised arm stroke (lower middle)",
+   "viewBox": [
+    17.0,
+    16.0,
+    223.0,
+    202.0
+   ],
+   "size": [
+    223.0,
+    202.0
+   ],
+   "monster_group": "food-fish-3"
+  },
+  "round_thing": {
+   "svg": "svg/round_thing.svg",
+   "png": "png/round_thing.png",
+   "character": "round_thing",
+   "form": "item",
+   "what": "circle with a \"<\" mark and a \"3\" squiggle on a knobbly bent stick; best guess a balloon on a knotted string or a lollipop",
+   "viewBox": [
+    13.0,
+    13.0,
+    177.0,
+    236.0
+   ],
+   "size": [
+    177.0,
+    236.0
+   ],
+   "monster_group": "food-round"
+  },
+  "triangle_thing": {
+   "svg": "svg/triangle_thing.svg",
+   "png": "png/triangle_thing.png",
+   "character": "triangle_thing",
+   "form": "item",
+   "what": "uncoloured triangle with a dome fin and a thin pointed nose; unclear (maybe an uncoloured pizza slice or a shark/fish)",
+   "viewBox": [
+    14.0,
+    13.0,
+    217.0,
+    232.0
+   ],
+   "size": [
+    217.0,
+    232.0
+   ],
+   "monster_group": "food-triangle"
+  }
+ }
+}

@@ -1,0 +1,192 @@
+{
+ "scale_note": "Same unit system as the flat set: frankenstein_folded is ~430 units tall; the unfolded version is the same scale (~850 tall). Bats and candies are at the same scale as the Frankenstein monster; scribble at the crab's scale.",
+ "frankenstein_hinge": {
+  "hinge_line_y": 205,
+  "hinge_x_range": [
+   97,
+   315
+  ],
+  "inside_span_y": [
+   205,
+   622
+  ],
+  "inside_length": 417,
+  "description": "Hinge is the bottom edge of the head (y=205 in both files). In frankenstein_unfolded, part-inside spans y 205..622 and part-body starts at y 622. In frankenstein_folded, part-body has transform translate(0,-417) so its top edge meets the head at y=205, and part-inside is omitted. Geometry of part-head and part-body is identical in both files.",
+  "animate": "To unfold by fraction t (0..1): scale part-inside by (1, t) about y=205 (or reveal/clip it from y=205 down to 205+417*t), and translate part-body by (0, -417*(1-t)). Draw order: part-inside, part-body, part-head."
+ },
+ "sprites": [
+  {
+   "file": "svg/frankenstein_folded.svg",
+   "png": "png/frankenstein_folded.png",
+   "character": "Frankenstein monster, folded (closed) state",
+   "viewBox": [
+    10.0,
+    0.0,
+    366.0,
+    434.0
+   ],
+   "viewBox_size": [
+    366.0,
+    434.0
+   ],
+   "part_ids": [
+    "part-body",
+    "part-head"
+   ],
+   "facing": "front",
+   "notes": "Front-facing; flip-safe. See frankenstein_hinge."
+  },
+  {
+   "file": "svg/frankenstein_unfolded.svg",
+   "png": "png/frankenstein_unfolded.png",
+   "character": "Frankenstein monster, unfolded: head and body pulled apart to reveal a long green inside with a giant open red mouth, rows of thin teeth top and bottom, a long red tongue and a black two-lobed shape at the back of the throat",
+   "viewBox": [
+    10.0,
+    0.0,
+    366.0,
+    851.0
+   ],
+   "viewBox_size": [
+    366.0,
+    851.0
+   ],
+   "part_ids": [
+    "part-inside",
+    "part-body",
+    "part-head"
+   ],
+   "facing": "front",
+   "notes": "Front-facing; flip-safe. See frankenstein_hinge."
+  },
+  {
+   "file": "svg/crab.svg",
+   "png": "png/crab.png",
+   "character": "Red crab in a brown cowboy hat with a black star",
+   "viewBox": [
+    3.0,
+    -1.0,
+    372.0,
+    354.0
+   ],
+   "viewBox_size": [
+    372.0,
+    354.0
+   ],
+   "part_ids": [
+    "leg-l1",
+    "leg-l2",
+    "leg-l3",
+    "leg-r1",
+    "leg-r2",
+    "leg-r3",
+    "claw-left",
+    "claw-right",
+    "part-body",
+    "part-hat"
+   ],
+   "facing": "front",
+   "notes": "Facing the viewer; symmetric enough to flip. Wiggle groups: claw-left, claw-right, leg-l1..l3, leg-r1..r3 (each leg = upper segment + pointed lower segment). part-hat sits on top of part-body."
+  },
+  {
+   "file": "svg/fx_bat1.svg",
+   "png": "png/fx_bat1.png",
+   "character": "Doodle: black spiky bat (upper one on the Frankenstein sheet)",
+   "viewBox": [
+    287.0,
+    293.0,
+    236.0,
+    172.0
+   ],
+   "viewBox_size": [
+    236.0,
+    172.0
+   ],
+   "part_ids": [
+    "part-bat"
+   ],
+   "facing": "none",
+   "suggested_draw_scale_vs_characters": 1.0
+  },
+  {
+   "file": "svg/fx_bat2.svg",
+   "png": "png/fx_bat2.png",
+   "character": "Doodle: black spiky bat (lower one)",
+   "viewBox": [
+    271.0,
+    468.0,
+    254.0,
+    224.0
+   ],
+   "viewBox_size": [
+    254.0,
+    224.0
+   ],
+   "part_ids": [
+    "part-bat"
+   ],
+   "facing": "none",
+   "suggested_draw_scale_vs_characters": 1.0
+  },
+  {
+   "file": "svg/fx_candy1.svg",
+   "png": "png/fx_candy1.png",
+   "character": "Doodle: orange wrapped candy with lumpy crinkled wrapper ends (top-left of the sheet). Outlined in darker orange, not black, as he drew it in orange only",
+   "viewBox": [
+    -41.0,
+    44.0,
+    185.0,
+    114.0
+   ],
+   "viewBox_size": [
+    185.0,
+    114.0
+   ],
+   "part_ids": [
+    "part-candy"
+   ],
+   "facing": "none",
+   "suggested_draw_scale_vs_characters": 1.0
+  },
+  {
+   "file": "svg/fx_candy2.svg",
+   "png": "png/fx_candy2.png",
+   "character": "Doodle: orange wrapped candy with triangular wrapper ends (mid-left of the sheet). Outlined in darker orange, not black",
+   "viewBox": [
+    -62.0,
+    391.0,
+    168.0,
+    114.0
+   ],
+   "viewBox_size": [
+    168.0,
+    114.0
+   ],
+   "part_ids": [
+    "part-candy"
+   ],
+   "facing": "none",
+   "suggested_draw_scale_vs_characters": 1.0
+  },
+  {
+   "file": "svg/fx_crab_scribble.svg",
+   "png": "png/fx_crab_scribble.png",
+   "character": "Effect: the loose orange line scribble and brown hatching around the crab (sand/dust kicked up). Coloured line only, no black outline. Groups: scribble-line (orange), scribble-hatch (brown)",
+   "viewBox": [
+    -6.0,
+    146.0,
+    403.0,
+    271.0
+   ],
+   "viewBox_size": [
+    403.0,
+    271.0
+   ],
+   "part_ids": [
+    "scribble-line",
+    "scribble-hatch"
+   ],
+   "facing": "none",
+   "suggested_draw_scale_vs_characters": 1.0
+  }
+ ]
+}

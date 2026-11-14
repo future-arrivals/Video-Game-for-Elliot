@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Direction A2: Paper Page, cinematic</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#efe9dc;color:#1a1a1a;font-family:Andika,"Avenir Next Rounded","Arial Rounded MT Bold",Verdana,"DejaVu Sans",sans-serif}
+header,section,footer{max-width:1200px;margin:0 auto;padding:0 28px}
+header{padding-top:26px}
+h1{margin:0 0 6px;font-size:30px;display:flex;align-items:center;gap:14px}
+.chip{width:58px;height:58px;border-radius:14px;border:3px solid #1a1a1a;background:#E8921C;color:#fff;display:grid;place-items:center;font-size:30px;font-weight:900;text-shadow:0 2px 0 #1a1a1a}
+p{line-height:1.45;max-width:900px}
+section{margin-top:22px}
+h2{margin:0 0 8px;font-size:22px}
+.frame{position:relative;width:100%;aspect-ratio:844/390;border:3px solid #1a1a1a;border-radius:14px;overflow:hidden;background:#FBF8F0}
+.frame canvas{display:block;width:100%;height:100%}
+.cap{font-size:14px;color:#5b554b;margin-top:6px;max-width:1000px}
+.ctl{position:absolute;right:12px;bottom:12px;font:800 15px inherit;font-family:inherit;padding:8px 14px;border-radius:12px;border:3px solid #1a1a1a;background:#FFF1A8;cursor:pointer}
+.grid{display:grid;grid-template-columns:1fr;gap:22px}
+#perf,#err{font-size:13px;color:#5b554b;white-space:pre-wrap}
+#err:empty{display:none}
+#err{color:#b00020}
+footer{margin:24px auto 40px;font-size:14px;color:#5b554b}
+body.only{background:#fff}
+body.only header,body.only footer,body.only .cap,body.only h2,body.only .ctl,body.only #perf,body.only #err{display:none}
+body.only section{display:none;max-width:none;margin:0;padding:0}
+body.only section.on{display:block}
+body.only .frame{width:844px;height:390px;border:0;border-radius:0}
+</style></head><body>
+<header>
+<h1><span class="chip">A</span>Paper Page, cinematic (A2)</h1>
+<p>The world is still Elliot's page: black marker and full colour mean you can use it, pale pencil means scenery. A2 adds depth (stacked paper sheets with parallax and a blurred foreground), warm afternoon light that turns to dusk near the giant pumpkin, scenery that sketches itself in ahead of you, a camera that pushes in and pulls back, and big impact moments with speed lines, hit-stop, shake and paper-scrap bursts.</p>
+</header>
+<section id="s-anim"><h2>Live scene (15-second loop)</h2>
+<div class="frame"><canvas id="anim" aria-label="Animated Pumpkin Patch scene: the party walks, the fish unfolds into a bridge"></canvas><button class="ctl" id="pause">Pause</button></div>
+<div class="cap">The walk: the pencil draws the field in ahead, the camera pulls back for the giant pumpkin, then pushes in at the river. The unfold: letterbox snaps in, squash, snap open with a flash and a short freeze, the fish tips over into a bridge, and the party crosses. Then a page turn and the loop restarts.</div>
+<div id="perf"></div><div id="err"></div></section>
+<section id="s-ow"><h2>Overworld: Pumpkin Patch</h2><div class="frame"><canvas id="ow"></canvas></div>
+<div class="cap">Lead fish with juice box and beaver following; the owl wanders, and the fire cat is a second wild creature. The giant pumpkin sits on the far sheet as the destination. Candy and the boulder are in black marker; the dashed spot at the river is where the fish fits. Touch controls are hidden because a controller is connected.</div></section>
+<section id="s-bt"><h2>Battle</h2><div class="frame"><canvas id="bt"></canvas></div>
+<div class="cap">Low camera: the place the fight started is the backdrop, with the giant pumpkin looming. SPLASH is drawn as a marker stroke in flight, with a hit spark. The enemy's next move is in the bubble.</div></section>
+<section id="s-boss"><h2>Boss intro: inside the giant pumpkin</h2><div class="frame"><canvas id="boss"></canvas></div>
+<div class="cap">The same paper language at night: dark paper, lantern pools of light, and cream cut-out halos so black outlines stay readable. Letterbox, pumpkin teeth framing the shot, and a title slam.</div></section>
+<footer>Characters are the clean redraws from assets/png (fish folded and unfolded, juice box, beaver, orange owl, fire cat). The bat and small ghosts are still rough photo crops, and the big boss ghost is a stand-in drawn in his style. Hidden test modes: <code>#only=anim&amp;t=7800</code>, <code>#only=ow</code>, <code>#only=bt</code>, <code>#only=boss</code>.</footer>
+<script>
+const ERR = [];
+window.onerror = (m, s, l, c) => { ERR.push(m + ' (line ' + l + ')'); const e = document.getElementById('err'); if (e) e.textContent = 'Errors: ' + ERR.join('\n'); };
+window.addEventListener('unhandledrejection', e => window.onerror(String(e.reason), '', 0));
+/*ASSETS*/
+/*ENGINE*/
+function setupCanvas(cv) { cv.width = W * DPR; cv.height = H * DPR; return cv.getContext('2d'); }
+boot().then(() => {
+  const params = new URLSearchParams(location.hash.slice(1));
+  const only = params.get('only');
+  if (only) { document.body.classList.add('only'); document.getElementById('s-' + only).classList.add('on'); }
+  renderWorld(setupCanvas(document.getElementById('ow')), overworldState());
+  renderBattle(setupCanvas(document.getElementById('bt')));
+  renderBoss(setupCanvas(document.getElementById('boss')));
+  const actx = setupCanvas(document.getElementById('anim'));
+  // frame cost: render 240 demo frames across the loop and time them
+  if (!only) {
+    const times = [];
+    for (let i = 0; i < 240; i++) { const t = (i * 62.5) % LOOP; const a = performance.now(); renderWorld(actx, demoState(t)); times.push(performance.now() - a); }
+    times.sort((a, b) => a - b); const avg = times.reduce((a, b) => a + b, 0) / times.length;
+    const msg = `Frame cost on this device (canvas 2D, ${W * DPR}x${H * DPR} backing): average ${avg.toFixed(2)} ms, 95th percentile ${times[Math.floor(times.length * .95)].toFixed(2)} ms, worst ${times[times.length - 1].toFixed(2)} ms.`;
+    document.getElementById('perf').textContent = msg; window.__perf = { avg, p95: times[Math.floor(times.length * .95)] }; console.log(msg);
+  }
+  const reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const fixedT = params.has('t') ? +params.get('t') : null;
+  let playing = fixedT == null && !reduced, offset = 0, last = performance.now(), tNow = fixedT == null ? (reduced ? T.hold : 500) : fixedT, frames = 0;
+  const btn = document.getElementById('pause');
+  const label = () => btn.textContent = playing ? 'Pause' : 'Play';
+  if (reduced) document.querySelector('#s-anim .cap').textContent += ' (Your device asks for reduced motion, so this starts paused. Press Play to watch.)';
+  btn.onclick = () => { playing = !playing; last = performance.now(); label(); }; label();
+  renderWorld(actx, demoState(tNow));
+  function loop(now) { if (playing) { tNow = (tNow + Math.min(50, now - last)) % LOOP; renderWorld(actx, demoState(tNow)); if (++frames % 30 === 0) { document.body.dataset.frames = frames; document.body.dataset.t = Math.round(tNow); } } last = now; requestAnimationFrame(loop); }
+  requestAnimationFrame(loop);
+  document.body.dataset.ready = '1';
+}).catch(e => window.onerror(String(e && e.stack || e), '', 0));
+</script>
+</body></html>

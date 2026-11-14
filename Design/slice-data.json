@@ -1,0 +1,2192 @@
+{
+ "version": "slice-0.4",
+ "notes": "Names, types and words are placeholders until the child decides. All battle numbers are exact; there is no randomness anywhere.",
+ "story": {
+  "beats": [
+   "Candy pile in the Pumpkin Patch, everyone happy",
+   "Big Ghost swoops out of the giant pumpkin and pulls all the candy inside",
+   "Fuzzy Monster's tummy rumbles; it looks at the pumpkin",
+   "Map arrow points to the pumpkin"
+  ],
+  "ending": [
+   "Little Ghosts float free, giggling",
+   "Big Ghost was lonely and wanted a party; it pushes the candy back out",
+   "Everyone shares candy; party in the patch"
+  ]
+ },
+ "rules": {
+  "damage_formula": "final = max(0, base (+2 if Lift) (+1 if Fresh) + typeBonus - (target folded this round ? 1 : 0))",
+  "type_bonus": {
+   "attacker_beats_defender": 1,
+   "defender_beats_attacker": -1,
+   "same_type": 0
+  },
+  "order_of_round": [
+   "show enemy card (its form + action, numbers already computed)",
+   "player chooses one action (no turn timer); preview shows final numbers",
+   "player action resolves",
+   "if enemy (or last shield) is gone: battle/phase ends, enemy card does NOT happen",
+   "enemy card resolves",
+   "if active character has 0 hearts: it becomes Sleepy; player picks next awake character for free",
+   "strip advances to next card"
+  ],
+  "battle_start": "lead enters folded; enemy strip at card 1 (card 1 skipped if enemy is Dizzy)",
+  "fold_change": "Fold/Open uses the turn. It takes effect immediately, before the enemy card resolves.",
+  "folded": "takes 1 less from every hit (never below 0); folded moves only",
+  "open": "takes full hits; open moves only",
+  "switch": "uses the turn; incoming character arrives folded and receives the enemy card; outgoing character folds and drops Lift badge and tummy",
+  "sleepy": "at 0 hearts; cannot battle or lead or use field powers until a rest spot; next character chosen for free (enemy does not act)",
+  "lose": "all three Sleepy -> team wakes at last rest blanket with full hearts; all creatures awake at spawns; used Candy Apples gone; candy, puzzles, stamps kept",
+  "run": "always works vs creatures (ends battle before enemy acts; creature ignores you 3 s); not allowed vs boss",
+  "hearts_persist_between_battles": true,
+  "heal_cap": "heals never go above max hearts and never wake a Sleepy character",
+  "rest_spot": "walk onto blanket: all characters full hearts and awake; all sleeping creatures wake back at their spawns; autosave",
+  "after_win": "fanfare; creature drops candy and sleeps at spawn until next rest",
+  "fresh": "After Open, the first damaging move while open gets +1 (sparkle badge). Lost if you Fold first.",
+  "status": {
+   "sticky": "Web intent: during the round the Web card shows, NOTHING is locked and no buttons appear locked (the player acts first). When Web resolves at round end: big wrapping animation webs over the Fold/Open and Team buttons and the Sticky badge appears. Applies to the next turn only, then the web snaps off.",
+   "dizzy": "sneak attack: enemy skips its first card"
+  },
+  "bag": {
+   "item": "Candy Apple",
+   "effect": "heal active character 3, uses turn",
+   "carry_max": 3,
+   "price_candy": 2,
+   "sold_at": "treat stand at every rest blanket",
+   "milestone": "M4"
+  },
+  "boss_loss_hint": "after losing to the boss, respawn at the pumpkin rest blanket; the type-wheel icon glows on the portrait of the teammate strong against the boss type (Ice Cream) until the next attempt; no words"
+ },
+ "type_chart": {
+  "types": [
+   {
+    "id": "sweet",
+    "placeholder_name": "Sweet",
+    "icon": "wrapped candy"
+   },
+   {
+    "id": "spooky",
+    "placeholder_name": "Spooky",
+    "icon": "ghost"
+   },
+   {
+    "id": "chompy",
+    "placeholder_name": "Chompy",
+    "icon": "teeth"
+   }
+  ],
+  "beats": {
+   "sweet": "spooky",
+   "spooky": "chompy",
+   "chompy": "sweet"
+  },
+  "modifier_table": {
+   "attacker\\defender": [
+    "sweet",
+    "spooky",
+    "chompy"
+   ],
+   "sweet": [
+    0,
+    1,
+    -1
+   ],
+   "spooky": [
+    -1,
+    0,
+    1
+   ],
+   "chompy": [
+    1,
+    -1,
+    0
+   ]
+  }
+ },
+ "characters": [
+  {
+   "id": "monster",
+   "placeholder_name": "Fuzzy Monster",
+   "drawings": {
+    "folded": "IMG_3526.jpg",
+    "open": "IMG_3527.jpg"
+   },
+   "type": "chompy",
+   "hearts": 9,
+   "joins": "start",
+   "role": "counter-puncher: eats the enemy's attack and burps it back",
+   "field_power": {
+    "id": "eat",
+    "word": "Eat",
+    "needs": "facing an adjacent boulder; auto-unfolds if folded",
+    "result": "boulder removed"
+   },
+   "moves": [
+    {
+     "id": "claw",
+     "word": "Claw",
+     "icon": "three-finger claw",
+     "form": "folded",
+     "effect": {
+      "damage": 2
+     }
+    },
+    {
+     "id": "snack",
+     "word": "Snack",
+     "icon": "pizza slice",
+     "form": "folded",
+     "effect": {
+      "heal_self": 2
+     }
+    },
+    {
+     "id": "chomp",
+     "word": "Chomp",
+     "icon": "zigzag teeth",
+     "form": "open",
+     "effect": {
+      "damage": 3
+     }
+    },
+    {
+     "id": "gulp",
+     "word": "Gulp",
+     "icon": "wide-open mouth",
+     "form": "open",
+     "effect": {
+      "gulp": true
+     },
+     "rules": "Usable only with empty tummy. If this round's enemy card is an attack, take 0 from it and store EXACTLY the final number its intent bubble showed (against the open Monster). Tummy badge shows that same number. No attack on the card: nothing stored.",
+     "milestone": "M1"
+    },
+    {
+     "id": "burp",
+     "word": "Burp",
+     "icon": "burp cloud with food",
+     "form": "open",
+     "effect": {
+      "damage": "tummy"
+     },
+     "rules": "Usable only with a full tummy. Base = stored number (no bonus), then Fresh, type and fold rules. The button shows the final damage. Empties tummy."
+    }
+   ],
+   "tummy_food_pictures": {
+    "1-2": "sausage",
+    "3-4": "fish",
+    "5+": "pizza slice"
+   },
+   "wysiwyg_example": "Howl 5 vs open Monster shows 6 -> Gulp stores 6 -> Burp button shows 6-1 = 5 vs Spooky"
+  },
+  {
+   "id": "fish",
+   "placeholder_name": "Pink Fish (placeholder; may not be a fish)",
+   "drawings": {
+    "folded": "IMG_3521.jpg",
+    "open": "IMG_3522.jpg"
+   },
+   "type": "spooky",
+   "type_is_placeholder_fit": "weak fit; ask the child",
+   "hearts": 8,
+   "joins": "pond bank (10,9)",
+   "role": "healer: heals the whole team, hits hard only when open",
+   "field_power": {
+    "id": "bridge",
+    "word": "Bridge",
+    "needs": "facing water: 1-3 water tiles in a straight line then a walkable tile (auto-unfolds if folded)",
+    "result": "unfolds long and stretches across, team walks over automatically, lead is left open on the far bank"
+   },
+   "moves": [
+    {
+     "id": "splash",
+     "word": "Splash",
+     "icon": "water drop",
+     "form": "folded",
+     "effect": {
+      "damage": 1
+     }
+    },
+    {
+     "id": "hug",
+     "word": "Hug",
+     "icon": "one heart",
+     "form": "folded",
+     "effect": {
+      "heal_self": 2
+     }
+    },
+    {
+     "id": "slap",
+     "word": "Slap",
+     "icon": "fish tail",
+     "form": "open",
+     "effect": {
+      "damage": 3
+     }
+    },
+    {
+     "id": "love",
+     "word": "Love",
+     "icon": "three hearts",
+     "form": "open",
+     "effect": {
+      "heal_team": 2
+     },
+     "rules": "Heals every awake team member, including benched ones."
+    }
+   ],
+   "identity_open": "Read by its handwriting, upright puts the two round lobes and eyes at the top: a heart-shaped face on stick legs whose body unfolds tall, with hearts and names inside. Ask in session 1. Bridge works either way (it unfolds long and tips over the water); only art and name change."
+  },
+  {
+   "id": "icecream",
+   "placeholder_name": "Ice Cream",
+   "drawings": {
+    "folded": "IMG_3523.jpg",
+    "open": "IMG_3524.jpg"
+   },
+   "type": "sweet",
+   "hearts": 10,
+   "joins": "zone C (18,4)",
+   "role": "tank and charger: big hits, Smash topples it back to folded for free",
+   "field_power": {
+    "id": "stack",
+    "word": "Push / Reach",
+    "needs": "facing an adjacent boulder (push) or tall post (reach); auto-unfolds if folded",
+    "result": "push: boulder moves 1 tile onto floor, plate or water (water -> stepping stone); never pushes two boulders in a row. reach: takes high candy or rings bell"
+   },
+   "moves": [
+    {
+     "id": "bonk",
+     "word": "Bonk",
+     "icon": "cone tip",
+     "form": "folded",
+     "effect": {
+      "damage": 1
+     }
+    },
+    {
+     "id": "lift",
+     "word": "Lift",
+     "icon": "dumbbell",
+     "form": "folded",
+     "effect": {
+      "lift_badge": 2
+     },
+     "rules": "Next damaging move gets +2 base. One badge at a time; lost if Ice Cream goes to the bench."
+    },
+    {
+     "id": "drop",
+     "word": "Drop",
+     "icon": "falling scoop",
+     "form": "open",
+     "effect": {
+      "damage": 3
+     }
+    },
+    {
+     "id": "smash",
+     "word": "Smash",
+     "icon": "four scoops toppling",
+     "form": "open",
+     "effect": {
+      "damage": 4,
+      "then": "becomes folded (free)"
+     }
+    }
+   ]
+  }
+ ],
+ "creatures": [
+  {
+   "id": "bat",
+   "placeholder_name": "Zigzag Bat",
+   "type": "chompy",
+   "hearts": 5,
+   "zone": "A",
+   "teaches": "enemy shows its next move",
+   "strip": [
+    {
+     "word": "Flap",
+     "form": "open",
+     "attack": 1
+    },
+    {
+     "word": "Flap",
+     "form": "open",
+     "attack": 1
+    },
+    {
+     "word": "Bite",
+     "form": "open",
+     "attack": 3
+    }
+   ],
+   "field": {
+    "spawns_and_patrols": "see stages[].spawns",
+    "patrol_speed": 2,
+    "chase_speed": 3.5,
+    "movement": "loop"
+   },
+   "drop": "wrapped candy",
+   "milestone": "M1"
+  },
+  {
+   "id": "spider",
+   "placeholder_name": "Toothy Spider",
+   "type": "sweet",
+   "hearts": 6,
+   "zone": "B and C",
+   "teaches": "enemies can fold; status; Fresh timing",
+   "strip": [
+    {
+     "word": "Curl",
+     "form": "folded",
+     "attack": 0
+    },
+    {
+     "word": "Poke",
+     "form": "open",
+     "attack": 2
+    },
+    {
+     "word": "Web",
+     "form": "open",
+     "attack": 0,
+     "effect": "you become Sticky"
+    }
+   ],
+   "field": {
+    "spawns_and_patrols": "see stages[].spawns",
+    "patrol_speed": 1.5,
+    "chase_speed": 3,
+    "movement": "back and forth, 1 s pause at each end"
+   },
+   "drop": "lollipop",
+   "milestone": "M2"
+  },
+  {
+   "id": "ghost",
+   "placeholder_name": "Ghost",
+   "type": "spooky",
+   "hearts": 6,
+   "zone": "D",
+   "teaches": "type circle (Ice Cream is strong here)",
+   "strip": [
+    {
+     "word": "Spook",
+     "form": "open",
+     "attack": 2
+    },
+    {
+     "word": "Float",
+     "form": "open",
+     "attack": 0
+    }
+   ],
+   "field": {
+    "spawns_and_patrols": "see stages[].spawns",
+    "patrol_speed": 1.5,
+    "chase_speed": 3,
+    "movement": "back and forth, floats through hedges, sees through hedges"
+   },
+   "drop": "candy corn",
+   "milestone": "M2"
+  }
+ ],
+ "boss": {
+  "id": "bigghost",
+  "placeholder_name": "Big Ghost",
+  "type": "spooky",
+  "arena": "inside the giant pumpkin (ghost house)",
+  "phases": [
+   {
+    "phase": 1,
+    "name": "Little Ghosts",
+    "shields": {
+     "count": 3,
+     "hearts_each": 1,
+     "type": "spooky",
+     "never_act": true,
+     "never_fold": true
+    },
+    "rule": "While any Little Ghost is left, damaging moves hit the front Little Ghost. Any final damage of 1+ tickles it away; extra damage is lost. Big Ghost cannot be hit.",
+    "strip": [
+     {
+      "word": "Blow",
+      "form": "open",
+      "attack": 1
+     },
+     {
+      "word": "Blow",
+      "form": "open",
+      "attack": 1
+     },
+     {
+      "word": "Call",
+      "form": "open",
+      "attack": 0,
+      "effect": "if fewer than 3 Little Ghosts, one comes back"
+     }
+    ],
+    "end": "the moment the last Little Ghost leaves; Big Ghost skips its card, roars, music shifts up"
+   },
+   {
+    "phase": 2,
+    "name": "Big Ghost",
+    "hearts": 11,
+    "strip": [
+     {
+      "word": "Curl",
+      "form": "folded",
+      "attack": 0
+     },
+     {
+      "word": "Swoop",
+      "form": "open",
+      "attack": 2
+     },
+     {
+      "word": "Howl",
+      "form": "open",
+      "attack": 5
+     },
+     {
+      "word": "Nap",
+      "form": "open",
+      "attack": 0
+     }
+    ],
+    "starts_at": "card 1 (Curl)"
+   }
+  ],
+  "answers_to_howl": {
+   "icecream": "Smash on the Howl round: big hit, then auto-folded so Howl does 3",
+   "fish": "Love before Howl lands",
+   "monster": "Gulp the Howl (bubble shows 6), Burp it back for 6-1 = 5"
+  },
+  "reward": "Big Ghost's candy bag (+10 candy), Big Ghost and Little Ghost book pages, Little Ghosts float free",
+  "no_run": true,
+  "expected_attempts": "1-3; naive play loses with Fish or Monster lead, wins with Ice Cream",
+  "worked_examples": {
+   "icecream_solo": {
+    "actions": [
+     "Bonk",
+     "Bonk",
+     "Bonk",
+     "Open",
+     "Drop",
+     "Smash",
+     "Bonk"
+    ],
+    "result": "win with 6/10 in 7 rounds"
+   },
+   "fish_solo": {
+    "actions": [
+     "Splash",
+     "Splash",
+     "Splash",
+     "Open",
+     "Slap",
+     "Love",
+     "Slap",
+     "Slap",
+     "Slap"
+    ],
+    "result": "win with 3/8 in 9 rounds"
+   },
+   "monster_solo": {
+    "actions": [
+     "Claw",
+     "Claw",
+     "Claw",
+     "Open",
+     "Chomp",
+     "Gulp",
+     "Burp",
+     "Chomp",
+     "Chomp"
+    ],
+    "result": "win with 4/9 in 9 rounds; opens on the free Curl round"
+   },
+   "team_monster_lead": {
+    "actions": [
+     "Claw",
+     "Claw",
+     "Claw",
+     "Team:icecream",
+     "Open",
+     "Smash",
+     "Lift",
+     "Open",
+     "Drop"
+    ],
+    "result": "win in 9 rounds; Ice Cream 6/10, Monster 7/9, Fish 8/8; final Drop = 3+2 Lift+1 Fresh+1 type = 7"
+   }
+  },
+  "optional_frankenstein_cameo": {
+   "recommended": "A",
+   "A": "rescued helper in ending: folded behind Big Ghost, ribbon snaps on boss defeat, hero unfold, Book page \"joins in the Amusement Park\"; no new systems",
+   "B": "mid-boss at pumpkin door; not recommended for slice"
+  },
+  "margins": {
+   "best_solo_by_solver": {
+    "icecream": "9/10",
+    "monster": "5/9",
+    "fish": "4/8"
+   },
+   "naive_folded_spam": {
+    "icecream": "win",
+    "fish": "lose",
+    "monster": "lose"
+   }
+  },
+  "milestone": "M3"
+ },
+ "puzzles": [
+  {
+   "id": "P1",
+   "stage": "S4",
+   "name": "The Candy-Cane Gate",
+   "goal": "pass the divider at x16-17 to the right exit",
+   "new_idea": "plate opens gate",
+   "needs_characters": "any one",
+   "milestone": "M2",
+   "reshaped": false,
+   "solutions": [
+    {
+     "by": [
+      "icecream"
+     ],
+     "steps": [
+      "stand (13,4) facing left, push boulder (12,4) to (11,4)",
+      "walk to (11,3), face front, push twice: (11,5) then plate (11,6)",
+      "gate (16,3) opens; walk (16,3)->(17,3)->exit"
+     ]
+    },
+    {
+     "by": [
+      "fish"
+     ],
+     "steps": [
+      "stand on (14,6), (14,7) or (14,8) facing right",
+      "Bridge over (15-17,y) to (18,y)"
+     ]
+    },
+    {
+     "by": [
+      "monster"
+     ],
+     "steps": [
+      "stand (15,1) facing right, Eat (16,1)",
+      "step, Eat (17,1)",
+      "walk to (18,1)"
+     ]
+    }
+   ],
+   "verified": "grid script: solvable by each single character; not by no powers; Ice Cream cannot push the two-boulder plug",
+   "softlock": "none: every reachable state can walk or bridge back; pause-menu do-over always available"
+  },
+  {
+   "id": "P2",
+   "stage": "S6",
+   "name": "The Pumpkin Yard",
+   "goal": "reach door (27-28,3)",
+   "new_idea": "stepping stones; combining powers",
+   "needs_characters": "Ice Cream alone, Fish+Monster, Fish+Ice Cream, Monster+Ice Cream",
+   "milestone": "M2",
+   "reshaped": false,
+   "solutions": [
+    {
+     "by": [
+      "icecream"
+     ],
+     "steps": [
+      "from (9,7) facing right push boulder (10,7) to (11,7) then into ditch (12,7): stone",
+      "walk to (13,7), face right, ring bell (14,7)",
+      "gate (23,6) opens; walk to door"
+     ]
+    },
+    {
+     "by": [
+      "fish",
+      "icecream"
+     ],
+     "steps": [
+      "Fish bridges ditch from (11,6-8) facing right or (13-15,4) facing front",
+      "swap to Ice Cream, ring bell",
+      "gate opens"
+     ]
+    },
+    {
+     "by": [
+      "fish",
+      "monster"
+     ],
+     "steps": [
+      "from bank (18,1) Fish bridges over (19-21,1) to landing (22,1)",
+      "swap to Monster, Eat (23,1)",
+      "walk into yard"
+     ]
+    },
+    {
+     "by": [
+      "fish",
+      "icecream"
+     ],
+     "variant": "west",
+     "steps": [
+      "bridge to landing (22,1)",
+      "Ice Cream pushes (23,1) to (24,1)",
+      "walk in"
+     ]
+    }
+   ],
+   "verified": "grid script: solvable by IC alone, Fish+Monster, Fish+IC, Monster+IC; not by Fish alone, Monster alone, or none",
+   "softlock": "none: worst case is standing on a stone made from the plug inside the moat; Fish bridges back; do-over always available"
+  },
+  {
+   "id": "SECRET",
+   "stage": "S2",
+   "name": "Rainbow Lollipop",
+   "needs_characters": "monster only (optional)",
+   "milestone": "M2",
+   "solutions": [
+    {
+     "by": [
+      "monster"
+     ],
+     "steps": [
+      "stand (3,0) facing left",
+      "Eat (2,0), step, Eat (1,0)",
+      "take lollipop (0,0)"
+     ]
+    }
+   ],
+   "verified": "grid script: only teams with Monster"
+  }
+ ],
+ "progression": {
+  "candy_kinds": [
+   "wrapped candy (bat)",
+   "lollipop (spider)",
+   "candy corn (ghost)",
+   "patch candy x10 (map)",
+   "rainbow lollipop (secret)"
+  ],
+  "healing_cost": 0,
+  "sticker_machine": {
+   "location": [
+    30,
+    11
+   ],
+   "price_candy": 3,
+   "order": "fixed and shown in the machine window; no random draws",
+   "milestone": "M4"
+  },
+  "book_pages": [
+   "Team (photo of real drawing, folded/open art, hearts, type, every move with number)",
+   "Creatures (silhouette until met; after first win: hearts, type, full strip, drop, times beaten)",
+   "Type circle",
+   "Candy (10 numbered slots + secret slot + creature candy counts)",
+   "Puzzles (one stamp per different solution found)",
+   "Stickers",
+   "Best boss win (most hearts left)"
+  ],
+  "candy_sources": [
+   "10 map candies",
+   "Rainbow Lollipop",
+   "creature drops",
+   "Candy Dash +5",
+   "boss +10"
+  ],
+  "spend": {
+   "candy_apple": 2,
+   "sticker": 3,
+   "rest": 0
+  }
+ },
+ "controls": {
+  "gamepad_standard_mapping": {
+   "axes_0_1_left_stick": {
+    "field": "analog move on ground plane (x along, y depth), deadzone 0.25",
+    "battle": null
+   },
+   "12-15_dpad": {
+    "field": "move 8-way",
+    "battle": null
+   },
+   "0_cross": {
+    "field": "Use (auto-unfolds) / interact",
+    "battle": "move slot 1 (lift, press again to play)"
+   },
+   "1_circle": {
+    "field": "close menu/bubble",
+    "battle": "move slot 2 (lift, then play)"
+   },
+   "3_triangle": {
+    "field": "hint lightbulb",
+    "battle": "move slot 3 (lift, then play)"
+   },
+   "2_square": {
+    "field": "Fold/Open lead",
+    "battle": "Fold/Open (lift, then play)"
+   },
+   "4_5_L1_R1": {
+    "field": "previous/next lead",
+    "battle": "switch to previous/next teammate (lift, then play)"
+   },
+   "6_L2": {
+    "field": null,
+    "battle": "hold 0.5 s: Bag"
+   },
+   "7_R2": {
+    "field": "hold to dash",
+    "battle": "hold 1 s: Run (not vs boss)"
+   },
+   "8_create": {
+    "field": "Book",
+    "battle": "\"What is this?\" picture cards"
+   },
+   "9_options": {
+    "field": "pause",
+    "battle": "pause"
+   }
+  },
+  "battle_input_rule": "first press lifts card and previews; same button again plays it; another button lifts that one instead; setting \"Quick play\" = one press plays",
+  "touch": {
+   "field": [
+    "floating joystick left half (past 90% = dash)",
+    "big Use bottom-right, Fold to its left",
+    "team portraits top corners",
+    "lightbulb top centre, pause top left"
+   ],
+   "battle": [
+    "card diamond bottom-right mirroring controller: cross bottom, circle right, triangle top, square (Fold/Open) left",
+    "teammate portraits top-left/top-right = L1/R1",
+    "tap to lift + preview, tap again to play",
+    "Bag and Run: small icons bottom-left, 0.5 s long-press with filling ring",
+    "long-press a move card: \"What is this?\""
+   ],
+   "min_target_px": 64
+  }
+ },
+ "save": {
+  "storage": "localStorage",
+  "autosave_on": [
+   "stage change",
+   "candy pickup",
+   "puzzle solved",
+   "battle end",
+   "rest",
+   "every 30 s while walking"
+  ],
+  "resume": "exact position; if mid-battle when closed, battle restarts from round 1 with the hearts you entered with"
+ },
+ "audience": "capable player ~7-9 with Pokemon/Mario/Zelda experience, early reader; easy on-ramp in zone A",
+ "field": {
+  "player_speed": 4,
+  "dash_speed": 5.5,
+  "dash_button": "R2 (index 7) / touch joystick past 90%",
+  "sight": {
+   "facing": "direction of movement (x-patrols left/right; depth patrol back/front)",
+   "along_x": "5 tiles ahead if lead open, 2 if folded; band = own row +/-1",
+   "in_depth": "3 rows ahead if open, 2 if folded; band = own column +/-1",
+   "behind": "blind",
+   "blocked_by": "hedges, boulders, gates, posts, sticker machine, pumpkin (ghosts see through hedges only)",
+   "drawn": "faint hatch band on ground"
+  },
+  "chase": {
+   "speed": 3,
+   "bat_speed": 3.5,
+   "give_up": "3 s out of sight or 6 tiles from patrol line",
+   "never_leaves_stage": true
+  },
+  "contact": {
+   "sneak_attack": "touch an unaware creature -> enemy Dizzy",
+   "caught": "normal start",
+   "only_lead_triggers": true,
+   "footprint": "radius 0.35 tiles, matching depth +/-0.5 rows"
+  },
+  "hazards": [
+   {
+    "chute": [
+     24,
+     0
+    ],
+    "lane_column": 24,
+    "direction": "toward camera (+y)",
+    "interval_s": 2.5,
+    "speed_rows_s": 5,
+    "on_hit": "lead -1 heart (min 1), bumped 1 tile back the way it came",
+    "id": "pumpkin_lane",
+    "stage": "S3",
+    "milestone": "M4"
+   }
+  ],
+  "timed_secret": {
+   "flag": [
+    30,
+    6
+   ],
+   "stars": [
+    [
+     34,
+     2
+    ],
+    [
+     27,
+     0
+    ],
+    [
+     23,
+     8
+    ],
+    [
+     12,
+     8
+    ],
+    [
+     4,
+     4
+    ]
+   ],
+   "time_s": 13,
+   "route_tiles": 52,
+   "id": "candy_dash",
+   "stage": "S2",
+   "reward": "Speed Star sticker + 5 candy",
+   "retry": "touch flag",
+   "milestone": "M4"
+  },
+  "main_puzzles_untimed": true,
+  "use_button": {
+   "press": "Cross on a valid object ahead",
+   "if_folded": "unfold (0.5 s hinge) then perform the action, in one press",
+   "if_open": "perform at once",
+   "form_after_any_power": "open (same for Eat, Bridge, Push, Reach); press Square to fold again",
+   "manual_toggle": "Square still toggles Fold/Open; matters for creature sight range (open 4 tiles, folded 2)",
+   "removed": "no wiggle, no open-me-first prompt",
+   "target_highlight": "A2 dashed outline"
+  },
+  "sneaking": [
+   "move 2+ rows away from its row (band is 3 rows; 6 rows remain outside)",
+   "pass behind it or use standees as cover",
+   "fold to shrink its reach to 2"
+  ]
+ },
+ "presentation": {
+  "style": "Paper Page: world drawn in marker on white paper; characters from scans of the real drawings",
+  "layers": "3 paper layers (paper texture / ground+objects / front cut-outs) with drop shadows; parallax up to 10 px",
+  "light": "warm late-afternoon tint, vignette, lantern pools in ghost house",
+  "sketch_in": "decorative scenery draws in as marker strokes then fill over 0.6 s on first view; gameplay objects always fully drawn before within 6 tiles",
+  "camera": "ease to 1.12x over 1.0 s near creatures (4 tiles) or in puzzle areas; snap to 1.2x on spotted; Steady camera setting",
+  "unfold": "paper hinge: 0.5 s field, 0.8 s battle; first unfold per character = 2 s hero version (push-in, dim, bloom, fanfare, name card), skippable",
+  "battle": "page-turn transition 0.6 s; hit flash; marker damage numbers; 4+ damage and Smash/Burp/Howl = 60 ms hit-stop + screen shake; confetti + fanfare on win",
+  "boss_intro": "letterbox bars in, slow push-in as Big Ghost rises, Little Ghosts spiral, marker title card BIG GHOST, drum hit, boss theme, bars out at round 1",
+  "sound": "real paper fold recordings; per-character attack sounds; same action same sound; bright candy chimes; field/battle/boss themes; fast Candy Dash version",
+  "settings": [
+   "master/music/effects volume",
+   "Steady camera",
+   "Reduce flashes (outline pulse instead)"
+  ]
+ },
+ "flat_character_rule": "Flat characters have one form: never fold, always take full hits, always have all moves, field powers work without opening.",
+ "later_lands": [
+  {
+   "order": 1,
+   "id": "water_world",
+   "entry": "Patch pond stream exits east; gate opens after Big Ghost (Little Ghosts lift it)",
+   "contains": "pond (Fish home), beach, reef",
+   "joins": [
+    "sheriff_crab"
+   ],
+   "creatures": [
+    "toothy fish",
+    "jellyfish",
+    "crab bandits"
+   ],
+   "signature_puzzle": "fixed visible currents; Crab pinches ropes/nets to free floating logs that drift to plug gaps so the 3-tile Fish bridge can reach",
+   "fold_power_taught": "Fish Bridge (advanced)"
+  },
+  {
+   "order": 2,
+   "id": "amusement_park",
+   "entry": "boardwalk pier from the beach",
+   "joins": [
+    "frankenstein"
+   ],
+   "creatures": [
+    "zigzag bats",
+    "haunted-house ghosts"
+   ],
+   "signature_puzzle": "Frankenstein connects bolt-posts to power rides on fixed cycles (Ferris wheel platforms, carousel turntable, bumper-car track); strongman bell = Reach",
+   "fold_power_taught": "Frankenstein Stretch/Connect"
+  },
+  {
+   "order": 3,
+   "id": "candy_land",
+   "entry": "candy-cane gate behind the park candy-floss stand",
+   "contains": "Gumdrop Gym (Ice Cream dumbbells), Ice Cream Mountain (scoop family), juice rivers, chocolate walls",
+   "joins": [
+    "juice_box",
+    "marshmallow_block"
+   ],
+   "homecoming": "icecream",
+   "creatures": [
+    "lollipop walkers",
+    "wrapped-candy flutterers",
+    "gummy blobs"
+   ],
+   "signature_puzzle": "build, melt and flood: Ice Cream lifts and stacks gumdrop blocks into stairs/bridges; Marshmallow melts chocolate walls into puddles that harden into floor; Juice Box changes juice-river levels so blocks float or settle",
+   "fold_power_taught": "Ice Cream Lift-and-stack (upgrade of Push)",
+   "candy_collectible_relation": "Candy Land is the candy factory the Patch candy came from. Candy scenery (gumdrop hills, candy-cane fences, chocolate walls) is terrain, never a pickup; pickups always wear the same sparkle wrapper as in the Patch. Collected candy becomes keys: gumdrop locks show a candy kind and open when you give one from the jar. Each Book candy slot fills a factory recipe page; full pages unlock candy-shop items."
+  },
+  {
+   "order": 4,
+   "id": "mushroom_forest",
+   "entry": "down the gumdrop hills at Candy Land edge (gumdrops turn into mushrooms)",
+   "joins": [
+    "flowerpot",
+    "orange_owl"
+   ],
+   "creatures": [
+    "bud-faces",
+    "spiders"
+   ],
+   "signature_puzzle": "vine climbing onto mushroom caps, bouncy mushroom arcs, dark grove revealed when Owl is lead",
+   "fold_power_taught": "Flowerpot Vine"
+  },
+  {
+   "order": 5,
+   "id": "cave",
+   "entry": "hole under the biggest mushroom",
+   "joins": [
+    "pumpkin",
+    "beaver"
+   ],
+   "creatures": [
+    "spiders",
+    "bats"
+   ],
+   "signature_puzzle": "Pumpkin ghost through rock walls to plates; dark rooms lit only near the lit Pumpkin; Beaver chews mine beams into log bridges",
+   "fold_power_taught": "Pumpkin Ghost",
+   "finale": "Monster's Belly: deepest tunnel is a giant sleeping fuzzy monster's mouth; pizza/fish/sausage platforms; three-character puzzles; final boss"
+  }
+ ],
+ "roster_later": [
+  {
+   "id": "pumpkin",
+   "folds": true,
+   "type": "spooky",
+   "field": "ghost through walls to press plates/levers; lit face lights dark rooms",
+   "battle": "Summoner: Little Ghost shields",
+   "land": "cave"
+  },
+  {
+   "id": "flowerpot",
+   "folds": true,
+   "type": "sweet",
+   "field": "vine climb one ledge",
+   "battle": "Grower: each open turn adds a leaf blocking 1 (max 3)",
+   "land": "mushroom_forest"
+  },
+  {
+   "id": "frankenstein",
+   "drawings": {
+    "folded": "IMG_3531.jpg",
+    "open": "IMG_3532.jpg"
+   },
+   "folds": true,
+   "type": "spooky",
+   "field": "Stretch across 1 pit tile; Connect two bolt-posts to power machines",
+   "battle": "Opener: Stomp 2 (folded); Zap 3, Lick pulls a folded enemy open this round (open)",
+   "land": "amusement_park"
+  },
+  {
+   "id": "sheriff_crab",
+   "drawings": {
+    "flat": "IMG_3533.jpg"
+   },
+   "folds": false,
+   "type": "chompy",
+   "field": "Pinch ropes/nets/seaweed; sidestep through 1-tile rock gaps",
+   "battle": "Counter: Guard snaps back 2 if hit; Halt freezes enemy pointer 1 round (once per battle)",
+   "land": "water_world"
+  },
+  {
+   "id": "marshmallow_block",
+   "name_open": true,
+   "drawings": {
+    "flat": "IMG_3525.jpg (top)"
+   },
+   "folds": false,
+   "type": "sweet",
+   "field": "flaming head melts chocolate walls into puddles that harden into floor; burns cobwebs/brambles",
+   "battle": "Burner: Burn puts a flame badge showing 3; deals 1 at end of each enemy turn, digit counts down",
+   "land": "candy_land"
+  },
+  {
+   "id": "beaver",
+   "folds": false,
+   "type": "chompy",
+   "field": "chew logs/beams into bridges",
+   "battle": "Chipper: small hit, enemy next attack -1",
+   "land": "cave"
+  },
+  {
+   "id": "orange_owl",
+   "folds": false,
+   "type": "spooky",
+   "field": "as lead, reveals hidden tiles",
+   "battle": "Seer: shows 2 extra boss cards",
+   "land": "mushroom_forest"
+  },
+  {
+   "id": "juice_box",
+   "folds": false,
+   "type": "sweet",
+   "field": "Drink lowers juice/water, Squirt raises it",
+   "battle": "Medic: Sip heals self 3; Squirt pushes enemy pointer back one card",
+   "land": "candy_land"
+  }
+ ],
+ "questions_for_child": {
+  "session_1": {
+   "when": "before building, drawings in hand",
+   "blocks": "M1",
+   "questions": [
+    [
+     "What's this guy's name? (each drawing)",
+     "all names"
+    ],
+    [
+     "What does this one do when it opens up? (each folding drawing)",
+     "field powers and big open moves"
+    ],
+    [
+     "What's in the fuzzy guy's tummy? What does he eat?",
+     "Gulp/Burp, tummy pictures, edible things"
+    ],
+    [
+     "Why did the big ghost take the candy? Mean, sad, or hungry?",
+     "story motive, comics, Big Ghost joining later"
+    ],
+    [
+     "The pink one with hearts and names inside: is it a fish, or something with a heart face and legs? Which way is up?",
+     "'Pink Fish' art, orientation, name (Bridge works either way)"
+    ],
+    [
+     "Let's record the noises: what does each one say when it opens up? When it gets hit?",
+     "voice and sound recordings, paper-fold recordings"
+    ]
+   ]
+  },
+  "session_2": {
+   "when": "after a screen test of his characters unfolding",
+   "blocks": null,
+   "questions": [
+    [
+     "If the ice cream fought a ghost, who'd win? Monster vs ice cream?",
+     "type circle direction"
+    ],
+    [
+     "What kinds of powers are there? Which kind is each friend?",
+     "type names and assignments"
+    ],
+    [
+     "Which ice cream scoop is the strongest? Which one's sleepy?",
+     "Lift/Smash animations"
+    ],
+    [
+     "What's the candy for? Buying stuff or collecting?",
+     "candy prices"
+    ],
+    [
+     "Who should be with you at the very start?",
+     "starter (default Monster)"
+    ],
+    [
+     "Are the bats and spiders baddies or just grumpy? Little ghosts: good or naughty?",
+     "creature personalities, Little Ghosts"
+    ]
+   ]
+  },
+  "session_3": {
+   "when": "after he has played the Pumpkin Patch",
+   "blocks": null,
+   "questions": [
+    [
+     "Cave, water world, amusement park, mushroom forest, Candy Land: which first? What lives in each? Who lives in Candy Land?",
+     "land order and residents"
+    ],
+    [
+     "The white block with fire on its head: what is it? What does the fire do?",
+     "Marshmallow Block name and powers"
+    ],
+    [
+     "When Frankenstein opens and shows his big mouth, what does he do with it? Goodie or baddie?",
+     "Frankenstein role, cameo option"
+    ],
+    [
+     "Why does the crab have a hat with a star? Is he a sheriff?",
+     "Sheriff Crab name and role"
+    ],
+    [
+     "What's at the very end of the cave?",
+     "Monster's Belly finale"
+    ]
+   ]
+  }
+ },
+ "build_order": [
+  {
+   "milestone": "M1",
+   "name": "walk and fight",
+   "contents": [
+    "stage S1 only, side-on stage view (bands, x-scroll camera, depth sort, L/R flip)",
+    "paper look",
+    "analog movement",
+    "teammates following",
+    "Fold toggle",
+    "one bat: patrol + contact",
+    "battle: face-button moves with lift-then-play, big-digit cards with heart preview",
+    "one complete Monster battle: strip, intent, preview, Fold/Open, damage, types, Fresh, all Monster moves, win, lose to rest blanket",
+    "controller + touch",
+    "autosave"
+   ],
+   "done_when": "walk, bump the bat, win or lose, retry"
+  },
+  {
+   "milestone": "M2",
+   "name": "puzzles and friends",
+   "contents": [
+    "stages S2-S6 with exits",
+    "Fish and Ice Cream join moments + first hero unfold",
+    "one-press Use field powers",
+    "Puzzle 1",
+    "Puzzle 2",
+    "Rainbow Lollipop",
+    "do-over pumpkins",
+    "spider (Sticky) and ghost",
+    "sight cones, chase, sneak attack (Dizzy)",
+    "dash",
+    "candy pickups + counter"
+   ],
+   "done_when": "reach the pumpkin door with any lead"
+  },
+  {
+   "milestone": "M3",
+   "name": "boss and story",
+   "contents": [
+    "stage S7 ghost house (night treatment)",
+    "Big Ghost both phases",
+    "letterbox intro",
+    "boss-loss portrait hint",
+    "opening + ending comics",
+    "optional Frankenstein cameo"
+   ],
+   "done_when": "slice can be finished"
+  },
+  {
+   "milestone": "M4",
+   "name": "after first playtest",
+   "contents": [
+    "Candy Dash",
+    "rolling-pumpkin lane",
+    "treat stand, Bag, Candy Apples",
+    "sticker machine",
+    "the Book",
+    "lightbulb hints + solution stamps",
+    "sketch-in and camera push-in polish",
+    "hit-stop/shake polish"
+   ],
+   "done_when": "tuned from his playtest"
+  }
+ ],
+ "view": {
+  "type": "side-on stage (style A2), replaces top-down",
+  "design_resolution": [
+   844,
+   390
+  ],
+  "tile_px": {
+   "across": 48,
+   "deep": 30
+  },
+  "screen_bands": {
+   "horizon_top": "22% (~86 px): far sheet + mid sheet; giant pumpkin landmark grows S1 0.4x, S2 0.55, S3 0.7, S4 0.8, S5 0.9, S6 fills horizon",
+   "ground_plane": "69% (~270 px): 9 rows deep, scrolls along x",
+   "foreground_bottom": "9% (~34 px): pre-blurred grass/leaves/posts, nothing playable"
+  },
+  "visible_tiles": {
+   "zoom_1.0": "~17.5 across, all 9 rows",
+   "zoom_1.14": "~14.8 across (horizon band absorbs crop; at most half of row 0 off-screen)",
+   "zoom_0.86": "~20 across"
+  },
+  "camera": "scrolls along x only, clamped to stage ends; A2 follow (look-ahead 0.32 s, k 9/s); 1.14x push-in within ~5 tiles of creature/power spot (k 7/s, centre pulled halfway); 0.86x vista when pumpkin fills horizon (k 5/s); snap 1.2x when spotted; hero and bridge-landing zooms per A2; range 0.85-1.45; Steady camera setting",
+  "movement": "free 2D analog on ground plane: x 4 tiles/s, depth 4 rows/s; dash 5.5",
+  "draw_order": "by feet y; nearer (lower) on top; tall standees in front of the lead fade to 50% while overlapping",
+  "facing": "sprite flips left/right only; powers use 4 facing directions (stronger axis of last movement); back/front shown by a marker arrow at the feet; power target shows A2 dashed outline"
+ },
+ "stage_legend": {
+  ".": "ground",
+  ":": "dirt path (main route)",
+  "#": "hedge/fence standee: blocks walking and sight (ghosts see/float through)",
+  "~": "water: Fish bridges 1-3; pushed boulder -> stepping stone",
+  "O": "boulder standee: Monster eats; Ice Cream pushes 1 (never two in a row)",
+  "<": "exit left",
+  ">": "exit right",
+  "S": "start",
+  "R": "rest blanket",
+  "c": "candy (glow disc)",
+  "H": "Rainbow Lollipop (secret)",
+  "^": "tall post with candy",
+  "B": "tall post with bell",
+  "P": "plate",
+  "G": "candy-cane gate",
+  "F": "Fish joins",
+  "I": "Ice Cream joins",
+  "Q": "giant pumpkin standee",
+  "D": "pumpkin door",
+  "r": "do-over pumpkin",
+  "m": "sticker machine (M4)",
+  "k": "pumpkin chute (M4)",
+  "v": "rolling-pumpkin lane, walkable (M4)",
+  "f": "Candy Dash flag (M4)",
+  "*": "Candy Dash star spot (M4, appears during dash)",
+  "b": "bat spawn",
+  "s": "spider spawn",
+  "g": "ghost spawn",
+  "E": "boss-stage exit",
+  "X": "Big Ghost 2x2",
+  "L": "Little Ghost"
+ },
+ "stages": [
+  {
+   "id": "S1",
+   "width": 28,
+   "depth": 9,
+   "rows": [
+    "...................#c#......",
+    "...c...............#O#......",
+    "......b.....................",
+    "............................",
+    "...........................>",
+    ":S:::::::::::::::::::::::::>",
+    "...........................>",
+    ".R..........................",
+    "............................"
+   ],
+   "legend_used": {
+    "#": "hedge/fence standee: blocks walking and sight (ghosts see/float through)",
+    ".": "ground",
+    ":": "dirt path (main route)",
+    ">": "exit right",
+    "O": "boulder standee: Monster eats; Ice Cream pushes 1 (never two in a row)",
+    "R": "rest blanket",
+    "S": "start",
+    "b": "bat spawn",
+    "c": "candy (glow disc)"
+   },
+   "connections": {
+    "right": "S2"
+   },
+   "exits": [
+    {
+     "at": [
+      27,
+      4
+     ],
+     "to": "S2"
+    },
+    {
+     "at": [
+      27,
+      5
+     ],
+     "to": "S2"
+    },
+    {
+     "at": [
+      27,
+      6
+     ],
+     "to": "S2"
+    }
+   ],
+   "name": "Monster's Corner",
+   "zone": "A",
+   "teaches": [
+    "moving",
+    "sneaking",
+    "first battle",
+    "Eat"
+   ],
+   "spawns": [
+    {
+     "creature": "bat",
+     "at": [
+      6,
+      2
+     ],
+     "patrol": [
+      [
+       4,
+       2
+      ],
+      [
+       16,
+       2
+      ],
+      [
+       16,
+       6
+      ],
+      [
+       4,
+       6
+      ]
+     ],
+     "loop": "clockwise"
+    }
+   ],
+   "candy": [
+    [
+     3,
+     1
+    ],
+    [
+     20,
+     0
+    ]
+   ],
+   "rest": [
+    [
+     1,
+     7
+    ]
+   ],
+   "notes": "alcove candy (20,0) behind boulder (20,1): Eat from (20,2) facing back; push blocked by candy"
+  },
+  {
+   "id": "S2",
+   "width": 36,
+   "depth": 9,
+   "rows": [
+    "HOO.....~~~~~~~~~~~~~~~....*........",
+    "###.....~~~~~~~~~~~~~~~.............",
+    "........~~~~~~~c~~~~~~~....c......*.",
+    "........~~~~~~~~~~~~~~~.............",
+    "....*...~~~~~~~~~~~~~~~.............",
+    "........~~~~~~~~~~~~~~~.............",
+    "<...........F.................f....>",
+    "<::::::::::::::::::::::::::::::::::>",
+    "<...s.......*..........*...........>"
+   ],
+   "legend_used": {
+    "#": "hedge/fence standee: blocks walking and sight (ghosts see/float through)",
+    "*": "Candy Dash star spot (M4, appears during dash)",
+    ".": "ground",
+    ":": "dirt path (main route)",
+    "<": "exit left",
+    ">": "exit right",
+    "F": "Fish joins",
+    "H": "Rainbow Lollipop (secret)",
+    "O": "boulder standee: Monster eats; Ice Cream pushes 1 (never two in a row)",
+    "c": "candy (glow disc)",
+    "f": "Candy Dash flag (M4)",
+    "s": "spider spawn",
+    "~": "water: Fish bridges 1-3; pushed boulder -> stepping stone"
+   },
+   "connections": {
+    "left": "S1",
+    "right": "S3"
+   },
+   "exits": [
+    {
+     "at": [
+      0,
+      6
+     ],
+     "to": "S1"
+    },
+    {
+     "at": [
+      35,
+      6
+     ],
+     "to": "S3"
+    },
+    {
+     "at": [
+      0,
+      7
+     ],
+     "to": "S1"
+    },
+    {
+     "at": [
+      35,
+      7
+     ],
+     "to": "S3"
+    },
+    {
+     "at": [
+      0,
+      8
+     ],
+     "to": "S1"
+    },
+    {
+     "at": [
+      35,
+      8
+     ],
+     "to": "S3"
+    }
+   ],
+   "name": "The Pond",
+   "zone": "B",
+   "teaches": [
+    "Bridge",
+    "enemy Curl and Sticky",
+    "Candy Dash (M4)"
+   ],
+   "joins": {
+    "fish": [
+     12,
+     6
+    ]
+   },
+   "spawns": [
+    {
+     "creature": "spider",
+     "at": [
+      4,
+      8
+     ],
+     "patrol": [
+      [
+       2,
+       8
+      ],
+      [
+       33,
+       8
+      ]
+     ]
+    }
+   ],
+   "candy": [
+    [
+     15,
+     2
+    ],
+    [
+     27,
+     2
+    ]
+   ],
+   "hidden": [
+    0,
+    0
+   ],
+   "dash": {
+    "flag": [
+     30,
+     6
+    ],
+    "stars": [
+     [
+      34,
+      2
+     ],
+     [
+      27,
+      0
+     ],
+     [
+      23,
+      8
+     ],
+     [
+      12,
+      8
+     ],
+     [
+      4,
+      4
+     ]
+    ],
+    "time_s": 13,
+    "route_tiles": 52
+   },
+   "notes": "island (15,2): only bridge spot is (15,6) facing back over 3 water"
+  },
+  {
+   "id": "S3",
+   "width": 32,
+   "depth": 9,
+   "rows": [
+    ".........#c#............k.......",
+    "..R......#.#..^.........v.......",
+    "..........O.............v.......",
+    "......I.................v.......",
+    "........................v.......",
+    "<.......................v......>",
+    "<:::::::::::::::::::::::v::::::>",
+    "<.................s.....v......>",
+    "........................v......."
+   ],
+   "legend_used": {
+    "#": "hedge/fence standee: blocks walking and sight (ghosts see/float through)",
+    ".": "ground",
+    ":": "dirt path (main route)",
+    "<": "exit left",
+    ">": "exit right",
+    "I": "Ice Cream joins",
+    "O": "boulder standee: Monster eats; Ice Cream pushes 1 (never two in a row)",
+    "R": "rest blanket",
+    "^": "tall post with candy",
+    "c": "candy (glow disc)",
+    "k": "pumpkin chute (M4)",
+    "s": "spider spawn",
+    "v": "rolling-pumpkin lane, walkable (M4)"
+   },
+   "connections": {
+    "left": "S2",
+    "right": "S4"
+   },
+   "exits": [
+    {
+     "at": [
+      0,
+      5
+     ],
+     "to": "S2"
+    },
+    {
+     "at": [
+      31,
+      5
+     ],
+     "to": "S4"
+    },
+    {
+     "at": [
+      0,
+      6
+     ],
+     "to": "S2"
+    },
+    {
+     "at": [
+      31,
+      6
+     ],
+     "to": "S4"
+    },
+    {
+     "at": [
+      0,
+      7
+     ],
+     "to": "S2"
+    },
+    {
+     "at": [
+      31,
+      7
+     ],
+     "to": "S4"
+    }
+   ],
+   "name": "Candy Stand",
+   "zone": "C",
+   "teaches": [
+    "Push",
+    "Reach",
+    "pumpkin lane (M4)"
+   ],
+   "joins": {
+    "icecream": [
+     6,
+     3
+    ]
+   },
+   "spawns": [
+    {
+     "creature": "spider",
+     "at": [
+      18,
+      7
+     ],
+     "patrol": [
+      [
+       13,
+       7
+      ],
+      [
+       22,
+       7
+      ]
+     ]
+    }
+   ],
+   "candy": [
+    [
+     10,
+     0
+    ],
+    [
+     14,
+     1
+    ]
+   ],
+   "rest": [
+    [
+     2,
+     1
+    ]
+   ],
+   "hazard": {
+    "chute": [
+     24,
+     0
+    ],
+    "lane_column": 24,
+    "direction": "toward camera (+y)",
+    "interval_s": 2.5,
+    "speed_rows_s": 5,
+    "on_hit": "lead -1 heart (min 1), bumped 1 tile back the way it came"
+   }
+  },
+  {
+   "id": "S4",
+   "width": 24,
+   "depth": 9,
+   "rows": [
+    "................##......",
+    "..r.............OO......",
+    "................##.....>",
+    "................G::::::>",
+    "............O...##.....>",
+    "<...............##......",
+    "<::::::::::P...~~~......",
+    "<...c..........~~~......",
+    "...............~~~......"
+   ],
+   "legend_used": {
+    "#": "hedge/fence standee: blocks walking and sight (ghosts see/float through)",
+    ".": "ground",
+    ":": "dirt path (main route)",
+    "<": "exit left",
+    ">": "exit right",
+    "G": "candy-cane gate",
+    "O": "boulder standee: Monster eats; Ice Cream pushes 1 (never two in a row)",
+    "P": "plate",
+    "c": "candy (glow disc)",
+    "r": "do-over pumpkin",
+    "~": "water: Fish bridges 1-3; pushed boulder -> stepping stone"
+   },
+   "connections": {
+    "left": "S3",
+    "right": "S5 (only past the divider)"
+   },
+   "exits": [
+    {
+     "at": [
+      23,
+      2
+     ],
+     "to": "S5 (only past the divider)"
+    },
+    {
+     "at": [
+      23,
+      3
+     ],
+     "to": "S5 (only past the divider)"
+    },
+    {
+     "at": [
+      23,
+      4
+     ],
+     "to": "S5 (only past the divider)"
+    },
+    {
+     "at": [
+      0,
+      5
+     ],
+     "to": "S3"
+    },
+    {
+     "at": [
+      0,
+      6
+     ],
+     "to": "S3"
+    },
+    {
+     "at": [
+      0,
+      7
+     ],
+     "to": "S3"
+    }
+   ],
+   "name": "Candy-Cane Gate (Puzzle 1)",
+   "zone": "C/D border",
+   "teaches": [
+    "plate opens gate"
+   ],
+   "candy": [
+    [
+     4,
+     7
+    ]
+   ],
+   "do_over": [
+    2,
+    1
+   ],
+   "links": [
+    {
+     "plate": [
+      11,
+      6
+     ],
+     "gate": [
+      16,
+      3
+     ]
+    }
+   ],
+   "creature_free": true
+  },
+  {
+   "id": "S5",
+   "width": 32,
+   "depth": 9,
+   "rows": [
+    "................................",
+    "........................g.......",
+    "..............##................",
+    "<.....g.......##...............>",
+    "<::::::::::::::::::::::::::::::>",
+    "<..............................>",
+    "................................",
+    "................................",
+    ".............................c.."
+   ],
+   "legend_used": {
+    "#": "hedge/fence standee: blocks walking and sight (ghosts see/float through)",
+    ".": "ground",
+    ":": "dirt path (main route)",
+    "<": "exit left",
+    ">": "exit right",
+    "c": "candy (glow disc)",
+    "g": "ghost spawn"
+   },
+   "connections": {
+    "left": "S4",
+    "right": "S6"
+   },
+   "exits": [
+    {
+     "at": [
+      0,
+      3
+     ],
+     "to": "S4"
+    },
+    {
+     "at": [
+      31,
+      3
+     ],
+     "to": "S6"
+    },
+    {
+     "at": [
+      0,
+      4
+     ],
+     "to": "S4"
+    },
+    {
+     "at": [
+      31,
+      4
+     ],
+     "to": "S6"
+    },
+    {
+     "at": [
+      0,
+      5
+     ],
+     "to": "S4"
+    },
+    {
+     "at": [
+      31,
+      5
+     ],
+     "to": "S6"
+    }
+   ],
+   "name": "Ghost Field",
+   "zone": "D",
+   "teaches": [
+    "type circle"
+   ],
+   "spawns": [
+    {
+     "creature": "ghost",
+     "at": [
+      6,
+      3
+     ],
+     "patrol": [
+      [
+       1,
+       3
+      ],
+      [
+       30,
+       3
+      ]
+     ],
+     "note": "floats through clump x14-15"
+    },
+    {
+     "creature": "ghost",
+     "at": [
+      24,
+      1
+     ],
+     "patrol": [
+      [
+       24,
+       0
+      ],
+      [
+       24,
+       8
+      ]
+     ],
+     "note": "faces back/front"
+    }
+   ],
+   "candy": [
+    [
+     29,
+     8
+    ]
+   ]
+  },
+  {
+   "id": "S6",
+   "width": 32,
+   "depth": 9,
+   "rows": [
+    "...................~~~##.QQQQQQ.",
+    ".....r.............~~~.O.QQQQQQ.",
+    "...................~~~##.QQQQQQ.",
+    "<..................~~~##...DD...",
+    "<::::::::::::::::::....#........",
+    "<...........~~~~#......#........",
+    "............~...#......G........",
+    ".Rm.......O.~.B.#......#......c.",
+    "............~..c#......#........"
+   ],
+   "legend_used": {
+    "#": "hedge/fence standee: blocks walking and sight (ghosts see/float through)",
+    ".": "ground",
+    ":": "dirt path (main route)",
+    "<": "exit left",
+    "B": "tall post with bell",
+    "D": "pumpkin door",
+    "G": "candy-cane gate",
+    "O": "boulder standee: Monster eats; Ice Cream pushes 1 (never two in a row)",
+    "Q": "giant pumpkin standee",
+    "R": "rest blanket",
+    "c": "candy (glow disc)",
+    "m": "sticker machine (M4)",
+    "r": "do-over pumpkin",
+    "~": "water: Fish bridges 1-3; pushed boulder -> stepping stone"
+   },
+   "connections": {
+    "left": "S5",
+    "door": "S7 via D (27-28,3)"
+   },
+   "exits": [
+    {
+     "at": [
+      0,
+      3
+     ],
+     "to": "S5"
+    },
+    {
+     "at": [
+      0,
+      4
+     ],
+     "to": "S5"
+    },
+    {
+     "at": [
+      0,
+      5
+     ],
+     "to": "S5"
+    }
+   ],
+   "name": "Pumpkin Yard (Puzzle 2)",
+   "zone": "D",
+   "teaches": [
+    "stepping stones",
+    "combining powers"
+   ],
+   "candy": [
+    [
+     15,
+     8
+    ],
+    [
+     30,
+     7
+    ]
+   ],
+   "rest": [
+    [
+     1,
+     7
+    ]
+   ],
+   "sticker_machine": [
+    2,
+    7
+   ],
+   "do_over": [
+    5,
+    1
+   ],
+   "links": [
+    {
+     "bell": [
+      14,
+      7
+     ],
+     "gate": [
+      23,
+      6
+     ]
+    }
+   ],
+   "door": [
+    [
+     27,
+     3
+    ],
+    [
+     28,
+     3
+    ]
+   ],
+   "creature_free": true
+  },
+  {
+   "id": "S7",
+   "width": 20,
+   "depth": 9,
+   "rows": [
+    "....................",
+    "....................",
+    "...........L........",
+    ".............XX.....",
+    "E............XX.....",
+    "................L...",
+    ".R..........L.......",
+    "....................",
+    "...................."
+   ],
+   "legend_used": {
+    ".": "ground",
+    "E": "boss-stage exit",
+    "L": "Little Ghost",
+    "R": "rest blanket",
+    "X": "Big Ghost 2x2"
+   },
+   "connections": {
+    "exit": "S6 door via E (0,4)"
+   },
+   "exits": [
+    {
+     "at": [
+      0,
+      4
+     ],
+     "to": "S6 door via E (0,4)"
+    }
+   ],
+   "name": "Ghost House (boss)",
+   "night_treatment": true,
+   "rest": [
+    [
+     1,
+     6
+    ]
+   ],
+   "boss": {
+    "big_ghost": [
+     [
+      13,
+      3
+     ],
+     [
+      14,
+      4
+     ]
+    ],
+    "little_ghosts": [
+     [
+      11,
+      2
+     ],
+     [
+      16,
+      5
+     ],
+     [
+      12,
+      6
+     ]
+    ]
+   },
+   "entry": [
+    0,
+    4
+   ]
+  }
+ ],
+ "map_candy_total": 10,
+ "battle_display": {
+  "move_cards": "picture + one short word + one big marker digit = final number (type, fold, Fresh, Lift applied); button symbol in corner",
+  "heal_cards": "digit on a green heart",
+  "badge_moves": "badge icon with digit (Lift 2, Gulp = number it would store, Burp = final damage)",
+  "intent_bubble": "one big digit = final damage to current character in current form",
+  "preview": "lifted card: target heart bar shows exact hearts to be lost (hollow, jiggling) or ghost hearts for heals; lifting Fold/Open or a teammate updates intent digit and previews your own loss",
+  "no_count_glyphs": "damage never shown as stars or pips; heart bar is the only count"
+ },
+ "move_slot_rule": {
+  "max_moves_per_form": 3,
+  "slots": [
+   "cross",
+   "circle",
+   "triangle"
+  ],
+  "square": "Fold/Open (flat characters: greyed flat-paper icon)",
+  "check": {
+   "monster": {
+    "folded": [
+     "Claw",
+     "Snack"
+    ],
+    "open": [
+     "Chomp",
+     "Gulp",
+     "Burp"
+    ]
+   },
+   "fish": {
+    "folded": [
+     "Splash",
+     "Hug"
+    ],
+    "open": [
+     "Slap",
+     "Love"
+    ]
+   },
+   "icecream": {
+    "folded": [
+     "Bonk",
+     "Lift"
+    ],
+    "open": [
+     "Drop",
+     "Smash"
+    ]
+   },
+   "pumpkin": {
+    "folded": [
+     "Roll 2",
+     "Glow (heal 2)"
+    ],
+    "open": [
+     "Haunt 3",
+     "Shield"
+    ]
+   },
+   "flowerpot": {
+    "folded": [
+     "Root 2",
+     "Water (heal 2)"
+    ],
+    "open": [
+     "Whip 3",
+     "Leaf"
+    ]
+   },
+   "frankenstein": {
+    "folded": [
+     "Stomp 2",
+     "Bolt (+2)"
+    ],
+    "open": [
+     "Zap 3",
+     "Lick"
+    ]
+   },
+   "sheriff_crab": {
+    "flat": [
+     "Pinch 2",
+     "Guard",
+     "Halt"
+    ]
+   },
+   "marshmallow_block": {
+    "flat": [
+     "Toast 2",
+     "Burn"
+    ]
+   },
+   "beaver": {
+    "flat": [
+     "Chip 1",
+     "Gnaw 3"
+    ]
+   },
+   "orange_owl": {
+    "flat": [
+     "Peck 2",
+     "Look"
+    ]
+   },
+   "juice_box": {
+    "flat": [
+     "Spray 2",
+     "Sip",
+     "Squirt"
+    ]
+   }
+  },
+  "result": "all forms <= 3"
+ }
+}

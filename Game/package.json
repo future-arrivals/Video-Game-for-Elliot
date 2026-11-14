@@ -1,0 +1,15 @@
+{
+  "name": "elliot-game",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "gen": "node tools/gen-data.mjs",
+    "test": "node --test test/",
+    "build": "node tools/build.mjs",
+    "shot": "node tools/shot.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "puppeteer-core": "^25.17.0"
+  }
+}
