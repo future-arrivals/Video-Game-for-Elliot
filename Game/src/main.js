@@ -24,7 +24,8 @@ import { loadAssets } from './assets.js';
 import data from './data/slice.gen.js';
 import { createInput } from './input/input.js';
 import { createAudio } from './audio.js';
-import { loadSave } from './save.js';
+import { loadSave, SAVE_KEY } from './save.js';
+import { createTitleScene } from './scenes/title.js';
 import { createFieldScene } from './scenes/fieldscene.js';
 import { createBattleScene } from './scenes/battlescene.js';
 import { createBattle } from './battle/battle.js';
@@ -59,12 +60,11 @@ export async function startGame({ canvas }) {
   window.__game = game;
   const assets = await loadAssets();
   game.assets = assets;
-  const input = createInput(canvas, {
-    toLogical: (cx, cy) => {
-      const r = canvas.getBoundingClientRect();
-      return [(cx - r.left) * W / (r.width || 1), (cy - r.top) * H / (r.height || 1)];
-    },
-  });
+  const toLogical = (cx, cy) => {
+    const r = canvas.getBoundingClientRect();
+    return [(cx - r.left) * W / (r.width || 1), (cy - r.top) * H / (r.height || 1)];
+  };
+  const input = createInput(canvas, { toLogical });
   const audio = createAudio();
   const storage = openStorage();
   const query = new URLSearchParams(location.search);
@@ -98,7 +98,8 @@ export async function startGame({ canvas }) {
   function step(dt) { game.scene.update(dt, pollFrame(dt)); }
 
   game.setScene = s => { game.scene = s; if (s && s.inputMode) input.setMode(s.inputMode); else input.setMode('field'); };
-  const field = createFieldScene({ assets, data, input, audio, storage, settings, query, onBattle: startBattle });
+  const makeField = () => createFieldScene({ assets, data, input, audio, storage, settings, query, onBattle: startBattle });
+  let field = makeField();
   let battleScene = null;
 
   // A field 'battle' event (or a battle restarted from the save).
@@ -140,12 +141,26 @@ export async function startGame({ canvas }) {
   }
 
   game.fieldScene = field;
-  game.setScene(field);
+  // Start screen: only when a save exists, never with a dev key or under automation, unless ?title=1.
+  const DEV_QUERY = ['x', 'y', 'form', 'party', 'lead', 'bat', 'fresh', 'stage', 'zoom', 'steady'];
+  const hasSave = !!loadSave(storage);
+  const showTitle = hasSave && (query.get('title') === '1' || (!navigator.webdriver && !DEV_QUERY.some(k => query.has(k))));
+  const enterField = () => { game.setScene(field); if (field.pendingBattle) field.startPendingBattle(field.pendingBattle); };
+  function startOver() {                              // the save goes, a fresh game (the monster alone in S1) begins
+    try { storage && storage.removeItem(SAVE_KEY); } catch { /* never mind */ }
+    field = makeField(); game.fieldScene = field;
+    game.setScene(field);
+  }
+  if (showTitle) {
+    const title = createTitleScene({ assets, save: loadSave(storage), canvas, toLogical, audio, onContinue: enterField, onStartOver: startOver });
+    game.title = title;
+    game.setScene(title);
+  } else game.setScene(field);
   game.state = () => field.field;
   game.battle = () => (battleScene ? battleScene.state : null);
   game.canStand = (i, j) => canStand(field.field, field.stage, i, j);   // read-only: for scripted route finding
-  game.mode = () => (game.scene && (game.scene.transition || game.scene.travelling) ? 'transition' : game.scene === field ? 'field' : 'battle');
-  if (field.pendingBattle) field.startPendingBattle(field.pendingBattle);   // closed mid-battle: start it again
+  game.mode = () => (game.scene && (game.scene.transition || game.scene.travelling) ? 'transition' : game.scene === game.title ? 'title' : game.scene === field ? 'field' : 'battle');
+  if (!showTitle && field.pendingBattle) field.startPendingBattle(field.pendingBattle);   // closed mid-battle: start it again
 
   function draw(timeMs) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);

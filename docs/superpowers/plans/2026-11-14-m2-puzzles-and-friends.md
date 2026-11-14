@@ -242,3 +242,11 @@ Wave A is three Opus tasks and one Sonnet task and needs no visual sign-off: eve
 - To enable: add `ghost: { still: 'idle', move: 'float', imgUnits: 244, hover: true }` to `RIG.creatures` in `actors.js`. The S5 ghosts would then look like Spook. Compare `Game/.shots/rig/ghost/walk-off.png` and `walk-on.png`.
 
 - Owner decided (14 Nov): keep the current ghost drawing in S5. The Spook rig stays registered but off; animating the game ghost needs a demo for `ghost.svg`.
+
+### 17:00, Milestone 3 core (no separate plan was written; this log is the record)
+- Field: S6 door travels to S7; Big Ghost solid at (13-14, 3-4), contact within 0.4 tiles emits `{ t:'battle', creatureUid:'boss', kind:'bigghost', boss:true }`; win sets `world.bossBeaten`, +10 candy (`BOSS_CANDY`), `scenes/ending.js` plays about 3 s; loss rests at S7's blanket. `NIGHT` wash in stageview.js.
+- Battle: `createBattle` with `enemy: 'bigghost'` from `data.boss`; state `boss { phase, littles, maxLittles, littleType, next }`; events `little`, `littleBack`, `bossPhase`; run disabled. Tests `test/boss.test.js` replay the design's four worked fights; field tests in `test/bossfield.test.js`.
+- Start screen `scenes/title.js`: shows only with a save, never with a dev key or under automation (`navigator.webdriver`) unless `title=1`.
+- `tools/play-late.mjs` runs I to L: S4 to S6, the door and S7, a boss win (Solo Ice Cream line), a boss loss. 148 tests, 15 battle checks, all playthrough runs pass on the dev page and the built file (1647 KB).
+- Observed: with three friends, first-move spam beats the boss (the design's "mindless play loses" was solved for solo). Tuning item.
+- Not done: comics, letterbox intro, boss-loss hint, night battle backdrop, Frankenstein cameo. Not checked by a person: boss, start screen (touch and gamepad Triangle untested), phone, TV.
