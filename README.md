@@ -17,7 +17,7 @@ It runs in a phone browser in landscape, played with a PlayStation controller ov
 | Character art | Done: all 12 characters redrawn as clean SVG, plus creatures and items | `Art/Characters/` |
 | Look | Chosen: "Paper Page", cinematic version (A2) | `Art/Style/style-A2.html` |
 | Design for the first area | Done, reviewed twice | `Design/slice-design.md` |
-| The game itself | Milestone 1 built (14 Nov): walk stage S1, team follows, fold, bat, one full battle. Clarity batch added the same day: depth pass on the field, a yellow ring under the lead, the Eat power on the boulder with a helper badge, and a decluttered battle screen. Controller confirmed working on the Mac; not yet tried on a phone or TV | `Game/` (open `Game/dist/elliot-game.html`) |
+| The game itself | Milestone 1 built and Milestone 2 mostly built (14 Nov). **Stages S1 to S3 play end to end**: start as Munch alone, eat the boulder, walk to the pond, Heartfin joins and bridges water, walk to the candy stand, Scoops joins, pushes a boulder and reaches a candy post. Creatures see and chase. Munch, Heartfin and Scoops are animated while walking. S4 to S6: see "Next step". Controller confirmed working on the Mac for an earlier build; **this build has not been played by a person on any device**, only by script | `Game/` (open `Game/dist/elliot-game.html`) |
 
 ## Decisions made
 
@@ -116,17 +116,19 @@ Only these are needed before building. The full list, in three short sessions, i
 ## The game build
 
 - Source is small ES modules in `Game/src/`; `cd Game && npm run build` writes the single self-contained file `Game/dist/elliot-game.html`.
-- Checks: `npm test` (rules), `node tools/battle-check.mjs` (battle screen), `node tools/play.mjs` (a scripted playthrough: win, lose, reload mid-battle, run, eat the boulder).
+- Checks: `npm test` (rules, including every puzzle solution replayed), `node tools/battle-check.mjs` (battle screen), `node tools/play.mjs` (scripted playthroughs by inputs only: battles, save and reload, and the whole route stage to stage; add `--page Game/dist/elliot-game.html` to run them on the built file).
+- Animations: `Art/Demos/` holds the animated demo page for each character. `node tools/rigparts.mjs <id>` turns a demo into a parts atlas in `Game/assets/rigs/<id>/`; the clip code is in `Game/src/render/rigs/`, with a porting guide in its `README.md`. `Game/dev/rig.html?rig=monster` plays one rig. `RIG.on` in `Game/src/render/actors.js` switches the game back to the still pictures.
 - Look: every visual choice sits behind a named constant at the top of `Game/src/render/stagebake.js`, `fieldmarks.js`, `layers.js`, `props.js` and `actors.js`, so any one can be dialled back. `node tools/sheet.mjs` builds before/after sheets.
 - Keyboard for testing: arrows or WASD move; `K` Cross, `L` Circle, `I` Triangle, `J` Square; `Q`/`E` L1/R1; hold `Shift` for R2; `Enter` pause.
-- The plan, with what each module does, is `docs/superpowers/plans/2026-11-14-m1-walk-and-fight.md`.
-- M1 starts with all three characters so following and swapping can be tried; add `?party=1` for the monster alone, `?fresh` to ignore the save.
+- The plans, with what each module does and a progress log of every decision: `docs/superpowers/plans/2026-11-14-m1-walk-and-fight.md` and `2026-11-14-m2-puzzles-and-friends.md`.
+- A fresh game starts with Munch alone. For testing: `?party=3` gives all three, `?lead=fish`, `?stage=S3`, `?x=..&y=..` place the team, `?fresh` ignores the save.
 
 ## Next step
 
-1. Checkpoint: the owner looks at the new field and battle visuals (before/after sheets in `Game/.shots/sheets/`) before anything else starts.
-2. Test by hand on the phone and cast to the TV (the controller already works on the Mac).
-3. Then milestone 2 (Eat is already in; the second puzzle, more stages).
+1. Play it by hand: on the Mac with the controller, then on the phone and cast to the TV. Nobody has yet. Listen to the sounds too (seven are new and unheard).
+2. Finish Milestone 2: S4 to S6 (see the M2 plan's progress log for their exact state), the pause-menu do-over (the game has no pause menu yet), the gate and unfold flourishes, and animations for the remaining creatures.
+3. Animations in battles: the rigs have hurt, happy and attack clips that the battle screen does not use yet.
+4. Then milestone 3 (the boss and comics), and milestone 4 after his first playtest.
 
 Milestone 1 as originally specified (section 13 of the design doc): walking on a stage, teammates following, one creature, and one complete battle, in the A2 look.
 
