@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Input test</title>
+<link rel="icon" href="data:,">
+<style>
+  html, body { margin: 0; background: #EFE9DC; font-family: Verdana, sans-serif; color: #3B362E; }
+  #wrap { display: flex; flex-direction: column; height: 100vh; }
+  #bar { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; font-size: 12px; }
+  #bar button { font: inherit; padding: 4px 8px; background: #FBF8F0; border: 1px solid #A39C8E; border-radius: 6px; }
+  #stage { flex: 1; position: relative; min-height: 0; }
+  canvas { position: absolute; background: #FBF8F0; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="bar"><button id="mode">MODE: FIELD</button></div>
+  <div id="stage"><canvas id="c"></canvas></div>
+</div>
+<script type="module">
+import { createInput } from '../src/input/input.js';
+import { createAudio, SOUND_NAMES } from '../src/audio.js';
+
+const W = 844, H = 390;
+const canvas = document.getElementById('c');
+const stage = document.getElementById('stage');
+const ctx = canvas.getContext('2d');
+let scale = 1;
+
+function fit() {
+  const r = stage.getBoundingClientRect();
+  scale = Math.min(r.width / W, r.height / H);
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  canvas.style.width = W * scale + 'px';
+  canvas.style.height = H * scale + 'px';
+  canvas.style.left = (r.width - W * scale) / 2 + 'px';
+  canvas.style.top = (r.height - H * scale) / 2 + 'px';
+  canvas.width = Math.round(W * scale * dpr);
+  canvas.height = Math.round(H * scale * dpr);
+  ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
+}
+addEventListener('resize', fit);
+fit();
+
+const toLogical = (cx, cy) => {
+  const r = canvas.getBoundingClientRect();
+  return [(cx - r.left) / r.width * W, (cy - r.top) / r.height * H];
+};
+const input = createInput(canvas, { toLogical });
+const audio = createAudio();
+addEventListener('keydown', () => audio.unlock());
+addEventListener('pointerdown', () => audio.unlock());
+
+let mode = 'field';
+const modeBtn = document.getElementById('mode');
+modeBtn.onclick = () => { mode = mode === 'field' ? 'battle' : 'field'; input.setMode(mode); modeBtn.textContent = 'MODE: ' + mode.toUpperCase(); };
+for (const name of SOUND_NAMES) {
+  const b = document.createElement('button');
+  b.textContent = name;
+  b.onclick = () => { audio.unlock(); audio.play(name); };
+  document.getElementById('bar').appendChild(b);
+}
+
+const log = []; // recent one-frame events, so they stay readable
+let frame = null, last = performance.now(), frames = 0;
+const marks = []; // taps and long-presses, fading out
+
+function loop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now; frames++;
+  frame = input.poll(dt);
+  for (const [k, v] of Object.entries(frame.pressed)) if (v) log.unshift(`#${frames} pressed ${k}`);
+  for (const t of frame.taps) { log.unshift(`#${frames} tap ${t.x.toFixed(0)},${t.y.toFixed(0)}`); marks.push({ ...t, kind: 'tap', life: 1 }); }
+  for (const t of frame.longPress) { log.unshift(`#${frames} longPress ${t.x.toFixed(0)},${t.y.toFixed(0)}`); marks.push({ ...t, kind: 'long', life: 1 }); }
+  if (frame.padLost) log.unshift(`#${frames} PAD LOST`);
+  log.length = Math.min(log.length, 12);
+
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#FBF8F0'; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = '#E4DED0'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, H); ctx.stroke();
+
+  ctx.fillStyle = '#3B362E'; ctx.font = '12px Menlo, monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  const f = frame;
+  const lines = [
+    `source ${f.source}   mode ${mode}   gamepadConnected ${f.gamepadConnected}   padLost ${f.padLost}`,
+    `moveX ${f.moveX.toFixed(2)}  moveY ${f.moveY.toFixed(2)}  dash ${f.dash}`,
+    `held l2 ${f.held.l2.toFixed(2)}  r2 ${f.held.r2.toFixed(2)}`,
+    `holding ${f.holding.map(h => h.progress.toFixed(2)).join(' ')}`,
+    ...log,
+  ];
+  lines.forEach((s, i) => ctx.fillText(s, 110, 10 + i * 15));
+
+  // move vector gauge
+  ctx.strokeStyle = '#A39C8E'; ctx.beginPath(); ctx.arc(560, 60, 40, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = f.dash ? '#C0392B' : '#3B362E';
+  ctx.beginPath(); ctx.arc(560 + f.moveX * 40, 60 + f.moveY * 40, 5, 0, Math.PI * 2); ctx.fill();
+
+  for (const m of marks) {
+    m.life -= dt;
+    ctx.globalAlpha = Math.max(0, m.life);
+    ctx.strokeStyle = m.kind === 'long' ? '#C0392B' : '#2C6FB0'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(m.x, m.y, m.kind === 'long' ? 20 : 10, 0, Math.PI * 2); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  for (let i = marks.length - 1; i >= 0; i--) if (marks[i].life <= 0) marks.splice(i, 1);
+  for (const h of f.holding) {
+    ctx.strokeStyle = '#3B362E'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(h.x, h.y, 24, -Math.PI / 2, -Math.PI / 2 + h.progress * Math.PI * 2); ctx.stroke();
+  }
+
+  input.drawTouch(ctx, mode);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+window.__game = { ready: true, input, audio, frame: () => frame, log, setMode: m => { if (m !== mode) modeBtn.click(); } };
+</script>
+</body>
+</html>
