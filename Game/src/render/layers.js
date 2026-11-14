@@ -6,8 +6,8 @@ import { blurred } from './sprites.js';
 
 // Field depth pass (Task 7). Opt-in through the `opts` arguments / new functions; battle calls are unchanged.
 const HILL2 = true;              // item 5: a second, farther hill line on the far sheet
-const FAR_HAZE = .3;             // item 3: cool pale wash over the far sheet (0 = off)
-const MID_HAZE = .18;            // item 3: a lighter wash over the mid hedge row
+const FAR_HAZE = .1;             // item 3: cool pale wash over the far sheet (0 = off)
+const MID_HAZE = .05;            // item 3: a lighter wash over the mid hedge row
 const HAZE = '#E3EBEE';          // the cool haze colour
 const CORNER_FRAME = true;       // item 5: dark-ish pre-blurred clumps fixed in the bottom corners
 

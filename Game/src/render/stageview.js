@@ -11,7 +11,7 @@ import { bakeMarks, leadState, drawLeadRing, drawCrumbs, drawTargetOutline, draw
 
 const PUMPKIN_SCALE = { S1: .4, S2: .55, S3: .7, S4: .8, S5: .9, S6: 1.3 };
 const DRIFT_LEAF = { fill: 'rgba(232,206,170,.55)', line: 'rgba(170,150,120,.45)', lw: 1 };  // drifting leaves are scenery: pale pencil, no ink
-const TUFT = { col: '#a9c094', lw: 1.8 };   // item 2: tufts quieter (were #9fbf7f, 2 px)
+const TUFT = { col: '#9fbf7f', lw: 2 };   // item 2: tufts quieter (were #9fbf7f, 2 px)
 const hash = s => [...String(s)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 7);
 
 /** Bakes sky, far sheet, mid sheet, ground chunks and props for a Stage. */

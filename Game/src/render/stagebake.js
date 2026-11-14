@@ -12,10 +12,10 @@ const PATCHES_FRONT = [.14, .42, .7];
 const CLEAR_PATH = 1.5;               // rows kept clear either side of the path
 const CLEAR_PLAY = 1;                 // tiles kept clear around anything playable
 // 2. Quiet the scenery: pale orange saturation and pencil line strength down by about a quarter.
-const QUIET = { sat: .75, line: .75 };
+const QUIET = { sat: 1, line: 1 };   // was .75 / .75: the owner found that too faded (14 Nov)
 // 3. Fade with distance: back rows smaller, paler, cooler; front rows larger, warmer. Ground to match.
-const DEPTH = { on: true, kBack: .8, kFront: 1.1, cool: '#E4EAEC', coolBack: .4, warm: '#EDB383', warmFront: .12 };
-const GROUND_GRADIENT = { haze: 'rgba(224,228,226,.46)', hazeTo: 235, warm: 'rgba(240,190,120,.34)', warmFrom: 215 };
+const DEPTH = { on: true, kBack: .8, kFront: 1.1, cool: '#E4EAEC', coolBack: .06, warm: '#EDB383', warmFront: .12 };
+const GROUND_GRADIENT = { haze: 'rgba(224,228,226,.06)', hazeTo: 235, warm: 'rgba(240,190,120,.34)', warmFrom: 215 };
 // 4. Paper-on-paper shadows: smudge under scenery and hedges (props.js), cut-paper edge on the hedge row.
 const SHADOWS = true;
 const CUT_EDGE = { shadow: .085, light: 'rgba(255,255,255,.75)' };
@@ -23,7 +23,7 @@ const CUT_EDGE = { shadow: .085, light: 'rgba(255,255,255,.75)' };
 const STREAKS = true;
 const PATH_STREAK = { col: '#E6D3A8', alpha: .32 };
 // 7. More paper: stronger grain, fold creases across the page, pencil grass-hatching patches.
-const GRAIN = { specks: 1300, dark: .078 };
+const GRAIN = { specks: 1300, dark: .05 };
 const CREASES = 3;
 const CREASE = { dark: .022, light: .11 };   // a hairline pair only: no shaded band, no tone step
 const HATCH_PATCHES = 7;

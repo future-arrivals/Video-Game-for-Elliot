@@ -12,7 +12,7 @@ import { bakeSprite, alphaBounds, tinted, radial, paperFilled } from './sprites.
 export const FOLDED_H = 78;                  // folded height on screen (logical px)
 // Task 7 additions (field only; both are drawMember options that default to off).
 export const FOLLOWER_SCALE = .85;           // followers step back: drawn at 85% about their feet
-const FOLLOWER_PALE = { monster: .28, fish: .38, icecream: .38 }; // paper wash baked over a paler copy (pink and red need more)
+const FOLLOWER_PALE = { monster: .1, fish: .15, icecream: .15 }; // paper wash baked over a paler copy (pink and red need more)
 const paleWash = id => `rgba(251,248,240,${FOLLOWER_PALE[id] ?? .4})`;
 
 // viewBoxes [x, y, w, h] and hinge numbers copied from the manifests (SVG user units).

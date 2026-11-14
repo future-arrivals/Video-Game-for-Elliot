@@ -44,8 +44,8 @@ export function bakeBackdrop(stage) {
     // only two small pumpkins, out at the edges: the middle of the page is where the fight happens
     for (const [x, y, s] of [[34, 186, .55], [812, 192, .55]]) drawParts(g, makeProp('pumpkin', x, y, s, (r() * 1e6) | 0).parts, 1);
   }
-  // the whole backdrop about 30% paler, so the actors and the cards read first (the disc goes on after)
-  g.save(); g.globalAlpha = .3; g.fillStyle = PAPER; g.fillRect(0, 0, W, H); g.restore();
+  // a light paper wash so the actors and the cards read first (was .3: the owner found that too faded)
+  g.save(); g.globalAlpha = .08; g.fillStyle = PAPER; g.fillRect(0, 0, W, H); g.restore();
   // the enemy's raised paper disc
   const D = LAYOUT.disc;
   const disc = wob(ell(D.x, D.y, D.rx, D.ry, 18), true, 1.4, 92);
