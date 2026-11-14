@@ -57,8 +57,13 @@ export function drawLeadRing(ctx, M, x, y, draw) {
   ctx.setLineDash([]); ctx.lineDashOffset = 0; ctx.restore();
 }
 
-export function drawCrumbs(ctx, M, key) {
-  const s = M.crumbs.get(key); if (s) ctx.drawImage(s.c, s.x, s.y, s.w, s.h);
+/** Crumbs where a boulder was eaten at tile (i, j); baked on first use for a tile no boulder started on. */
+export function drawCrumbs(ctx, M, i, j) {
+  if (!CRUMBS.on) return;
+  const key = i + ',' + j;
+  let s = M.crumbs.get(key);
+  if (!s) { s = bakeCrumbs(wx(i + .5), wy(j + .78), i * 13 + j); M.crumbs.set(key, s); }
+  ctx.drawImage(s.c, s.x, s.y, s.w, s.h);
 }
 
 /** Outline geometry for the target, fitted to the thing (kind from target.kind; M1 targets have none):

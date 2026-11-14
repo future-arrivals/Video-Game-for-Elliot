@@ -45,6 +45,24 @@ export function createStageView(stage, assets) {
   return view;
 }
 
+/** The scene tells the view where a boulder was just eaten (the 'eat' event): crumbs go there. */
+export function noteEaten(view, i, j) { eatenTiles(view, null).add(i + ',' + j); }
+
+// Tiles where a boulder was eaten. Noted from 'eat' events; for a FieldState the view has not drawn before
+// (a new stage visit or a reload) the start tiles with no boulder count as eaten only when every one of
+// them is explained by eating (boulders at the start - live boulders - stones >= missing), so a pushed
+// boulder never leaves crumbs; when it is unclear, no crumbs.
+function eatenTiles(view, fs) {
+  if (!view.eaten) view.eaten = new Set();
+  if (!fs || view.eatenFor === fs) return view.eaten;
+  view.eatenFor = fs;
+  const st = view.stage.boulders, live = fs.boulders || [];
+  const missing = st.filter(([i, j]) => !live.some(b => b.i === i && b.j === j));
+  if (view.devEaten) for (const [i, j] of st) view.eaten.add(i + ',' + j);
+  else if (st.length - live.length - (fs.stones || []).length >= missing.length) for (const [i, j] of missing) view.eaten.add(i + ',' + j);
+  return view.eaten;
+}
+
 // ---------------------------------------------------------------- per frame
 function drawLayer(ctx, L, cam) {
   const zf = 1 + (cam.z - 1) * L.f;
@@ -75,9 +93,9 @@ export function renderStage(ctx, view, fs, cam, timeMs) {
   for (const ch of view.chunks) if (ch.x0 + CHUNK_W > vx0 && ch.x0 < vx1) ctx.drawImage(ch.c, ch.x0 - 2, CHUNK_Y0, CHUNK_W + 4, CHUNK_Y1 - CHUNK_Y0);
   for (const p of view.flat) drawProp(ctx, p);
   drawFlatObjects(ctx, view, fs);
-  // eaten boulders leave pencil crumbs (dev: eaten=1 pretends every boulder was eaten)
+  // eaten boulders leave pencil crumbs; a pushed one does not (dev: eaten=1 pretends every boulder was eaten)
   const boulders = view.devEaten ? [] : fs.boulders;
-  for (const [i, j] of view.stage.boulders) if (!boulders.some(b => b.i === i && b.j === j)) drawCrumbs(ctx, view.marks, i + ',' + j);
+  for (const k of eatenTiles(view, fs)) { const [i, j] = k.split(',').map(Number); if (!boulders.some(b => b.i === i && b.j === j)) drawCrumbs(ctx, view.marks, i, j); }
   const target = view.devEaten || fs.action ? null : (fs.target || view.devTarget);   // no outline while a power plays out
   const ls = leadState(view.marks, fs);
   // the lead's box, for fading standees in front of it
@@ -99,7 +117,8 @@ export function renderStage(ctx, view, fs, cam, timeMs) {
   ctx.lineCap = 'round';
   for (const it of items) {
     if (it.p) {
-      const fade = leadBox && it.p.standee && it.y > leadBox[3] && overlaps(it.p.bb, leadBox);
+      const b = it.p.bb, sx = it.sx || 0, sy = it.sy || 0;       // a moved boulder borrows a sprite baked elsewhere: shift its box
+      const fade = leadBox && it.p.standee && it.y > leadBox[3] && overlaps([b[0] + sx, b[1] + sy, b[2] + sx, b[3] + sy], leadBox);
       if (it.sx || it.sy) { ctx.save(); ctx.translate(it.sx, it.sy); drawProp(ctx, it.p, it.bob || 0, fade ? .5 : 1); ctx.restore(); }
       else drawProp(ctx, it.p, it.bob || 0, fade ? .5 : 1);
     } else if (it.tf) {

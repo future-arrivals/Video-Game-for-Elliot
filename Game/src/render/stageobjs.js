@@ -9,6 +9,7 @@ import { candyArt } from './sprites.js';
 import { prepareActors, drawMember } from './actors.js';
 
 const INKLOOK = { shadow: true, streaks: true };
+const GATE_SWING = { secs: .4, kinds: ['gateswing1', 'gateswing2', 'gateswing3'] };   // closed -> these -> open
 export const OBJ = {
   plateY: .55, gateY: .85, postY: .82, stoneY: .55, lolliY: .7, dooverY: .8,
   candyW: 34, candyLift: 112,                         // the candy on a tall post, centred this far above its feet
@@ -32,7 +33,7 @@ export function bakeObjects(view, stage, assets) {
   }
   for (const [i, j] of stage.gates) {
     const x = wx(i + .5), y = wy(j + OBJ.gateY), s = seedOf(i, j);
-    O.gates.set(key(i, j), { closed: ink('gate', x, y, 1, s), open: ink('gateopen', x, y, 1, s) });
+    O.gates.set(key(i, j), { closed: ink('gate', x, y, 1, s), open: ink('gateopen', x, y, 1, s), swing: GATE_SWING.kinds.map(k => ink(k, x, y, 1, s)) });
   }
   const candy = candyArt(assets);
   for (const p of stage.posts) {
@@ -80,10 +81,22 @@ export function drawFlatObjects(ctx, view, fs) {
 /** Adds the standing objects to the depth-sorted list. Props come as { y, p[, bob] }; friends as { y, friend }. */
 export function pushObjectItems(view, fs, items, t, vx0, vx1) {
   const O = view.obj, on = p => p.bb[2] > vx0 && p.bb[0] < vx1;
-  for (const g of fs.gates || []) { const s = O.gates.get(key(g.i, g.j)); if (s) { const p = g.open ? s.open : s.closed; if (on(p)) items.push({ y: p.y, p }); } }
+  for (const g of fs.gates || []) { const s = O.gates.get(key(g.i, g.j)); if (s) { const p = gateSprite(view, fs, g, s); if (on(p)) items.push({ y: p.y, p }); } }
   for (const q of fs.posts || []) { const s = O.posts.get(key(q.i, q.j)); if (s) { const p = q.taken ? s.empty : s.full; if (on(p)) items.push({ y: p.y, p }); } }
   if (O.lolli && fs.lollipop && !fs.lollipop.taken) items.push({ y: O.lolli.y, p: O.lolli, bob: Math.sin(t * .004 + 2.3) * OBJ.lolliBob });
   for (const f of fs.friends || []) { const x = wx(f.i + .5); if (x > vx0 && x < vx1) items.push({ y: wy(f.j + .5), friend: f }); }
+}
+
+// The gate's picture: closed, open, or one of the swing frames for GATE_SWING.secs after it opened. The view
+// remembers each gate's state per FieldState and when (fs.time) it was first seen open; a gate already open
+// when the view first draws a FieldState (a new visit, a reload) does not swing.
+function gateSprite(view, fs, g, s) {
+  if (view.gateMem?.fs !== fs) view.gateMem = { fs, at: new Map((fs.gates || []).map(q => [key(q.i, q.j), q.open ? -Infinity : null])) };
+  const m = view.gateMem.at, k = key(g.i, g.j), now = fs.time ?? 0;
+  if (!g.open) { m.set(k, null); return s.closed; }
+  if (m.get(k) == null) m.set(k, now);
+  const n = Math.floor((now - m.get(k)) / GATE_SWING.secs * (s.swing.length + 1));
+  return n >= 1 && n <= s.swing.length ? s.swing[n - 1] : n < 1 ? s.closed : s.open;
 }
 
 /** A friend waiting on its join tile: its folded drawing in full ink, a small bob, a heart that beats above. */

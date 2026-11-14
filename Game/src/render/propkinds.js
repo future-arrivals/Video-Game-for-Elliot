@@ -6,6 +6,8 @@
 import { INK, wob, ell, rng } from './core.js';
 
 const GATE_H = 84, GATE_HW = 29;   // gate post height; half the gap between its posts (a hedge is about 45 px wide)
+const GATE_OPEN = { out: 20, down: 14 };   // an open leaf's end: this far outside its post, this far toward the viewer
+export const GATE_SWING_FRAMES = [.25, .5, .75];   // how far each in-between frame has swung (kinds gateswing1..3)
 export const GIANT_RY = .66;   // giant pumpkin half-height / half-width: tall enough to hide the far-sheet one behind it
 export const C = {
   caneRed: '#E0403A', caneWhite: '#FFF8EE',             // gate, ribbon, plate swirl
@@ -31,6 +33,18 @@ function bow(P, part, x, y, seed) {
   P.push(part(wob([[x, y], [x + 12, y - 7], [x + 12, y + 7]], true, .4, seed + 1, 6), C.bow, INK, 2.4));
   P.push(part(wob(ell(x, y, 3.5, 3.5, 8), true, .2, seed + 2), C.bow, INK, 2.4));
 }
+// The gate's two leaves swung k of the way open (0 = meeting in the middle, 1 = the open picture): each leaf
+// turns about its post through the angle that ends GATE_OPEN.out outside it, dropping toward the viewer.
+function gateLeaves(P, part, x, y, seed, k) {
+  const h = GATE_H, a = GATE_HW, end = Math.acos(-GATE_OPEN.out / a), dn = GATE_OPEN.down * k;
+  for (const d of [-1, 1]) {
+    const px = x + a * d, ex = px - d * a * Math.cos(end * k);
+    cane(P, part, [[ex, y - 54 + dn - 4], [ex, y - 18 + dn]], seed + 7 + d, 7);
+    cane(P, part, [[px, y - 26], [ex, y - 26 + dn]], seed + 3 + d, 7);
+    cane(P, part, [[px, y - 54], [ex, y - 54 + dn]], seed + 5 + d, 7);
+  }
+  cane(P, part, hookL(x - a, y, h), seed, 9); cane(P, part, hookR(x + a, y, h), seed + 1, 9);
+}
 // swirl wedges on an ellipse (peppermint): alternate red wedges
 function swirl(P, part, x, y, rx, ry, seed) {
   P.push(part(wob(ell(x, y, rx, ry, 18), true, .5, seed), C.caneWhite, null, 0));
@@ -53,16 +67,11 @@ export const KINDS = {
     bow(P, part, x, y - 54, seed + 9);
   },
   // Open: each leaf (two bars and an end cane) swung out toward the viewer and to the side; the bow gone.
-  gateopen(P, part, x, y, s, seed) {
-    const h = GATE_H, a = GATE_HW, o = 20, dn = 14;
-    for (const d of [-1, 1]) {
-      const px = x + a * d, ex = px + o * d;
-      cane(P, part, [[ex, y - 54 + dn - 4], [ex, y - 18 + dn]], seed + 7 + d, 7);
-      cane(P, part, [[px, y - 26], [ex, y - 26 + dn]], seed + 3 + d, 7);
-      cane(P, part, [[px, y - 54], [ex, y - 54 + dn]], seed + 5 + d, 7);
-    }
-    cane(P, part, hookL(x - a, y, h), seed, 9); cane(P, part, hookR(x + a, y, h), seed + 1, 9);
-  },
+  gateopen(P, part, x, y, s, seed) { gateLeaves(P, part, x, y, seed, 1); },
+  // In between (Task 5 swing, about 0.4 s): each leaf turns on its post from the middle out toward the viewer.
+  gateswing1(P, part, x, y, s, seed) { gateLeaves(P, part, x, y, seed, GATE_SWING_FRAMES[0]); },
+  gateswing2(P, part, x, y, s, seed) { gateLeaves(P, part, x, y, seed, GATE_SWING_FRAMES[1]); },
+  gateswing3(P, part, x, y, s, seed) { gateLeaves(P, part, x, y, seed, GATE_SWING_FRAMES[2]); },
   // Tall striped post with a cup on top (the candy is drawn in by the bake's extra()).
   candypost(P, part, x, y, s, seed) {
     cane(P, part, [[x, y], [x, y - 92]], seed, 9, C.postPink);

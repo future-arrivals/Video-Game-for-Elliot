@@ -10,6 +10,7 @@
 //   scene, setScene(s), frame(dt), timeFrames(n),
 //   state()              the FieldState (in every mode; the field is frozen during a battle)
 //   battle()             the BattleState during a battle (also while its pages turn), else null
+//   canStand(i, j)       can the team stand on tile (i, j) of the stage on screen now (read-only)
 //   mode()               'field' | 'battle' | 'transition' (a battle page turn, or the field's stage slide)
 //   press(name)          queue a one-frame button press ('cross', 'square', 'r1', 'options', ...; 'padLost' fakes a pad loss)
 //   move(x, y, seconds)  hold a movement vector for that long (simulated seconds)
@@ -27,6 +28,7 @@ import { loadSave } from './save.js';
 import { createFieldScene } from './scenes/fieldscene.js';
 import { createBattleScene } from './scenes/battlescene.js';
 import { createBattle } from './battle/battle.js';
+import { canStand } from './field/field.js';
 
 const FLASH_MS = 60, SWEEP_MS = 440;          // page turn: style notes, about 0.5 s in all
 
@@ -140,6 +142,7 @@ export async function startGame({ canvas }) {
   game.setScene(field);
   game.state = () => field.field;
   game.battle = () => (battleScene ? battleScene.state : null);
+  game.canStand = (i, j) => canStand(field.field, field.stage, i, j);   // read-only: for scripted route finding
   game.mode = () => (game.scene && (game.scene.transition || game.scene.travelling) ? 'transition' : game.scene === field ? 'field' : 'battle');
   if (field.pendingBattle) field.startPendingBattle(field.pendingBattle);   // closed mid-battle: start it again
 

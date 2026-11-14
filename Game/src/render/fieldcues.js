@@ -6,7 +6,6 @@ import { candyArt } from './sprites.js';
 export const EXIT_BUBBLE = 1.5;     // seconds
 const BANG = { w: 26, h: 40, lift: 70, pop: .18, fill: '#FFE14D' };
 const FLY = { w: 34, arc: 70 };
-export const CANDY_COUNTER = { x: 744, y: 34 };   // hud.js: the candy tag's picture (no touch zones)
 
 
 export function drawRisingHearts(ctx, x, y, u) {
@@ -104,9 +103,9 @@ export function drawBang(ctx, x, y, age) {
   ctx.restore();
 }
 
-// A candy flying on an arc from (x0, y0) to the HUD candy counter, u 0..1.
-export function drawCandyFly(ctx, assets, x0, y0, u) {
-  const e = eInOutCubic(clamp(u)), { x: x1, y: y1 } = CANDY_COUNTER;
+// A candy flying on an arc from (x0, y0) to the HUD candy counter at `to` {x, y} (hud.js candyCounterAt), u 0..1.
+export function drawCandyFly(ctx, assets, x0, y0, u, to) {
+  const e = eInOutCubic(clamp(u)), { x: x1, y: y1 } = to;
   const x = x0 + (x1 - x0) * e, y = y0 + (y1 - y0) * e - Math.sin(e * Math.PI) * FLY.arc;
   const im = candyArt(assets), w = FLY.w, h = w * im.height / im.width;
   ctx.save(); ctx.translate(x, y); ctx.rotate(e * 6); ctx.drawImage(im, -w / 2, -h / 2, w, h); ctx.restore();

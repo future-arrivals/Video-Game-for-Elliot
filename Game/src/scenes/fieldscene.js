@@ -21,7 +21,8 @@
 // (input ignored). An exit to nowhere, or walking up to the S6 door, shows the "more soon" bubble.
 // Events: eat (chomp, crumbs), nope/short (boing), bridge start (stretch), push start (push), stone (splash),
 // reach bell (bell), reach candy (the candy flies to the HUD counter, then the candy sound), gate (gate),
-// join (join, heart burst), spotted (spotted, a "!" over the creature).
+// join (join, heart burst), spotted (spotted, a "!" over the creature), doOver (a puff at the do-over pumpkin
+// and where the team lands).
 // Candy won in a battle: the candy sound and sparkle play over the lead on the first step back in the field.
 // Autosave: candy, rest, eat, stone, reach, join, arrival in a stage, battle end, and every 30 s of play.
 // World: scene.world (src/field/world.js) holds what outlives the stage; the save is v2 (src/save.js).
@@ -30,13 +31,14 @@
 // alone), lead (id; without party=, it implies party=3), bat (patrol|asleep|ignore), zoom, fresh (1 = ignore
 // the save), stage (S1..S7: start in that stage; x, y are tiles within it). Any of them starts without the save.
 import { W, H, INK, wx, wy, clamp, eInOutCubic } from '../render/core.js';
-import { createStageView, renderStage } from '../render/stageview.js';
+import { createStageView, renderStage, noteEaten } from '../render/stageview.js';
 import { createCamera, updateCamera, toScreen } from '../render/camera.js';
 import { drawFieldHud } from '../render/hud.js';
 import { memberSize } from '../render/actors.js';
 import { burst, ring } from '../render/fx.js';
 import { OBJ } from '../render/stageobjs.js';
-import { EXIT_BUBBLE, CANDY_COUNTER, drawRisingHearts, drawMoreSoonBubble, drawPaused, drawBang, drawCandyFly } from '../render/fieldcues.js';
+import { candyCounterAt } from '../render/hud.js';
+import { EXIT_BUBBLE, drawRisingHearts, drawMoreSoonBubble, drawPaused, drawBang, drawCandyFly } from '../render/fieldcues.js';
 import { parseStage } from '../field/stage.js';
 import { stepField, applyBattleResult } from '../field/field.js';
 import { createWorld, enterStage, leaveStage } from '../field/world.js';
@@ -51,6 +53,8 @@ const JOIN_FX = 1.4;
 const BANG_FX = .9;
 const FLY_FX = .6;
 const GATE_FX = .6;
+const DOOVER_FX = .7;
+const DOOVER_COLS = ['#F39A3B', '#F6D24A', '#FFFFFF'];
 const TRAVEL_TIME = .4;      // seconds of page slide between stages
 const SEAM = { col: INK, w: 3 };
 const SPLASH_COLS = ['#5DA9DA', '#9FD3F0', '#FFFFFF'];
@@ -112,7 +116,7 @@ export function createFieldScene({ assets, data, input = null, audio = null, sto
     for (const e of events) {
       if (e.t === 'candy') { play('candy'); fx.push({ kind: 'candy', t0: clock, x: wx(e.i + .5), y: wy(e.j + .7) - 22 }); save(); }
       else if (e.t === 'rest') { play('heal'); const r = field.restAt; fx.push({ kind: 'rest', t0: clock, x: wx(r.i + .5), y: wy(r.j + .5) }); save(); }
-      else if (e.t === 'eat') { play('hit'); fx.push({ kind: 'crumbs', t0: clock, x: wx(e.i + .5), y: wy(e.j + .5) - 20 }); save(); }
+      else if (e.t === 'eat') { play('hit'); noteEaten(view, e.i, e.j); fx.push({ kind: 'crumbs', t0: clock, x: wx(e.i + .5), y: wy(e.j + .5) - 20 }); save(); }
       else if (e.t === 'nope' || e.t === 'short') play('boing');
       else if (e.t === 'fold') play(e.form === 'open' ? 'open' : 'fold');
       else if (e.t === 'swap') play('select');
@@ -125,6 +129,12 @@ export function createFieldScene({ assets, data, input = null, audio = null, sto
       }
       else if (e.t === 'gate') { play('gate'); fx.push({ kind: 'gate', t0: clock, x: wx(e.i + .5), y: wy(e.j + .5) - 30 }); }
       else if (e.t === 'join') { play('join'); const m = field.party.find(p => p.id === e.id) || lead; fx.push({ kind: 'join', t0: clock, x: wx(m.x), y: wy(m.y) - 40 }); save(); }
+      else if (e.t === 'doOver') {               // a puff at the pumpkin and one where the team lands
+        play('open');
+        const [pi, pj] = (stage.doOver && stage.doOver[0]) || [lead.x, lead.y];
+        fx.push({ kind: 'doover', t0: clock, x: wx(pi + .5), y: wy(pj + .5) - 20 }, { kind: 'doover', t0: clock, x: wx(lead.x), y: wy(lead.y) - 30 });
+        snapCam(); save();
+      }
       else if (e.t === 'spotted') { play('spotted'); fx.push({ kind: 'bang', t0: clock, uid: e.uid }); }
       else if (e.t === 'exit') {
         const next = data.stages.find(s => s.id === e.to);
@@ -225,6 +235,10 @@ export function createFieldScene({ assets, data, input = null, audio = null, sto
       } else if (f.kind === 'gate' && age < GATE_FX) {
         const [x, y] = sc(f.x, f.y);
         burst(ctx, x, y, age / GATE_FX, 71 + Math.round(f.x), 8, ['#D03C30', '#FFFFFF', '#7FC25B'], 70, 40);
+      } else if (f.kind === 'doover' && age < DOOVER_FX) {
+        const [x, y] = sc(f.x, f.y), u = age / DOOVER_FX;
+        ring(ctx, x, y + 20, u, 60, '#F39A3B');
+        burst(ctx, x, y, u, 91 + Math.round(f.x), 12, DOOVER_COLS, 90, 30);
       } else if (f.kind === 'join' && age < JOIN_FX) {
         const [x, y] = sc(f.x, f.y), u = age / JOIN_FX;
         ring(ctx, x, y + 30, Math.min(.99, u * 1.6), 56, '#E4574A');
@@ -241,15 +255,16 @@ export function createFieldScene({ assets, data, input = null, audio = null, sto
     }
   }
   function drawFly(ctx) {                        // over the HUD: candy from a post into the counter, then a pop
+    const cc = candyCounterAt(!!(lastFrame && lastFrame.source === 'touch'));   // where the HUD drew it this frame
     for (const f of fx) {
       if (f.kind !== 'fly') continue;
       const age = clock - f.t0;
-      if (age < FLY_FX) drawCandyFly(ctx, assets, f.x, f.y, age / FLY_FX);
+      if (age < FLY_FX) drawCandyFly(ctx, assets, f.x, f.y, age / FLY_FX, cc);
       else if (age < FLY_FX + CANDY_FX) {
         if (!f.landed) { f.landed = true; play('candy'); }
         const u = (age - FLY_FX) / CANDY_FX;
-        ring(ctx, CANDY_COUNTER.x, CANDY_COUNTER.y, u, 34, '#E99DBB');
-        burst(ctx, CANDY_COUNTER.x, CANDY_COUNTER.y, u, 9, 8, ['#E99DBB', '#D03C30', '#FFF1A8'], 50, 20);
+        ring(ctx, cc.x, cc.y, u, 34, '#E99DBB');
+        burst(ctx, cc.x, cc.y, u, 9, 8, ['#E99DBB', '#D03C30', '#FFF1A8'], 50, 20);
       }
     }
   }

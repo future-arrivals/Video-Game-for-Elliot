@@ -1,12 +1,14 @@
 // Scripted playthrough of the joined game (field -> page turn -> battle -> page turn -> field).
 // node tools/play.mjs [--page Game/index.html | --page Game/dist/elliot-game.html] [--only F] [--shots Game/.shots/m2/join]
-// Run F is the S1 -> S2 -> S3 route from a fresh game; with --shots it also saves review screenshots there.
+// Run F is the S1 -> S2 -> S3 route from a fresh game; run I the S4 -> S6 route (tools/play-late.mjs); with
+// --shots they also save review screenshots there.
 // Every run starts from a clean save (the save key is cleared before boot). The script drives window.__game
 // only through press / move / hold / tick and reads state() / battle() / mode(). The real-time loop is frozen
 // (__game.freeze) so every step is simulated and the result does not depend on the machine's speed.
 // Prints one PASS/FAIL line per check; exits non-zero on any failure.
 import { mkdir } from 'node:fs/promises';
 import { serve, launch } from './chrome.mjs';
+import { runLate } from './play-late.mjs';
 
 const args = process.argv.slice(2);
 const opt = { page: 'Game/index.html' };
@@ -344,6 +346,9 @@ try {
     }
     check('H: walking toward the spider: it spots the lead and a "!" shows', cues.includes('bang'), JSON.stringify(cues));
   });
+
+  // ---- Run I: S3's right exit -> S4 (Puzzle 1) -> S5 -> S6 (Puzzle 2) -> the pumpkin door (tools/play-late.mjs)
+  await runLate({ run, boot, ev, check, opt });
 } finally {
   await browser.close(); server.close();
 }

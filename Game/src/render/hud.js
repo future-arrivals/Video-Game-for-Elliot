@@ -20,6 +20,13 @@ function portrait(g, A, id, cx, cy, h, dim) {
 // Touch: the L1 / R1 tap zones (input/touch.js LAYOUT, 96 x 84 in the top corners) stay clear of the
 // tags; the previous and next teammate's portraits sit inside those zones instead (tap = make lead).
 const ZONE_W = 96, ZONE_H = 84;
+// The right-hand tags: pumpkin goal marker, then the candy tag (its picture centre is the candy counter).
+const TAGS = { rightX: 640, goalW: 58, gap: 10, candyW: 122, edge: 8, candyPicX: 10, candyPicW: 52, midY: 34 };
+const rightTagsX = touch => touch ? W - ZONE_W - TAGS.edge - TAGS.candyW - TAGS.gap - TAGS.goalW : TAGS.rightX;
+/** Where the candy counter's picture is on screen (the flying candy aims here); touch moves it left. */
+export function candyCounterAt(touch) {
+  return { x: rightTagsX(touch) + TAGS.goalW + TAGS.gap + TAGS.candyPicX + TAGS.candyPicW / 2, y: TAGS.midY };
+}
 
 function bake(assets, fs, touch) {
   const A = prepareActors(assets);
@@ -48,17 +55,17 @@ function bake(assets, fs, touch) {
     }
   }
   // the right-hand tags end before the R1 zone when touch is in use
-  const rx = touch ? W - ZONE_W - 8 - 122 - 10 - 58 : 640;
+  const rx = rightTagsX(touch);
   // pumpkin goal marker
-  paperTag(g, rx, 12, 58, 44, 62); box(rx, 12, 58, 44);
+  paperTag(g, rx, 12, TAGS.goalW, 44, 62); box(rx, 12, TAGS.goalW, 44);
   const px = rx + 22;
   const pb = wob(ell(px, 36, 13, 10, 12, .08, 3), true, .5, 3); g.fillStyle = '#F4A04A'; g.fill(pb.p); g.strokeStyle = INK; g.lineWidth = 2.4; g.stroke(pb.p);
   g.beginPath(); g.moveTo(px, 26); g.lineTo(px + 2, 21); g.stroke();
   g.fillStyle = INK; g.beginPath(); g.moveTo(px + 18, 29); g.lineTo(px + 28, 35); g.lineTo(px + 18, 41); g.closePath(); g.fill();
   // candy tag
-  const cx = rx + 68;
-  paperTag(g, cx, 12, 122, 44, 63); box(cx, 12, 122, 44);
-  const im = candyArt(assets), cw = 52, ch = cw * im.height / im.width; g.drawImage(im, cx + 10, 34 - ch / 2, cw, ch);
+  const cx = rx + TAGS.goalW + TAGS.gap;
+  paperTag(g, cx, 12, TAGS.candyW, 44, 63); box(cx, 12, TAGS.candyW, 44);
+  const im = candyArt(assets), cw = TAGS.candyPicW, ch = cw * im.height / im.width; g.drawImage(im, cx + TAGS.candyPicX, TAGS.midY - ch / 2, cw, ch);
   g.fillStyle = INK; g.font = `800 26px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'alphabetic'; g.fillText(String(fs.candyCount), cx + 92, 44);
   return { c, boxes };
 }

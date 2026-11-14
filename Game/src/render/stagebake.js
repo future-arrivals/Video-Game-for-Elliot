@@ -161,7 +161,10 @@ function scatter(stage, r, free, add, tuft, taken, key) {   // the pre-Task-7 ev
 // ---------------------------------------------------------------- ink: hedges, boulders, blanket, candy
 export function placeInk(view, stage, seed, assets) {
   const r = rng(seed + 5), ink = { shadow: SHADOWS, streaks: STREAKS, fit: true };
-  for (const [i, j] of stage.hedges) view.props.push(bakeProp(makeProp('hedge', wx(i + .5), wy(j + .85), 1, (r() * 1e6) | 0, true, ink)));
+  // in a puzzle stage (one with a gate: S4, S6) a hedge right in front of a boulder or the gate is trimmed low
+  // so the plug and the gate show; S2's secret stays tucked behind its full hedges
+  const behind = new Set(stage.gates.length ? [...stage.boulders, ...stage.gates].map(([i, j]) => i + ',' + (j + 1)) : []);
+  for (const [i, j] of stage.hedges) view.props.push(bakeProp(makeProp('hedge', wx(i + .5), wy(j + .85), 1, (r() * 1e6) | 0, true, behind.has(i + ',' + j) ? { ...ink, low: true } : ink)));
   view.boulderSprites = new Map();
   for (const [i, j] of stage.boulders) view.boulderSprites.set(i + ',' + j, bakeProp(makeProp('boulder', wx(i + .5), wy(j + .8), BOULDER_SCALE, (r() * 1e6) | 0, true, ink)));
   for (const [i, j] of stage.rest) view.flat.push(bakeProp(makeProp('blanket', wx(i + .5), wy(j + .5), 1, (r() * 1e6) | 0, true, { streaks: STREAKS })));

@@ -11,15 +11,17 @@ const SHADOW_ALPHA = { pencil: .13, ink: .2 };
 const STREAKS_ON = true;         // item 6: marker streaks inside ink fills whose look asks for them
 const STREAK_DARK = .9;          // streak colour = fill x this (about 6-10% darker once overlapped at .55)
 const HEDGE_W = .8;              // hedge width when look.fit is set: keeps hedges inside their tile column
+const HEDGE_LOW = .5;            // hedge height when look.low is set: a trimmed hedge in front of a boulder or gate
 
 const part = (g, fill, stroke, lw, dash) => ({ g, fill, stroke, lw, dash });
 /** Kinds tall enough to hide the lead; these fade to 50% when standing in front of it. */
 export const STANDEE = new Set(['hedge', 'boulder', 'post', 'scarecrow', 'sign', 'cart', 'hay', 'corn', 'crate', 'pumpkin',
-  'gate', 'gateopen', 'candypost', 'bellpost', 'bellrung', 'doover', 'door', 'reeds', 'stall', 'baretree', 'jack']);
+  'gate', 'gateopen', 'gateswing1', 'gateswing2', 'gateswing3', 'candypost', 'bellpost', 'bellrung', 'doover', 'door', 'reeds', 'stall', 'baretree', 'jack']);
 
 /** Builds a prop whose feet are at world px (x, y). Returns {kind, x, y, parts, bb, ink, cache}.
  *  look (optional, field only): { k: scale about the feet, sat, line (pencil strength 0..1),
- *  mix: hex, amt: 0..1 (depth tint), shadow: bool, streaks: bool, fit: bool (hedge fits its tile) } */
+ *  mix: hex, amt: 0..1 (depth tint), shadow: bool, streaks: bool, fit: bool (hedge fits its tile),
+ *  low: bool (a trimmed hedge, HEDGE_LOW tall) } */
 export function makeProp(kind, x, y, s, seed, ink, look) {
   const P = []; const L = ink ? INK : PEN; const lw = ink ? 4 : 2;
   if (kind === 'pumpkin') {
@@ -71,12 +73,12 @@ export function makeProp(kind, x, y, s, seed, ink, look) {
       P.push(part(wob(ell(lx, ly - 5, 13, 6, 10, .3, seed + k), true, .7, seed + k), '#DCE7C2', '#a9b693', 1.6)); }
   } else if (kind === 'hedge') {      // interactive standee: ink + full colour
     const pts = [[x + 26, y]]; const r = Math.round(seed) % 7;
-    const hw = look && look.fit ? HEDGE_W : 1; pts[0][0] = x + 26 * hw;
-    for (let i = 0; i <= 10; i++) { const a = i / 10 * Math.PI; const bump = 1 + (i % 2 ? .1 : -.04) + ((i + r) % 3) * .03; pts.push([x + Math.cos(a) * 28 * hw * bump, y - 10 - Math.sin(a) * 50 * bump]); }
+    const hw = look && look.fit ? HEDGE_W : 1, hh = look && look.low ? HEDGE_LOW : 1; pts[0][0] = x + 26 * hw;
+    for (let i = 0; i <= 10; i++) { const a = i / 10 * Math.PI; const bump = 1 + (i % 2 ? .1 : -.04) + ((i + r) % 3) * .03; pts.push([x + Math.cos(a) * 28 * hw * bump, y - (10 + Math.sin(a) * 50 * bump) * hh]); }
     pts.push([x - 26 * hw, y]);
     P.push(part(wob(pts, true, 1.6, seed, 9), '#7FB24E', INK, 4));
-    P.push(part(wob(ell(x - 8, y - 40, 11, 8, 10, .2, seed + 3), true, .8, seed + 3), '#9DCB68', null, 0));
-    for (const [dx, dy] of [[-12, -22], [8, -36], [12, -16], [-4, -50]]) P.push(part(wob([[x + dx - 5, y + dy - 3], [x + dx, y + dy + 2], [x + dx + 5, y + dy - 3]], false, .3, seed + dx), null, INK, 2.4));
+    P.push(part(wob(ell(x - 8, y - 40 * hh, 11, 8 * hh, 10, .2, seed + 3), true, .8, seed + 3), '#9DCB68', null, 0));
+    for (const [dx, dy] of [[-12, -22], [8, -36], [12, -16], [-4, -50]]) P.push(part(wob([[x + dx - 5, y + dy * hh - 3], [x + dx, y + dy * hh + 2], [x + dx + 5, y + dy * hh - 3]], false, .3, seed + dx), null, INK, 2.4));
   } else if (kind === 'boulder') {
     P.push(part(wob(ell(x, y - 24 * s, 34 * s, 26 * s, 12, .18, seed), true, 1.3, seed), '#A09A8E', INK, 4.5));
     P.push(part(wob([[x - 12 * s, y - 38 * s], [x - 3 * s, y - 28 * s], [x - 8 * s, y - 19 * s]], false, .4, seed + 1), null, INK, 3));

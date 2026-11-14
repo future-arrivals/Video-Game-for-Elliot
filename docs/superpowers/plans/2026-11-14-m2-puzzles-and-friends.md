@@ -222,3 +222,12 @@ Wave A is three Opus tasks and one Sonnet task and needs no visual sign-off: eve
 - `doOver(world, stage, data, state = null)` in world.js; rules in `puzzles.js` `resetPuzzle`.
 - New exports: field.js `placeTeam`, `standableNear`; powers.js `advancePowers`; puzzles.js `bridgeLine`, `onBridge`, `pushResult`, etc.
 - Design note for later: P2 solution 2d (Fish + Ice Cream, west) does not work on the real map (boxed in at (23,1)); not a softlock, 2b still solves it. Fix the map or the doc when S5 and S6 are dressed.
+
+### 16:20, Milestone 2 route complete (S1 to the pumpkin door)
+- Task 6 done for the whole route: stage travel (0.4 s slide), visible Bridge, Push, Reach, gate swing, "!" on spotted, event sounds, do-over pumpkin feedback. `render/fieldfx.js`, `render/fieldcues.js`, `tools/play-late.mjs` are new.
+- `tools/play.mjs`: runs A to I, 71 checks, pass on the dev page and the built file (1547 KB). Run F plays S1 to S3 from a fresh game; run I plays S4 to S6 from S3's exit with `party=3`. Both route around creatures: no end-to-end run fights a battle after a chase.
+- Puzzle 1 is in S4 (not S5); S5 is the ghost field; S6 has puzzle 2.
+- Rigs in the walking view: monster, fish, icecream (two rigs, bitmap flip between forms), spider. `RIG.on` in actors.js. Battle screen still uses bitmaps.
+- Half-height hedges (`HEDGE_LOW`) in front of plug boulders and gates in the puzzle stages so they can be seen.
+- Leftovers: pause menu and its do-over; hero unfold on join; rung bell still targeted; open Heartfin covers the S6 door; crumbs may be missing after reload when a stage had both an eaten and a pushed boulder; candy count ticks before the flying candy lands; spider maw and thread; bat and ghost rigs; battle rigs; `fieldscene.js` is 312 lines.
+- Not verified by a person: any of this by hand, on any device; the sounds by ear.

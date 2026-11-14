@@ -17,7 +17,7 @@ It runs in a phone browser in landscape, played with a PlayStation controller ov
 | Character art | Done: all 12 characters redrawn as clean SVG, plus creatures and items | `Art/Characters/` |
 | Look | Chosen: "Paper Page", cinematic version (A2) | `Art/Style/style-A2.html` |
 | Design for the first area | Done, reviewed twice | `Design/slice-design.md` |
-| The game itself | Milestone 1 built and Milestone 2 mostly built (14 Nov). **Stages S1 to S3 play end to end**: start as Munch alone, eat the boulder, walk to the pond, Heartfin joins and bridges water, walk to the candy stand, Scoops joins, pushes a boulder and reaches a candy post. Creatures see and chase. Munch, Heartfin and Scoops are animated while walking. S4 to S6: see "Next step". Controller confirmed working on the Mac for an earlier build; **this build has not been played by a person on any device**, only by script | `Game/` (open `Game/dist/elliot-game.html`) |
+| The game itself | Milestone 1 built and Milestone 2 mostly built (14 Nov). **Stages S1 to S3 play end to end**: start as Munch alone, eat the boulder, walk to the pond, Heartfin joins and bridges water, walk to the candy stand, Scoops joins, pushes a boulder and reaches a candy post. **S4 to S6 also play through to the pumpkin door**: the plate-and-gate puzzle, the ghost field, the moat puzzle with the bell, and the do-over pumpkin. Creatures see and chase. Munch, Heartfin, Scoops and the spider are animated while walking. Controller confirmed working on the Mac for an earlier build; **this build has not been played by a person on any device**, only by script | `Game/` (open `Game/dist/elliot-game.html`) |
 
 ## Decisions made
 
@@ -126,7 +126,7 @@ Only these are needed before building. The full list, in three short sessions, i
 ## Next step
 
 1. Play it by hand: on the Mac with the controller, then on the phone and cast to the TV. Nobody has yet. Listen to the sounds too (seven are new and unheard).
-2. Finish Milestone 2: S4 to S6 (see the M2 plan's progress log for their exact state), the pause-menu do-over (the game has no pause menu yet), the gate and unfold flourishes, and animations for the remaining creatures.
+2. Milestone 2 leftovers: a pause menu with a do-over (the pause screen is only a dimmed card), the hero unfold when a friend joins, a rung bell that still shows its helper badge, Heartfin's tall open form covering the pumpkin door, the spider's dark mouth and web thread, animations for the bat and ghost (the bat has no demo). The design's puzzle 2 route "2d" does not work on the real map (2b does).
 3. Animations in battles: the rigs have hurt, happy and attack clips that the battle screen does not use yet.
 4. Then milestone 3 (the boss and comics), and milestone 4 after his first playtest.
 
