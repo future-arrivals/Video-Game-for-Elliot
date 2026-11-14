@@ -1,0 +1,109 @@
+{
+ "spec": {
+  "stroke": "#1a1a1a round caps/joins (one constant OUT in ball.py; set it to a navy such as #22307f for a blue-outline variant); 9 main outlines, 8 band and red-band edges, 6-7 eyes, button and small details; his blue (#2b40a8 / #23338f) kept for the nose-and-mouth and the feather lines",
+  "units": "photo px of the 1400 px folded photo x 0.68 (folded long side ~400); inside creatures from the unfolded photo x 1.30 to match",
+  "method": "hand-placed points joined by Catmull-Rom cubic beziers (Source/ball/ball.py); no tracing"
+ },
+ "sprites": {
+  "ball_unfolded": {
+   "svg": "svg/ball_unfolded.svg",
+   "png": "png/ball_unfolded.png",
+   "character": "red, white and blue ball with a sideways face (two solid blue eyes, blue nose-and-mouth, a white button); opens sideways to show his friends inside",
+   "form": "unfolded",
+   "viewBox": [
+    -277.0,
+    -41.0,
+    961.0,
+    769.0
+   ],
+   "size": [
+    961.0,
+    769.0
+   ],
+   "part_ids": [
+    "part-inside",
+    "paper-inside",
+    "creature-green-long",
+    "shape-red",
+    "creature-pink",
+    "pink-body",
+    "pink-head",
+    "feathers-left",
+    "feathers-right",
+    "creature-green-curl",
+    "band-inside",
+    "part-left",
+    "cap-left",
+    "lines-left",
+    "outline-left",
+    "part-right",
+    "cap-right",
+    "lines-right",
+    "button",
+    "eye-top",
+    "eye-bottom",
+    "nose-mouth",
+    "outline-right"
+   ],
+   "hinge": {
+    "left_hinge_line": [
+     [
+      -87.7,
+      177.5
+     ],
+     [
+      -87.7,
+      544.7
+     ]
+    ],
+    "right_hinge_line": [
+     [
+      437.2,
+      177.5
+     ],
+     [
+      437.2,
+      544.7
+     ]
+    ],
+    "close": "translate(525,0) on #part-left, hide #part-inside",
+    "translate_x": 525.0,
+    "how": "Unfolded = part-inside + part-left + part-right at rest. To close, slide part-left right by translate_x (its hinge line lands exactly on the right hinge line, the crease) and hide part-inside. ball_folded.svg is exactly that state.",
+    "notes": "The paper opens sideways, so both hinge lines are vertical. The halves have no outline along the hinge (the ball is one unbroken shape across the crease, as he drew it). part-inside holds paper-inside, creature-green-long (hangs below the band), shape-red, creature-pink (pink-body, pink-head), feathers-left, feathers-right, creature-green-curl and band-inside (the blue band that joins the two caps' bands). In his folded photo a bit of the green creature's clawed foot pokes out under the crease; that is left out of the folded sprite."
+   }
+  },
+  "ball_folded": {
+   "svg": "svg/ball_folded.svg",
+   "png": "png/ball_folded.png",
+   "character": "red, white and blue ball with a sideways face (two solid blue eyes, blue nose-and-mouth, a white button); opens sideways to show his friends inside",
+   "form": "folded",
+   "viewBox": [
+    248.0,
+    159.0,
+    436.0,
+    406.0
+   ],
+   "size": [
+    436.0,
+    406.0
+   ],
+   "part_ids": [
+    "part-left",
+    "cap-left",
+    "lines-left",
+    "outline-left",
+    "part-right",
+    "cap-right",
+    "lines-right",
+    "button",
+    "eye-top",
+    "eye-bottom",
+    "nose-mouth",
+    "outline-right"
+   ],
+   "hinge": {
+    "part_left_transform": "translate(525,0)"
+   }
+  }
+ }
+}

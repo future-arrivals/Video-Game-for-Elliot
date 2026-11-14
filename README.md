@@ -45,6 +45,7 @@ All files are in `Art/Characters/svg/` (vector, built in named parts) and `Art/C
 | `pumpkin_folded`, `pumpkin_unfolded` | Jack-o'-lantern | Yes | Six ghosts inside (`ghost-1` to `ghost-6`). |
 | `flowerpot_folded`, `flowerpot_unfolded` | Red flowerpot monster | Yes | A plant grows out. The flower cluster is very dense at game size. |
 | `frankenstein_folded`, `frankenstein_unfolded` | Frankenstein | Yes | Head and body pull apart to show a huge mouth. |
+| `ball_folded`, `ball_unfolded` | **Ball** (placeholder name). Red, white and blue ball with a sideways face. Added 14 Nov from IMG_3534 and IMG_3535. | Yes, sideways | Opens into a long capsule with friends inside: a pink long-necked creature, an orange head with teeth, two green spiky ones, feather fans. Not in the game yet. Proposed: joins in Water World on the beach; field power "Haul" (his green friend drags sunken things up); battle role "Carrier" (brings a teammate in already open). His own character: no Nintendo names or catching mechanics. Generator: `Source/ball/ball.py`; comparison: `Art/Characters/compare_ball.png`. |
 | `firecat` | Unknown. Looks like a white marshmallow standing up with its head on fire. | No | Called "fire guy" for now. Ask him. |
 | `beaver` | Beaver chewing a log | No | |
 | `orangeowl` | Orange fruit with an owl face | No | |
@@ -68,6 +69,8 @@ Only these are needed before building. The full list, in three short sessions, i
 5. Is the pink one a heart? What is it called?
 6. What is the white one with fire on its head?
 7. What noise does each one make? (Record them.)
+8. The ball: what is his name, and is his face meant to be sideways? Who are the friends inside him? Is the blue along the bottom water?
+9. Is the pink-and-red pickup a candy or a bowtie?
 
 ## Folder map
 
