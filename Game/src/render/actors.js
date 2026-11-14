@@ -8,6 +8,13 @@
 // Characters without usable hinge data use the A2 flip: squash to an edge, the other form springs out.
 import { INK, PAPER, FONT, mk, clamp, eOutCubic, eInOutCubic } from './core.js';
 import { bakeSprite, alphaBounds, tinted, radial, paperFilled } from './sprites.js';
+import { loadRig, rigPose, drawRig } from './rig.js';
+
+// Animated rigs for the walking view (see rig.js). on: false draws the bitmaps exactly as before.
+// A character with no rig (ice cream) always uses the bitmaps. FLIP: the rig art faces the opposite way to
+// the bitmap, so true mirrors it when the bitmap is not mirrored.
+export const RIG = { on: true, clips: { monster: { still: 'idle', move: 'hop' }, fish: { still: 'idle', move: 'walk' } }, flip: { monster: false, fish: false } };
+const rigPoses = new Map();                  // one reusable pose per rig
 
 export const FOLDED_H = 78;                  // folded height on screen (logical px)
 // Task 7 additions (field only; both are drawMember options that default to off).
@@ -142,6 +149,7 @@ function drawFlip(ctx, r, form, u) {
  *          pop = 1 (extra scale about the feet, e.g. the swap pop) } */
 export function drawMember(ctx, assets, member, sx, sy, timeMs, opts = {}) {
   const A = prepareActors(assets); const r = A.chars[member.id]; if (!r) return;
+  const rig = RIG.on ? loadRig(assets, member.id) : null;
   const settled = member.foldAnim >= 1, u = clamp(member.foldAnim);
   const v = member.form === 'open' ? r.open : r.folded;
   const ph = member.id.length * 1.7, w = .00692;
@@ -150,12 +158,25 @@ export function drawMember(ctx, assets, member, sx, sy, timeMs, opts = {}) {
   const fol = !!opts.follower, ks = (fol ? FOLLOWER_SCALE : 1) * (opts.pop || 1);
   if (opts.shadow !== false) { const sw = r.folded.s.w * .75 * ks; ctx.drawImage(A.shadow.c, sx - sw / 2, sy - 7 * ks, sw, 14 * ks); }
   if (opts.lead && (member.facing === 'back' || member.facing === 'front')) drawFacingMarker(ctx, sx, sy, member.facing);
+  if (rig) { drawMemberRig(ctx, rig, r, member, sx, sy, timeMs, opts, ks, fol); return; }
   ctx.save(); if (opts.alpha != null && opts.alpha < 1) ctx.globalAlpha *= opts.alpha;
   ctx.translate(sx, sy - lift * ks); if (tilt) ctx.rotate(tilt); ctx.scale(member.faceX < 0 ? -ks : ks, ks);
   if (settled) drawRec(ctx, v, fol ? v.pale : v.s);
   else if (r.parts) drawHinge(ctx, r, member.form, u, opts.pace);
   else drawFlip(ctx, r, member.form, u);
   ctx.restore();
+}
+
+// The body from the rig. Same feet point and the same px per drawing unit as the bitmaps (r.k), so the folded
+// and open heights match. form: the hinge's open amount (0 folded .. 1 open) from the same hingeCurve.
+function drawMemberRig(ctx, rig, r, member, sx, sy, timeMs, opts, ks, fol) {
+  const o = member.foldAnim >= 1 ? (member.form === 'open' ? 1 : 0) : hingeCurve(member.form, clamp(member.foldAnim), opts.pace).o;
+  const cl = RIG.clips[member.id] || {}, t = timeMs / 1000;
+  let pose = rigPoses.get(rig); const clip = member.moving ? cl.move : cl.still;
+  pose = rigPose(rig, clip, t, { form: clamp(o), T: t }, pose); rigPoses.set(rig, pose);
+  let a = opts.alpha != null ? opts.alpha : 1; if (fol) a *= .85;
+  const flip = (member.faceX < 0) !== !!RIG.flip[member.id];
+  drawRig(ctx, rig, pose, sx, sy, r.k * ks, { flip, alpha: a, shadow: false, glow: false });
 }
 
 function drawFacingMarker(ctx, x, y, facing) {
