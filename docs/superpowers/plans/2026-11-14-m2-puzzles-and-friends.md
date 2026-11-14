@@ -160,6 +160,13 @@ Draws `fieldState.action`: the fish stretching into a bridge and the team runnin
 **Files:** `src/scenes/fieldscene.js`, `src/main.js`, `tools/play.mjs`, `README.md`.
 Stage travel with the 0.4 s page slide; the join sequence; the do-over in the pause menu; autosave on entering a stage; the battle backdrop takes the current stage. **Playthroughs added to `play.mjs`:** three full routes from a fresh save to the pumpkin door, each leaning on a different character (monster: Eat the plug in S4, 2c in S6; fish: 1b, 2b; ice cream: 1a, 2a), plus the secret and one sneak attack. Runs A to E keep passing. Rebuild and run the routes against the built file.
 
+### Task 7 (Opus, then Sonnet per character): character animations from `Art/Demos/`
+
+The owner's other session built 15 animation demos (`Art/Demos/*_animation_demo.html`: SVG part rigs posed by script, with clips such as Idle, Waddle, Unfold, a special move, Ouch, Yay). The game draws bitmaps on a canvas, so they need a bridge.
+- **7a (Opus, running 14 Nov):** `src/render/rig.js` (rig runtime), `tools/rigparts.mjs` (rasterizes each part), `src/render/rigs/monster.js` (Munch ported, all six clips), `dev/rig.html`, and `src/render/rigs/README.md` (how to port one more). Not wired into the game.
+- **7b (Sonnet, one task per character):** port Heartfin, Scoops, Webster and Spook from their demos by following the README. Later characters as they enter the game. There is no demo for the bat (Zigzag).
+- **7c (Opus, with Task 5):** wire rigs into `drawMember` and the battle actors: Idle and Waddle in the field, Unfold in place of the paper hinge, the special move, Ouch and Yay in battles. Fall back to the bitmap sprite for any character without a rig.
+
 ## Sonnet-sized tasks (hand out as the files become free)
 
 | Task | Files | Check |
