@@ -16,7 +16,11 @@ import { loadRig, rigPose, drawRig } from './rig.js';
 // bitmap hinge flip, which hides the change of picture. FLIP: the rig art faces the opposite way to
 // the bitmap, so true mirrors it when the bitmap is not mirrored.
 export const RIG = { on: true, clips: { monster: { still: 'idle', move: 'hop' }, fish: { still: 'idle', move: 'walk' }, icecream: { still: 'idle', move: 'walk' } }, flip: { monster: false, fish: false, icecream: false },
-  split: { icecream: { open: 'icecream', folded: 'icecream_folded' } } };
+  split: { icecream: { open: 'icecream', folded: 'icecream_folded' } },
+  // Creatures in the walking view (spider only): clip while still / while moving (patrol, chase, return); imgUnits: the
+  // bitmap's full height in the rig's drawing units (spider.png is 615 px at 3.722 px per unit), so the rig is drawn at
+  // the same size as the bitmap. Asleep, `still` and the battle's own creature keep the bitmap.
+  creatures: { spider: { still: 'idle', move: 'walk', imgUnits: 615 / 3.722 } } };
 const rigPoses = new Map();                  // one reusable pose per rig
 
 export const FOLDED_H = 78;                  // folded height on screen (logical px)
@@ -205,6 +209,15 @@ export function drawCreature(ctx, assets, creature, sx, sy, timeMs, opts = {}) {
   if (opts.shadow !== false) {
     ctx.globalAlpha = r.d.fly && !asleep && !still ? .7 : 1;
     ctx.drawImage(A.shadow.c, sx - sw / 2, sy - 6, sw, 12); ctx.globalAlpha = 1;
+  }
+  const rc = RIG.on && !asleep && !still && creature.uid !== 'battle' ? RIG.creatures[creature.kind] : null;
+  const rig = rc ? loadRig(assets, creature.kind) : null;
+  if (rig) {
+    const t = timeMs / 1000 + seed, moving = creature.mode === 'patrol' || creature.mode === 'chase' || creature.mode === 'return';
+    let pose = rigPoses.get(rig);          // form: 1 = the spider rig's "grounded" (no thread, body lowered to the ground)
+    pose = rigPose(rig, moving ? rc.move : rc.still, t, { T: t, form: 1 }, pose); rigPoses.set(rig, pose);
+    drawRig(ctx, rig, pose, sx, sy, r.d.h / rc.imgUnits, { flip: creature.faceX < 0, shadow: false, glow: false });
+    return;
   }
   ctx.save(); ctx.translate(sx, sy - lift);
   if (asleep) { ctx.rotate(.5 * (creature.faceX < 0 ? -1 : 1)); ctx.scale(1, .92); }
