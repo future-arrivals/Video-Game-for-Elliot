@@ -207,3 +207,9 @@ Wave A is three Opus tasks and one Sonnet task and needs no visual sign-off: eve
 - Decision for wiring (Task 7c): hurt keeps `flashMax` 0.7 and drops the demo's second white pulse (one flash only, TV-safe).
 - Scoops needs two rigs (`icecream`, `icecream_folded`), chosen by form. Heartfin port started with a Sonnet agent; other ports wait for usage.
 - Usage at 15:28: 60% of the 5-hour window, resets 19:30 local.
+
+### 15:40, scope for today narrowed by the owner
+- Target: S1 to S3 playable end to end by 19:30 local, with about 40% of the usage window left. The owner will not be working after 19:30.
+- Tasks 2 and 4 told to finish what S1 to S3 need and stub the rest (plates, gates, bells, lollipop, S4 to S6 scenery).
+- Order from here: review powers, review S2 and S3 drawing, join up S1 to S3 (Task 6, narrowed, with only the simplest motion from Task 5), then wire Munch's rig if usage is left. End with a rebuild, README update and a clean commit.
+- S4 to S6, the other character ports and the rest of Task 5 carry over to the next session.
