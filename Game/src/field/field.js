@@ -7,6 +7,9 @@
 //   (shape pinned in the M1 and M2 plans; world.js enterStage() calls it with the World's pieces)
 // canStand(state, stage, i, j) -> bool   the one walkability query (movement here, powers in powers.js)
 // stepField(state, stage, input, dt) -> events     mutates `state`
+// The boss (S7): state.boss = { i0, j0, i1, j1 } while Big Ghost stands there (solid; null once beaten, and
+// state.bossBeaten is true). Touching it (footprint within BOSS_CONTACT tiles of its tiles, once per touch)
+// emits { t: 'battle', creatureUid: 'boss', kind: 'bigghost', boss: true, sneak: false }. It is not a creature.
 // applyBattleResult(state, stage, { outcome, creatureUid, hearts, candyDrop })   candyDrop: candy a won battle adds
 //
 // Private bookkeeping lives under state._sim (JSON-safe):
@@ -39,6 +42,8 @@ export const FOLLOW_GAP = 1.75; // trail distance between party members (the mon
 const IGNORE_TIME = 3;        // seconds a creature ignores the team after Run
 const CONTACT_X = 0.35;
 const CONTACT_Y = 0.5;
+const BOSS_CONTACT = 0.4;     // tiles: the lead's footprint this close to Big Ghost's tiles starts the boss battle
+export const BOSS_CANDY = 10; // candy a beaten boss adds
 const MAX_SUBSTEP = 1 / 30;   // seconds; large dt is simulated in pieces
 const MOVE_STEP = 0.05;       // tiles; collision sub-step
 const TRAIL_STEP = 0.1;       // tiles between breadcrumbs
@@ -53,7 +58,7 @@ const EPS = 1e-9;
 //   at:      { x, y[, faceX, facing, form] } a saved or dev position; used only if the team can stand there
 //   from, row: otherwise the team arrives at stage.entrance(from, row)
 export function createField({ stage, data, party, memory = null, candyCount = 0, restAt = null, lollipop = false,
-  at = null, from = null, row = null }) {
+  at = null, from = null, row = null, bossBeaten = false }) {
   const chars = Object.fromEntries((data.characters ?? []).map((c) => [c.id, c]));
   const creatureData = Object.fromEntries((data.creatures ?? []).map((c) => [c.id, c]));
   const mem = memory ?? {};
@@ -93,7 +98,9 @@ export function createField({ stage, data, party, memory = null, candyCount = 0,
     lollipop: stage.lollipop ? { i: stage.lollipop[0], j: stage.lollipop[1], taken: !!lollipop } : null,
     action: null,
     target: null,
-    _sim: { trail: [], lastTile: [0, 0], touching: [], blocked: false, creatures: {}, joinIds: stage.joins.map((f) => f.id),
+    boss: stage.boss && !bossBeaten ? { ...stage.boss } : null,
+    bossBeaten: !!bossBeaten,
+    _sim: { trail: [], lastTile: [0, 0], touching: [], bossTouch: false, blocked: false, creatures: {}, joinIds: stage.joins.map((f) => f.id),
       maxHearts: Object.fromEntries(Object.values(chars).map((c) => [c.id, c.hearts ?? 1])) },
   };
 
@@ -137,6 +144,8 @@ export function canStand(state, stage, i, j) {
   if (stage.isSolid(i, j, state.boulders)) return false;
   const at = (list) => Array.isArray(list) && list.some((p) => p.i === i && p.j === j);
   if (at(state.friends)) return false;
+  const b = state.boss;
+  if (b && i >= b.i0 && i <= b.i1 && j >= b.j0 && j <= b.j1) return false;
   const gate = state.gates?.find((g) => g.i === i && g.j === j);
   if (gate && !gate.open) return false;
   if (stage.tileAt(i, j) === '~') return at(state.stones) || onBridge(state, i, j);
@@ -168,6 +177,7 @@ export function placeTeam(state, stage, x, y) {
   trimTrail(state, stage);
   sim.lastTile = [Math.floor(x), Math.floor(y)];
   sim.touching = [];
+  sim.bossTouch = false;
   sim.blocked = false;
   for (let k = 1; k < state.party.length; k++) {
     const [fx, fy] = pointOnTrail(sim.trail, FOLLOW_GAP * k);
@@ -389,6 +399,15 @@ function checkContact(state, events) {
     }
   }
   sim.touching = touching;
+  // Big Ghost: not a creature (no sight, no chase); a touch of its tiles starts the fight, once per touch
+  const b = state.boss;
+  if (b) {
+    const dx = Math.max(b.i0 - lead.x, 0, lead.x - (b.i1 + 1)), dy = Math.max(b.j0 - lead.y, 0, lead.y - (b.j1 + 1));
+    const near = Math.hypot(dx, dy) <= BOSS_CONTACT;
+    const fire = near && !sim.bossTouch && !hit;
+    sim.bossTouch = near;
+    if (fire) { events.push({ t: 'battle', creatureUid: 'boss', kind: 'bigghost', boss: true, sneak: false }); return true; }
+  }
   // A sneak attack: the creature was on patrol and had not seen the lead (creatures.js sets `sees`; undefined = M1 behaviour).
   if (hit) events.push({ t: 'battle', creatureUid: hit.uid, kind: hit.kind, sneak: hit.mode === 'patrol' && hit.sees === false });
   return !!hit;
@@ -418,6 +437,10 @@ export function applyBattleResult(state, stage, { outcome, creatureUid, hearts, 
       const n = hearts[m.id];
       if (typeof n === 'number' && Number.isFinite(n)) m.hearts = clamp(Math.round(n), 0, m.maxHearts);
     }
+  }
+  if (creatureUid === 'boss') {                 // Big Ghost: a win ends it for good; a loss (above) leaves it standing
+    if (outcome === 'won' && state.boss) { state.boss = null; state.bossBeaten = true; state.candyCount += BOSS_CANDY; }
+    return;
   }
   if (!c) return;
   if (outcome === 'won') {

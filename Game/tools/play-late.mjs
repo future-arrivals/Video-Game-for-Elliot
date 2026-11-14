@@ -1,4 +1,4 @@
-// Run I for play.mjs: the second half of the route, S3's right exit -> S4 (Puzzle 1) -> S5 (ghosts) -> S6
+// Run I (and run J at the end of this file) for play.mjs: the second half of the route, S3's right exit -> S4 (Puzzle 1) -> S5 (ghosts) -> S6
 // (Puzzle 2) -> the pumpkin door, with all three friends. Inputs only (press / move / tick); the route
 // finder reads __game.canStand, never sets state. Starts from `stage=S3&party=3` at S3's right exit (run F
 // already proves the way there from a fresh game). With --shots DIR it saves review screenshots to DIR/late.
@@ -166,10 +166,49 @@ export async function runLate({ run, boot, ev, check, opt }) {
     // fold first: the open fish is about 210 px tall and at row 3 would cover the door in the screenshot
     await ev(page, `__game.press('square'); __game.tick(.6)`);
     w = await ev(page, `[__play.walk(23, 6), __play.walk(27, 4)].join()`);
-    await ev(page, '__game.move(0, -1, .5); __game.tick(.5)');
-    const g = await ev(page, '({ stage: __play.stage(), mode: __game.mode(), cues: __game.fieldScene.cues, lead: __play.lead(), party: __play.party() })');
     await shot('10-team-at-pumpkin-door');
-    check('I: through the open gate to the pumpkin door: the team stays in S6 and the "more soon" bubble shows', w === 'ok,ok' && g.stage === 'S6' && g.mode === 'field' && g.cues.includes('exit') && g.lead.i >= 27 && g.lead.i <= 28,
-      `walk ${w}, ${JSON.stringify(g)}`);
+    const t3 = await ev(page, '__play.exit(0, -1)');
+    s = await st();
+    check('I: through the open gate to the pumpkin door: it opens into S7 (the ghost house)', w === 'ok,ok' && t3 > .3 && s.stage === 'S7' && s.mode === 'field' && s.lead.i === 1 && s.lead.j === 4,
+      `walk ${w}, slide ${t3}, ${JSON.stringify(s)}`);
+  });
+
+  // Run J: the pumpkin door -> S7 (the ghost house) -> back out -> in again -> into Big Ghost. Starts from
+  // `stage=S6&party=3` beside the door. Asserts only what the field controls: the stage, the autosave, the
+  // boss's 'battle' event (seen as the scene waiting and the save's pendingBattle), never the fight itself.
+  await run('J', async page => {
+    const dir = opt.shots ? opt.shots.replace(/\/$/, '') : null;
+    const shot = async name => { if (!dir) return; await mkdir(dir, { recursive: true }); await page.screenshot({ path: `${dir}/${name}.png` }); };
+    const st = () => ev(page, '({ stage: __play.stage(), party: __play.party(), lead: __play.lead(), mode: __game.mode(), boss: __game.state().boss })');
+    const saved = () => ev(page, `(() => { const s = JSON.parse(localStorage.getItem('${SAVE_KEY}')); return s && { stageId: s.stageId, pending: s.pendingBattle || null }; })()`);
+    await boot(page, 'stage=S6&party=3&x=27.5&y=5.5'); await ev(page, LATE);
+    let s = await st();
+    check('J: start in S6 near the pumpkin door with all three', s.stage === 'S6' && s.party === 'monster,fish,icecream' && s.lead.i === 27 && s.lead.j === 5, JSON.stringify(s));
+
+    // ---- in through the door
+    await ev(page, '__play.walk(27, 4)');
+    let t = await ev(page, '__play.exit(0, -1)');
+    s = await st(); let sv = await saved();
+    check('J: walking up to the door slides into S7 at its entrance, no "more soon" bubble', t > .3 && s.stage === 'S7' && s.mode === 'field' && s.lead.i === 1 && s.lead.j === 4 && !(await ev(page, '__game.fieldScene.cues')).includes('exit'), `slide ${t}, ${JSON.stringify(s)}`);
+    check('J: arriving in S7 autosaves it, and Big Ghost stands there', sv && sv.stageId === 'S7' && s.boss && s.boss.i0 === 13 && s.boss.j0 === 3, `${JSON.stringify(sv)}, boss ${JSON.stringify(s.boss)}`);
+    await ev(page, '__game.tick(.3)'); await shot('m3-arrive-s7');
+
+    // ---- back out by the left exit, then in again
+    t = await ev(page, '__play.exit(-1, 0)');
+    s = await st();
+    check('J: S7\'s left exit leads back to the tile in front of the S6 door', t > .3 && s.stage === 'S6' && s.lead.i === 27 && s.lead.j === 4, `slide ${t}, ${JSON.stringify(s)}`);
+    t = await ev(page, '__play.exit(0, -1)');
+    s = await st();
+    check('J: and in again', t > .3 && s.stage === 'S7' && s.lead.i === 1 && s.lead.j === 4, `slide ${t}, ${JSON.stringify(s)}`);
+
+    // ---- walk into Big Ghost along row 4
+    await ev(page, '__game.tick(.3)');
+    const w = await ev(page, '__play.walk(11, 4)');
+    await shot('m3-team-next-to-big-ghost-far');
+    let ok = false, n = 0;
+    for (; n < 120 && !ok; n++) { await ev(page, '__game.move(1, 0, 1 / 30); __game.tick(1 / 30)'); ok = await ev(page, '__game.fieldScene.waiting || __game.mode() !== "field"'); if (n === 6) await shot('m3-team-next-to-big-ghost'); }
+    sv = await saved(); s = await st();
+    check('J: walking into Big Ghost starts a battle for it (the field waits; the save says bigghost)', w === 'ok' && ok && sv && sv.pending && sv.pending.creatureUid === 'boss' && sv.pending.kind === 'bigghost',
+      `walk ${w}, after ${n} steps, mode ${s.mode}, ${JSON.stringify(sv)}`);
   });
 }

@@ -18,7 +18,11 @@
 // Pause: padLost or Options; the page dims (a controller picture if the pad went away) until any press or tap.
 // Stage travel: an 'exit' event to a stage in the data leaves the stage (leaveStage), enters the next one at
 // the matching entrance (enterStage, from + row), autosaves, then slides the new page in over TRAVEL_TIME
-// (input ignored). An exit to nowhere, or walking up to the S6 door, shows the "more soon" bubble.
+// (input ignored). An exit to nowhere shows the "more soon" bubble. Stepping onto a door tile (S6's pumpkin
+// door) travels to the stage the door leads to (stage.doorTo, S7), arriving at its entrance.
+// The boss: a 'battle' event with boss: true (creatureUid 'boss', kind 'bigghost') calls onBattle with boss: true too.
+// When resumeFromBattle reports a won boss fight, the field plays the ending moment (ending.js, ENDING.secs;
+// input ignored, the candy pop and the fanfare sound play) and then play continues.
 // Events: eat (chomp, crumbs), nope/short (boing), bridge start (stretch), push start (push), stone (splash),
 // reach bell (bell), reach candy (the candy flies to the HUD counter, then the candy sound), gate (gate),
 // join (join, heart burst), spotted (spotted, a "!" over the creature), doOver (a puff at the do-over pumpkin
@@ -43,6 +47,7 @@ import { parseStage } from '../field/stage.js';
 import { stepField, applyBattleResult } from '../field/field.js';
 import { createWorld, enterStage, leaveStage } from '../field/world.js';
 import { loadSave, writeSave, toSave } from '../save.js';
+import { ENDING, drawEnding } from './ending.js';
 
 const AUTOSAVE_EVERY = 30;   // seconds
 const REST_CUE = 1.4;
@@ -69,7 +74,8 @@ export function createFieldScene({ assets, data, input = null, audio = null, sto
   const dev = DEV_KEYS.some(k => query.has(k));
   const saved = dev ? null : loadSave(storage, data);
   let { world, stage, field } = makeField(data, query, saved);
-  const pendingBattle = saved && saved.pendingBattle && field.creatures.some(c => c.uid === saved.pendingBattle.creatureUid && c.kind === saved.pendingBattle.kind)
+  const foe = (uid, kind) => field.creatures.some(c => c.uid === uid && c.kind === kind) || (uid === 'boss' && kind === 'bigghost' && !!field.boss);
+  const pendingBattle = saved && saved.pendingBattle && foe(saved.pendingBattle.creatureUid, saved.pendingBattle.kind)
     ? { ...saved.pendingBattle } : null;
   const views = new Map();
   const viewFor = s => { if (!views.has(s.id)) views.set(s.id, createStageView(s, assets)); return views.get(s.id); };
@@ -84,6 +90,7 @@ export function createFieldScene({ assets, data, input = null, audio = null, sto
   let waiting = null;            // the battle we are waiting on: { creatureUid }
   let paused = null;             // { pad: bool, at: clock }
   let travel = null;             // { t, dir, old: { view, field, cam } } during the page slide
+  let ending = null;             // { t } during the ending moment after the boss
   let lastFrame = null, lastLeadX = field.party[0].x, lastAction = null, atDoor = false;
   const fx = [];                 // { kind, t0, x, y } world px (fly: screen px)
   let candyCue = 0;              // candy won in a battle: its sound and sparkle wait until the field is back on screen
@@ -104,6 +111,11 @@ export function createFieldScene({ assets, data, input = null, audio = null, sto
     if (frame && (frame.padLost || frame.pressed?.options)) { paused = { pad: !!frame.padLost, armed: false }; return; }
     if (waiting) return;
     clock += dt;
+    if (ending) {                                // the party's happy moment: input ignored
+      if (candyCue) popCandy();
+      ending.t += dt; if (ending.t >= ENDING.secs) ending = null;
+      return;
+    }
     const events = stepField(field, stage, frame, dt);
     const lead = field.party[0];
     const a = field.action;
@@ -112,7 +124,7 @@ export function createFieldScene({ assets, data, input = null, audio = null, sto
       else if (a.kind === 'push' && !a.blocked) play('push');
       lastAction = a;
     }
-    if (candyCue) { candyCue = 0; play('candy'); fx.push({ kind: 'candy', t0: clock, x: wx(lead.x), y: wy(lead.y) - 60 }); }
+    if (candyCue) popCandy();
     for (const e of events) {
       if (e.t === 'candy') { play('candy'); fx.push({ kind: 'candy', t0: clock, x: wx(e.i + .5), y: wy(e.j + .7) - 22 }); save(); }
       else if (e.t === 'rest') { play('heal'); const r = field.restAt; fx.push({ kind: 'rest', t0: clock, x: wx(r.i + .5), y: wy(r.j + .5) }); save(); }
@@ -141,11 +153,13 @@ export function createFieldScene({ assets, data, input = null, audio = null, sto
         if (next) { beginTravel(next); return; }
         bubble();
       }
-      else if (e.t === 'battle') { beginBattle(e.creatureUid, e.kind, !!e.sneak); break; }
+      else if (e.t === 'battle') { beginBattle(e.creatureUid, e.kind, !!e.sneak, !!e.boss); break; }
       // 'bump': nothing loud
     }
     const li = Math.floor(lead.x), lj = Math.floor(lead.y);
-    const door = (stage.door || []).some(([i, j]) => i === li && (j === lj || j === lj - 1));   // the S6 door: nope
+    const next = stage.doorTo && data.stages.find(s => s.id === stage.doorTo);
+    if (next && (stage.door || []).some(([i, j]) => i === li && j === lj)) { beginTravel(next); return; }   // the S6 door opens into S7
+    const door = !next && (stage.door || []).some(([i, j]) => i === li && (j === lj || j === lj - 1));   // a door that leads nowhere: nope
     if (door && !atDoor) { play('boing'); bubble(); }
     atDoor = door;
     if (lead.moving) { stepTimer -= dt; if (stepTimer <= 0) { play('step'); stepTimer = STEP_EVERY; } } else stepTimer = 0;
@@ -169,26 +183,31 @@ export function createFieldScene({ assets, data, input = null, audio = null, sto
     travel = { t: 0, dir, old };
   }
 
-  function beginBattle(creatureUid, kind, sneak) {
+  function popCandy() {
+    const lead = field.party[0];
+    candyCue = 0; play('candy'); fx.push({ kind: 'candy', t0: clock, x: wx(lead.x), y: wy(lead.y) - 60 });
+  }
+
+  function beginBattle(creatureUid, kind, sneak, boss = false) {
     waiting = { creatureUid };
     writeSave(storage, toSave(world, field, settings, { creatureUid, kind }));
     const party = field.party.map(m => ({ id: m.id, hearts: m.hearts }));
-    if (onBattle) onBattle({ creatureUid, kind, sneak, party });
+    if (onBattle) onBattle({ creatureUid, kind, sneak, party, boss });
   }
   function startPendingBattle(p = pendingBattle) {
-    const c = p && field.creatures.find(k => k.uid === p.creatureUid && k.kind === p.kind);
-    if (!c || waiting) return false;
-    beginBattle(c.uid, c.kind, false);
+    if (!p || waiting || !foe(p.creatureUid, p.kind)) return false;
+    beginBattle(p.creatureUid, p.kind, false, p.creatureUid === 'boss');
     return true;
   }
 
   function resumeFromBattle({ outcome, creatureUid, hearts, candyDrop = 0 } = {}) {
     let h = hearts;
     if (Array.isArray(h)) h = Object.fromEntries(h.filter(m => m && typeof m.id === 'string').map(m => [m.id, m.hearts]));
-    const candyBefore = field.candyCount;
+    const candyBefore = field.candyCount, beatenBefore = field.bossBeaten;
     applyBattleResult(field, stage, { outcome, creatureUid: creatureUid ?? waiting?.creatureUid, hearts: h, candyDrop });
     candyCue = Math.max(0, field.candyCount - candyBefore);
     waiting = null;
+    if (field.bossBeaten && !beatenBefore) { ending = { t: 0 }; play(ENDING.sound); }
     if (outcome === 'lost') snapCam();
     save();
   }
@@ -204,6 +223,7 @@ export function createFieldScene({ assets, data, input = null, audio = null, sto
     } else {
       renderStage(ctx, view, field, cam, timeMs);
       drawFx(ctx);
+      if (ending) drawEnding(ctx, ending.t, timeMs);
       if (input && input.drawTouch && !paused) input.drawTouch(ctx, 'field');
     }
     drawFieldHud(ctx, assets, field, lastFrame, { leadBox: travel ? null : leadScreenBox(), timeMs });
@@ -273,7 +293,7 @@ export function createFieldScene({ assets, data, input = null, audio = null, sto
     update, render, resumeFromBattle, startPendingBattle, pendingBattle, inputMode: 'field',
     get field() { return field; }, get world() { return world; }, get stage() { return stage; },
     get view() { return view; }, get cam() { return cam; },
-    get paused() { return !!paused; }, get waiting() { return !!waiting; }, get travelling() { return !!travel; },
+    get paused() { return !!paused; }, get waiting() { return !!waiting; }, get travelling() { return !!travel; }, get ending() { return !!ending; },
     get cues() { return fx.map(f => f.kind); },      // the effects on screen now, for scripted checks
     save,
   };

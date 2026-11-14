@@ -5,11 +5,18 @@
 // animates the changes).
 import { R, INK, wx, wy, mk, wob, heartPts } from './core.js';
 import { makeProp, bakeProp, drawProp, drawPropAt } from './props.js';
-import { candyArt } from './sprites.js';
-import { prepareActors, drawMember } from './actors.js';
+import { candyArt, bakeSprite, alphaBounds, paperFilled } from './sprites.js';
+import { prepareActors, drawMember, drawCreature } from './actors.js';
 
 const INKLOOK = { shadow: true, streaks: true };
 const GATE_SWING = { secs: .4, kinds: ['gateswing1', 'gateswing2', 'gateswing3'] };   // closed -> these -> open
+// Big Ghost (S7): its own picture, ink and full colour, hovering with a slow bob; three small ghosts drift round it.
+export const BOSS = {
+  h: 210,                      // drawn height, px (the stage is 30 px a row)
+  lift: 10, bob: 5, bobHz: .35,   // hover height, bob height, bob cycles per second
+  shadowW: 150,
+  little: { n: 3, k: .8, rx: 2.7, ry: 1.7, dy: .6, speed: .00055, bob: 4 },   // orbit radii in tiles, rad per ms
+};
 export const OBJ = {
   plateY: .55, gateY: .85, postY: .82, stoneY: .55, lolliY: .7, dooverY: .8,
   candyW: 34, candyLift: 112,                         // the candy on a tall post, centred this far above its feet
@@ -56,6 +63,10 @@ export function bakeObjects(view, stage, assets) {
       const w = OBJ.lolliW, h = w * im.height / im.width; g.drawImage(im, x - w / 2, y - 22 - h / 2, w, h);
     });
   }
+  if (stage.boss) {
+    const im = assets.img.ghost_big, b = alphaBounds(im);
+    O.boss = { s: bakeSprite(paperFilled(im, '#FBF8F0'), BOSS.h), foot: b.b };
+  }
   // static: the do-over pumpkin(s), the giant pumpkin, its door and the mat in front of it
   for (const [i, j] of stage.doOver) view.props.push(ink('doover', wx(i + .5), wy(j + OBJ.dooverY), 1, seedOf(i, j)));
   if (stage.pumpkin.length) {
@@ -97,6 +108,32 @@ function gateSprite(view, fs, g, s) {
   if (m.get(k) == null) m.set(k, now);
   const n = Math.floor((now - m.get(k)) / GATE_SWING.secs * (s.swing.length + 1));
   return n >= 1 && n <= s.swing.length ? s.swing[n - 1] : n < 1 ? s.closed : s.open;
+}
+
+/** Big Ghost's place: tile-centre x, ground y (px) at the bottom of its tiles. */
+export const bossSpot = b => ({ x: wx((b.i0 + b.i1 + 1) / 2), y: wy(b.j1 + 1) - 4 });
+
+/** Big Ghost and its three small ghosts (only while it stands there), as depth-sorted items. */
+export function pushBossItems(view, fs, items) {
+  const b = fs.boss; if (!b || !view.obj.boss) return;
+  items.push({ y: bossSpot(b).y, boss: b });
+  for (let n = 0; n < BOSS.little.n; n++) items.push({ y: littleSpot(b, n, view.t ?? 0).y, little: n });
+}
+function littleSpot(b, n, t) {
+  const L = BOSS.little, a = t * L.speed + n * Math.PI * 2 / L.n;
+  return { x: wx((b.i0 + b.i1 + 1) / 2 + Math.cos(a) * L.rx), y: wy((b.j0 + b.j1 + 1) / 2 + L.dy + Math.sin(a) * L.ry), face: -Math.sin(a) >= 0 ? 1 : -1 };
+}
+export function drawBoss(ctx, view, fs, t) {
+  const b = fs.boss, O = view.obj.boss, A = prepareActors(view.assets), sp = bossSpot(b), s = O.s;
+  const bob = Math.sin(t * .001 * Math.PI * 2 * BOSS.bobHz) * BOSS.bob;
+  ctx.globalAlpha = .8; ctx.drawImage(A.shadow.c, sp.x - BOSS.shadowW / 2, sp.y - 9, BOSS.shadowW, 18); ctx.globalAlpha = 1;
+  ctx.drawImage(s.c, sp.x - s.w / 2, sp.y - BOSS.lift - bob - O.foot * s.h, s.w, s.h);
+}
+export function drawLittle(ctx, view, fs, n, t) {
+  const sp = littleSpot(fs.boss, n, t), L = BOSS.little;
+  ctx.save(); ctx.translate(sp.x, sp.y); ctx.scale(L.k, L.k);
+  drawCreature(ctx, view.assets, { kind: 'ghost', uid: 'little-' + n, mode: 'patrol', faceX: sp.face }, 0, 0, t);
+  ctx.restore();
 }
 
 /** A friend waiting on its join tile: its folded drawing in full ink, a small bob, a heart that beats above. */

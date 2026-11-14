@@ -323,12 +323,12 @@ try {
     void battles;
   });
 
-  // ---- Run G: the S6 door leads nowhere yet: walking up to it is a harmless "more soon"
+  // ---- Run G: the S6 door leads into the ghost house (S7)
   await run('G', async page => {
     await boot(page, 'stage=S6&x=27.5&y=4.5&party=3');
-    await ev(page, '__game.move(0, -1, .5); __game.tick(.5)');
-    const g = await ev(page, '({ stage: __play.stage(), mode: __game.mode(), cues: __game.fieldScene.cues, lead: __play.lead() })');
-    check('G: at the S6 door the team stays in S6 and the "more soon" bubble shows', g.stage === 'S6' && g.mode === 'field' && g.cues.includes('exit'), JSON.stringify(g));
+    await ev(page, '__game.move(0, -1, .5); __game.tick(.5); __game.move(0, 0, 0); __game.tick(1)');
+    const g = await ev(page, '({ stage: __play.stage(), mode: __game.mode(), lead: __play.lead() })');
+    check('G: walking up to the S6 door arrives in the ghost house', g.stage === 'S7' && g.mode === 'field', JSON.stringify(g));
   });
 
   // ---- Run H: a short bridge flops back (nothing moves); the S2 spider spotting the lead shows a "!"

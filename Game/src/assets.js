@@ -19,6 +19,7 @@ export const ASSET_LIST = {
   bat: { path: '../Art/Characters/png/bat.png', maxH: 130 },
   spider: { path: '../Art/Characters/png/spider.png', maxH: 130 },
   ghost: { path: '../Art/Characters/png/ghost.png', maxH: 130 },
+  ghost_big: { path: '../Art/Characters/png/ghost_big.png', maxH: 260 },   // Big Ghost, the boss (M3)
   candy: { path: '../Art/Characters/png/candy.png', maxH: 40 },
   lollipop: { path: '../Art/Characters/png/lollipop.png', maxH: 40 },
   // canvas rigs (src/render/rig.js): one packed parts atlas per character, from tools/rigparts.mjs. maxH is set

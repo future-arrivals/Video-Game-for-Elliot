@@ -19,6 +19,8 @@ export const C = {
   reed: '#9DB57A', cattail: '#C49A6C', lily: '#BFDDA0', lilyLine: '#8FB27A', lilyFlower: '#F4B6CC',
   stallBox: '#EAD3B0', awnPink: '#F4B6CC', awnWhite: '#FBF1E6', jar: ['#E99DBB', '#F6D27A', '#A8D4E8'],
   bark: '#CDBBA0', jack: '#F6D2A6', jackEye: '#8C7A62',
+  candleWax: '#F4ECDC', candleHolder: '#CDBBA0', flame: '#F8E3A0',   // S7 pencil dressing
+  frameWood: '#D9C3A0', frameGlass: '#E9ECF0', web: '#EDEFF2',
 };
 
 // A candy-cane stroke along pts: ink edge, white tube, red stripes (round-capped dashes).
@@ -164,6 +166,29 @@ export const KINDS = {
       if (d < 3) { twig(x1, y1, a - .45 - r() * .3, len * .66, d + 1); twig(x1, y1, a + .4 + r() * .3, len * .62, d + 1); }
     };
     twig(x, y - h * .5, -Math.PI / 2 - .3, h * .32, 0); twig(x, y - h * .5, -Math.PI / 2 + .35, h * .26, 1);
+  },
+  candle(P, part, x, y, s, seed, L, lw) {   // a pencil candle on a little dish, with a pale flame
+    P.push(part(wob(ell(x, y - 2 * s, 14 * s, 4 * s, 10), true, .3, seed), C.candleHolder, L, lw * .6));
+    P.push(part(wob([[x - 5 * s, y - 3 * s], [x - 5 * s, y - 24 * s], [x + 5 * s, y - 24 * s], [x + 5 * s, y - 3 * s]], true, .4, seed + 1, 6), C.candleWax, L, lw * .7));
+    P.push(part(wob([[x, y - 25 * s], [x - 4 * s, y - 32 * s], [x, y - 40 * s], [x + 4 * s, y - 32 * s]], true, .2, seed + 2, 4), C.flame, L, lw * .5));
+  },
+  frame(P, part, x, y, s, seed, L, lw) {    // a crooked picture frame propped on the floor
+    const tilt = ((seed % 7) - 3) * .012, o = (px, py) => [x + px * s + py * s * tilt, y + py * s];
+    const rect = (w, h, y0) => [o(-w, y0), o(w, y0), o(w, y0 - h), o(-w, y0 - h)];
+    P.push(part(wob(rect(22, 34, -8), true, .6, seed, 8), C.frameWood, L, lw * .8));
+    P.push(part(wob(rect(16, 26, -12), true, .4, seed + 1, 8), C.frameGlass, L, lw * .5));
+    P.push(part(wob([o(-5, -16), o(0, -26), o(6, -18)], false, .3, seed + 2, 4), null, L, lw * .4));
+    for (const d of [-1, 1]) P.push(part(wob([o(d * 16, -8), o(d * 18, 0)], false, .3, seed + 3 + d, 4), null, L, lw * .7));
+  },
+  web(P, part, x, y, s, seed, L, lw) {      // a cobweb hanging from a thread: spokes, rings, a thin line up
+    const cx = x, cy = y - 62 * s, R = 30 * s;
+    P.push(part(wob([[cx, cy - R], [cx, cy - R - 26 * s]], false, .2, seed, 4), null, L, lw * .8));
+    const spokes = 7;
+    for (let k = 0; k < spokes; k++) { const a = k / spokes * Math.PI * 2; P.push(part(wob([[cx, cy], [cx + Math.cos(a) * R, cy + Math.sin(a) * R * .9]], false, .3, seed + k, 4), null, L, lw * .4)); }
+    for (const f of [.4, .7, 1]) {
+      const pts = []; for (let k = 0; k <= spokes; k++) { const a = k / spokes * Math.PI * 2, rr = R * f * (k % 2 ? .88 : 1); pts.push([cx + Math.cos(a) * rr, cy + Math.sin(a) * rr * .9]); }
+      P.push(part(wob(pts, true, .3, seed + 20 + Math.round(f * 10), 4), null, L, lw * .8));
+    }
   },
   jack(P, part, x, y, s, seed, L, lw) {   // a little pencil jack-o'-lantern
     const cy = y - 20 * s;

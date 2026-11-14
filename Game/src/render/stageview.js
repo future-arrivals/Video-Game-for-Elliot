@@ -8,7 +8,7 @@ import { prepareActors, drawMember, drawCreature, memberSize } from './actors.js
 import { bakeSky, bakeFar, bakeMid, bakeLight, bakeForeground, bakeCornerFrame } from './layers.js';
 import { placeScenery, placeInk, bakeGround, CHUNK_W, CHUNK_Y0, CHUNK_Y1 } from './stagebake.js';
 import { prepareRibbons } from './water.js';
-import { bakeObjects, drawFlatObjects, pushObjectItems, drawFriend } from './stageobjs.js';
+import { bakeObjects, drawFlatObjects, pushObjectItems, drawFriend, pushBossItems, drawBoss, drawLittle } from './stageobjs.js';
 import { boulderAt, drawBridge, drawReach, hidesLead } from './fieldfx.js';
 import { bakeMarks, leadState, drawLeadRing, drawCrumbs, drawTargetOutline, drawTargetBadge, readDevMarks } from './fieldmarks.js';
 
@@ -21,7 +21,10 @@ const pumpkinPx = (stage, stageW) => {
   const is = stage.pumpkin.map(p => p[0]), cx = wx((Math.min(...is) + Math.max(...is) + 1) / 2);
   return cx - .75 * (stageW - W / 2);
 };
-const EERIE = { S5: true };                        // S5 Ghost Field: a cooler light overlay (layers.js bakeLight)
+// S7 (the ghost house at night): a dark blue-purple wash over the sky, far and mid sheets and the ground, laid
+// BEFORE the team, the boss, the blanket and the exit are drawn, so those stay in full ink and colour.
+const NIGHT = { S7: { wash: 'rgba(28,20,96,.64)' } };
+const EERIE = { S5: true, S7: true };                        // S5 Ghost Field: a cooler light overlay (layers.js bakeLight)
 const DRIFT_LEAF = { fill: 'rgba(232,206,170,.55)', line: 'rgba(170,150,120,.45)', lw: 1 };  // drifting leaves are scenery: pale pencil, no ink
 const TUFT = { col: '#9fbf7f', lw: 2 };   // item 2: tufts quieter (were #9fbf7f, 2 px)
 const hash = s => [...String(s)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 7);
@@ -87,10 +90,14 @@ export function renderStage(ctx, view, fs, cam, timeMs) {
     blit(ctx, bs, bx, by, fk, fk * (1 + Math.sin(t * .03) * .1), 0, .5);
   }
   drawLayer(ctx, view.mid, cam);
+  const night = NIGHT[view.stage.id];
+  if (night) { ctx.fillStyle = night.wash; ctx.fillRect(0, 0, W, H); }
+  view.t = t;
   // playfield, world px
   ctx.save(); ctx.translate(W / 2, H / 2); ctx.scale(cam.z, cam.z); ctx.translate(-cam.cx, -cam.cy);
   const vx0 = cam.cx - W / 2 / cam.z - 80, vx1 = cam.cx + W / 2 / cam.z + 80;
   for (const ch of view.chunks) if (ch.x0 + CHUNK_W > vx0 && ch.x0 < vx1) ctx.drawImage(ch.c, ch.x0 - 2, CHUNK_Y0, CHUNK_W + 4, CHUNK_Y1 - CHUNK_Y0);
+  if (night) { ctx.fillStyle = night.wash; ctx.fillRect(vx0, 80, vx1 - vx0, CHUNK_Y1 - 80); }
   for (const p of view.flat) drawProp(ctx, p);
   drawFlatObjects(ctx, view, fs);
   // eaten boulders leave pencil crumbs; a pushed one does not (dev: eaten=1 pretends every boulder was eaten)
@@ -108,6 +115,7 @@ export function renderStage(ctx, view, fs, cam, timeMs) {
   fs.candy.forEach((c, n) => { if (!c.taken) { const p = view.candySprites.get(c.i + ',' + c.j); if (p) items.push({ y: p.y, p, bob: Math.sin(t * .004 + n * 1.7) * 3 }); } });
   for (const tf of view.tufts) if (tf.x > vx0 && tf.x < vx1) items.push({ y: tf.y, tf });
   pushObjectItems(view, fs, items, t, vx0, vx1);
+  pushBossItems(view, fs, items);
   for (const c of fs.creatures) items.push({ y: wy(c.y), c });
   const hide = hidesLead(fs);                               // the fish is the bridge: drawBridge draws it
   fs.party.forEach((m, n) => { if (!(n === 0 && hide)) items.push({ y: wy(m.y) + (n === 0 ? .01 : 0), m, lead: n === 0 }); });
@@ -125,7 +133,9 @@ export function renderStage(ctx, view, fs, cam, timeMs) {
       const tf = it.tf, sw = Math.sin(t * .0032 + tf.ph + tf.x * .01) * .16;
       ctx.strokeStyle = TUFT.col; ctx.lineWidth = TUFT.lw;
       for (let b = -1; b <= 1; b++) { const ang = sw + b * .45; ctx.beginPath(); ctx.moveTo(tf.x + b * 3, tf.y); ctx.quadraticCurveTo(tf.x + b * 3 + Math.sin(ang) * 5 * tf.s, tf.y - 6 * tf.s, tf.x + b * 3 + Math.sin(ang) * 10 * tf.s, tf.y - 12 * tf.s * Math.cos(ang)); ctx.stroke(); }
-    } else if (it.c) drawCreature(ctx, view.assets, it.c, wx(it.c.x), wy(it.c.y), t);
+    } else if (it.boss) drawBoss(ctx, view, fs, t);
+    else if (it.little !== undefined) drawLittle(ctx, view, fs, it.little, t);
+    else if (it.c) drawCreature(ctx, view.assets, it.c, wx(it.c.x), wy(it.c.y), t);
     else if (it.target) drawTargetOutline(ctx, view, fs, it.target);
     else if (it.friend) drawFriend(ctx, view, it.friend, t);
     else {

@@ -44,6 +44,13 @@ const DRESS = {
   S5: { patches: [{ at: [9, 0], big: 'baretree', small: ['jack', 'stalks'] }, { at: [20, 1], big: 'baretree', small: ['stalks'] }, { at: [17, 8], big: null, small: ['jack', 'leaves'] }], tufts: 1, hatch: 4 },
   S6: { patches: [{ at: [9, 0], big: 'hay', small: ['pumpkin', 'pumpkin'] }, { at: [7, 8], big: null, small: ['pumpkin', 'leaves'] }, { at: [27, 8], big: null, small: ['pumpkin'] }], tufts: 2, hatch: 4 },
 };
+// S7 (the ghost house, night): pale-pencil cobwebs, crooked picture frames and candles along the back and front
+// walls, never on playable tiles (playTiles keeps clear of the boss's tiles and the little ghosts' tiles).
+DRESS.S7 = { patches: [
+  { at: [4, 0], big: null, small: ['frame', 'web', 'candle'] }, { at: [10, 0], big: null, small: ['candle', 'web'] },
+  { at: [17, 0], big: null, small: ['frame', 'candle', 'web'] }, { at: [5, 8], big: null, small: ['candle', 'frame'] },
+  { at: [10, 8], big: null, small: ['web', 'candle'] }, { at: [17, 8], big: null, small: ['frame', 'candle'] }],
+  tufts: 0, hatch: 3 };
 const WIDE = new Set(['cart', 'scarecrow', 'stall']);
 const STALKS = { mix: '#B9A27E', amt: .45 };   // dead corn in S5: the corn prop, browned
 
@@ -52,7 +59,7 @@ export function playTiles(stage) {
   const extra = []; for (let j = 0; j < stage.depth; j++) for (let i = 0; i < stage.width; i++) if ('kvmf'.includes(stage.tileAt(i, j))) extra.push([i, j]);
   return [...stage.candy, ...stage.rest, ...stage.boulders, ...stage.hedges, stage.start, ...stage.spawns.map(s => s.at), ...stage.exits.map(e => e.at),
     ...(stage.plates || []), ...(stage.gates || []), ...(stage.posts || []).map(p => p.at), ...(stage.joins || []).map(f => f.at), ...(stage.doOver || []),
-    ...(stage.lollipop ? [stage.lollipop] : []), ...(stage.door || []), ...(stage.pumpkin || []), ...extra];
+    ...(stage.lollipop ? [stage.lollipop] : []), ...(stage.door || []), ...(stage.pumpkin || []), ...(stage.bossTiles || []), ...(stage.littleGhosts || []), ...extra];
 }
 
 const PATH_TILES = ':';

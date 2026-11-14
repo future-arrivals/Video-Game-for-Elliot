@@ -5,6 +5,7 @@
 // World { stageId,                                  the stage on screen
 //         party: [{ id, hearts }],                  lead first; only characters who have joined
 //         candyCount, lollipop: bool, restAt: { stageId, i, j },
+//         bossBeaten: true once Big Ghost is beaten (absent before),
 //         stages: { [stageId]: StageMemory } }      only stages visited
 // StageMemory { candyTaken: [[i, j]], boulders: [[i, j]],   where each boulder is now
 //               stones: [[i, j]], gatesOpen: [[i, j]], postsTaken: [[i, j]], joined: [id], asleep: [uid] }
@@ -55,7 +56,7 @@ export function enterStage(world, stage, data, { from = null, row = null, at = n
   const state = createField({
     stage, data, party: world.party, memory,
     candyCount: world.candyCount, restAt: world.restAt, lollipop: world.lollipop,
-    at, from, row,
+    at, from, row, bossBeaten: !!world.bossBeaten,
   });
   if (!memory) world.stages[stage.id] = memoryOf(state);
   return state;
@@ -67,6 +68,7 @@ export function leaveStage(world, state) {
   world.candyCount = state.candyCount;
   world.restAt = { stageId: state.restAt.stageId, i: state.restAt.i, j: state.restAt.j };
   if (state.lollipop && state.lollipop.taken) world.lollipop = true;
+  if (state.bossBeaten) world.bossBeaten = true;
 }
 
 export function restWorld(world, data = defaultData) {

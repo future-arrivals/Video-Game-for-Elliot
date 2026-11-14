@@ -4,6 +4,7 @@
 //         start, rest, candy, boulders, hedges, exits: [{ at, to }], spawns: [{ kind, at, patrol }],
 //         water, plates, gates, posts: [{ at, kind: 'candy' | 'bell' }], joins: [{ at, id }],
 //         doOver, lollipop: [i, j] | null, door, pumpkin, doorTo: stageId | null,
+//         boss: { i0, j0, i1, j1 } | null (the 'X' tiles' bounding box, inclusive), bossTiles: [[i, j]], littleGhosts: [[i, j]] ('L'),
 //         entrance(fromStageId, row?) -> [i, j] }
 //
 // Every list of tiles is [[i, j]] in reading order (row by row, left to right).
@@ -19,7 +20,7 @@
 // stops (or starts) blocking: isSolid(i, j, state.boulders).
 //
 // Exit targets in the data are sometimes annotated ("S5 (only past the divider)"); `to` is always a plain
-// stage id. S6's door is not an exit: its target is `doorTo` ('S7'), and nothing travels through it in M2.
+// stage id. S6's door is not an exit: its target is `doorTo` ('S7'); the scene travels through it when the lead steps onto a door tile.
 //
 // entrance(fromStageId, row): where the team arrives. With fromStageId null (or a stage that does not
 // connect here): the start, which is the 'S' tile, or else the left entrance. Otherwise the tile just
@@ -135,6 +136,11 @@ export function parseStage(stageData) {
   };
 
   const lollipop = find('H')[0] ?? null;
+  const bossTiles = find('X');
+  const boss = bossTiles.length ? {
+    i0: Math.min(...bossTiles.map((p) => p[0])), j0: Math.min(...bossTiles.map((p) => p[1])),
+    i1: Math.max(...bossTiles.map((p) => p[0])), j1: Math.max(...bossTiles.map((p) => p[1])),
+  } : null;
 
   return {
     id: stageData.id,
@@ -161,6 +167,9 @@ export function parseStage(stageData) {
     door,
     pumpkin: find('Q'),
     doorTo,
+    boss,
+    bossTiles,
+    littleGhosts: find('L'),
     entrance,
   };
 }
