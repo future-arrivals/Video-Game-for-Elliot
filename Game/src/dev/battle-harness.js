@@ -1,6 +1,7 @@
 // Stand-alone battle harness for Game/dev/battle.html. Runs one battle with the real input layer in battle mode.
 // Query: enemy (bat | spider | ghost), lead (monster | fish | icecream), party (1 | 3), hearts (lead's starting
-// hearts), quick=1 (Quick play), flash=0 (reduce flash), dizzy=1 (sneak attack), stage (backdrop stage id, default S1; 'none' = plain page).
+// hearts), quick=1 (Quick play), flash=0 (reduce flash), dizzy=1 (sneak attack), stage (backdrop stage id, default S1; 'none' = plain page),
+// still=1 (no real-time steps before the first tick(): the page shows the battle's first frame, as the page turn reveals it).
 // window.__game = { ready, state(), press(name), hold(name, on), tap(x, y, long), tick(seconds), scene, result }
 //   press(name): queues a one-frame press (cross, circle, triangle, square, l1, r1); one queued press per frame.
 //   hold('r2', true|false): holds R2 in the synthetic frames (for Run). tap(x, y[, long]): a tap in logical px.
@@ -53,7 +54,7 @@ export async function startHarness(canvas) {
   start();
 
   const queue = [], holds = { r2: false }, held = { l2: 0, r2: 0 };
-  let manual = false;
+  let manual = q.get('still') === '1';
   const blank = () => ({ moveX: 0, moveY: 0, dash: false, pressed: {}, held: { l2: 0, r2: 0 }, taps: [], longPress: [], holding: [], source: 'keyboard', gamepadConnected: false });
   function synth(frame, dt) {
     if (queue.length) {

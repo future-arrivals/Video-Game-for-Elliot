@@ -15,6 +15,7 @@
 // Pause: padLost or Options; the page dims (a controller picture if the pad went away) until any press or tap.
 // Eat: a chomp ('hit') and a crumb burst on the eaten tile, then an autosave. Nope (Cross with a target
 // that is not ready): 'boing'; the stage view hops the helper badge from field.target.nudgeAt.
+// Candy won in a battle: the candy sound and sparkle play over the lead on the first step back in the field.
 // Autosave: candy, rest, eat, battle end, and every 30 s of play.
 // Dev query parameters: x, y (lead tile position), form (folded|open), party (1|3), lead (id),
 // bat (patrol|asleep|ignore), zoom, fresh (1 = ignore the save). Any of them starts without the save.
@@ -59,6 +60,7 @@ export function createFieldScene({ assets, data, input = null, audio = null, sto
   let paused = null;             // { pad: bool, at: clock }
   let lastFrame = null, lastLeadX = field.party[0].x;
   const fx = [];                 // { kind, t0, x, y } world px
+  let candyCue = 0;              // candy won in a battle: its sound and sparkle wait until the field is back on screen
 
   const save = () => writeSave(storage, toSave(field, settings));
   const snapCam = () => { const l = field.party[0]; updateCamera(cam, { x: l.x, y: l.y, vx: 0 }, 0, { zoom: zoom(), snap: true }); lastLeadX = l.x; };
@@ -76,6 +78,7 @@ export function createFieldScene({ assets, data, input = null, audio = null, sto
     clock += dt;
     const events = stepField(field, stage, frame, dt);
     const lead = field.party[0];
+    if (candyCue) { candyCue = 0; play('candy'); fx.push({ kind: 'candy', t0: clock, x: wx(lead.x), y: wy(lead.y) - 60 }); }
     for (const e of events) {
       if (e.t === 'candy') { play('candy'); fx.push({ kind: 'candy', t0: clock, x: wx(e.i + .5), y: wy(e.j + .7) - 22 }); save(); }
       else if (e.t === 'rest') { play('heal'); const r = field.restAt; fx.push({ kind: 'rest', t0: clock, x: wx(r.i + .5), y: wy(r.j + .5) }); save(); }
@@ -110,7 +113,9 @@ export function createFieldScene({ assets, data, input = null, audio = null, sto
   function resumeFromBattle({ outcome, creatureUid, hearts, candyDrop = 0 } = {}) {
     let h = hearts;
     if (Array.isArray(h)) h = Object.fromEntries(h.filter(m => m && typeof m.id === 'string').map(m => [m.id, m.hearts]));
+    const candyBefore = field.candyCount;
     applyBattleResult(field, stage, { outcome, creatureUid: creatureUid ?? waiting?.creatureUid, hearts: h, candyDrop });
+    candyCue = Math.max(0, field.candyCount - candyBefore);
     waiting = null;
     if (outcome === 'lost') snapCam();
     save();

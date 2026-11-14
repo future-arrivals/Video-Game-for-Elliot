@@ -41,9 +41,11 @@ export function bakeBackdrop(stage) {
   if (stage) {
     const path = wob([[372, HORIZON - 1], [468, HORIZON - 2], [W + 60, H + 20], [-60, H + 20]], true, 2, 91, 30);
     g.fillStyle = '#F2E2BD'; g.fill(path.p); g.strokeStyle = PEN; g.lineWidth = 2; g.stroke(path.p);
-    for (const [x, y, s] of [[40, 188, .6], [128, 178, .5], [300, 176, .4], [530, 176, .45], [800, 190, .65]]) drawParts(g, makeProp('pumpkin', x, y, s, (r() * 1e6) | 0).parts, 1);
-    drawParts(g, makeProp('scarecrow', 250, 172, .8, 7).parts, 1);
+    // only two small pumpkins, out at the edges: the middle of the page is where the fight happens
+    for (const [x, y, s] of [[34, 186, .55], [812, 192, .55]]) drawParts(g, makeProp('pumpkin', x, y, s, (r() * 1e6) | 0).parts, 1);
   }
+  // the whole backdrop about 30% paler, so the actors and the cards read first (the disc goes on after)
+  g.save(); g.globalAlpha = .3; g.fillStyle = PAPER; g.fillRect(0, 0, W, H); g.restore();
   // the enemy's raised paper disc
   const D = LAYOUT.disc;
   const disc = wob(ell(D.x, D.y, D.rx, D.ry, 18), true, 1.4, 92);

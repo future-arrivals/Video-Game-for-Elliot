@@ -50,7 +50,7 @@ export function buildBeats(events, P) {
             P.sfx(e.amount >= 4 || e.lost >= 3 ? 'bigHit' : 'hit');
           } else { P.fx({ kind: 'ring', x, y: y + 40, r: 70, col: '#9d9485' }); P.sfx('boing'); }
           P.shake(shakeFor(e.lost));
-          P.fx({ kind: 'digit', x: x + (tgt === 'enemy' ? -70 : 80), y: y - 30, n: e.amount, size: 70, col: '#B8261B' });
+          P.fx({ kind: 'digit', x: x + (tgt === 'enemy' ? 62 : 80), y: y - (tgt === 'enemy' ? 52 : 30), n: e.amount, size: 70, col: '#B8261B' });   // the enemy's in the open sky above-right of it
         }, ms => {
           while (done < e.lost && ms >= 120 + done * HEART_STEP) {
             done++;

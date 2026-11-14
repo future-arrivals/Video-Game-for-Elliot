@@ -2,6 +2,10 @@
 
 Design spec for the first playable slice. Character names, type names and move words are **placeholders** until the child picks them (section 12). Every battle number is exact and was checked by script. `slice-data.json` has the same content in structured form.
 
+**Names (chosen 14 Nov, after this doc was written):** this text still says Monster, Heart, Ice Cream, Bat, Spider, Ghost, Big Ghost and Little Ghosts. In the game they are **Munch, Heartfin, Scoops, Zigzag, Webster, Spook, Old Howler and the Wisps**. Names on screen come from `placeholder_name` in `slice-data.json`; the ids in code (`monster`, `fish`, `icecream`, `bat`, ...) do not change. The full list and the reasons are in `README.md`, "Names and creative calls".
+
+**Changes since this doc (14 Nov):** Eat is in milestone 1, not 2. It is forgiving: with Munch leading, standing next to a boulder is enough, and Cross turns him to face it. The helper hint is a badge over the boulder showing who can do it, not a picture in the HUD.
+
 **Who it's for:** a capable player of about 7 to 9 who knows Pokémon, Mario and Zelda, and is an early reader. The first ten minutes are an easy on-ramp. After that, battles need real planning, exploration has some action in it, and the boss can take a couple of tries.
 
 ---

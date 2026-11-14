@@ -65,7 +65,7 @@ export function createBattleScene({ assets, data, battle, settings = {}, audio =
       if (which === 'l1' || which === 'r1') { const m = mates(st, S.active)[which]; if (m == null) return null; const L = LAYOUT[which]; return [L.x + L.w / 2, L.y + L.h / 2]; }
       return actorSpot(which, part);
     },
-    heart: (bar, i) => heartSpot(bar, i, { hasPortraits: st.party.length > 1, max: bar === 'enemy' ? st.enemy.maxHearts : maxOfBar(bar) }),
+    heart: (bar, i) => heartSpot(bar, i, { max: bar === 'enemy' ? st.enemy.maxHearts : maxOfBar(bar) }),
     barOf: id => {
       const idx = st.party.findIndex(m => m.id === id);
       if (idx === S.active) return 'player';
@@ -111,7 +111,10 @@ export function createBattleScene({ assets, data, battle, settings = {}, audio =
   function handleInput(f) {
     if (!f) return;
     let b = ['cross', 'circle', 'triangle', 'square', 'l1', 'r1'].find(k => f.pressed && f.pressed[k]);
-    const vis = { showL1: mates(st, st.active).l1 != null, showR1: mates(st, st.active).r1 != null, showRun: st.canRun };
+    const mt = mates(st, st.active), moves = cards(st).moves;
+    const pickingNext = st.phase === 'chooseNext';       // cards and Run are not drawn then, so taps there do nothing
+    const showCards = Object.fromEntries([...Object.entries(SLOT_OF).map(([k, slot]) => [k, !pickingNext && !!moves[slot]]), ['square', !pickingNext]]);
+    const vis = { showL1: mt.l1 != null, showR1: mt.r1 != null, showRun: st.canRun && !pickingNext, showCards };
     if (!b) for (const tp of f.taps || []) { const h = hitTest(tp.x, tp.y, vis); if (h && h !== 'run') { b = h; break; } }
     if (!b) for (const tp of f.longPress || []) if (hitTest(tp.x, tp.y, vis) === 'run') { b = 'run'; break; }
     if (b) return press(b);
@@ -190,10 +193,12 @@ export function createBattleScene({ assets, data, battle, settings = {}, audio =
   function buildVM() {
     const m = st.party[S.active], id = m.id, fm = S.forms[id];
     const pa = S.anim.player, ea = S.anim.enemy;
-    const intro = clamp((wt - 80) / 200);
+    // The intro starts on screen: during the page turn the battle is drawn at wt = 0, so both actors already stand
+    // in view, a little way off their marks, and slide the last stretch in once the page has turned.
+    const intro = clamp(wt / 340);
     const end = S.end, endMs = end ? wt - end.t0 : 0;
     // player position
-    let pdx = -320 * (1 - eOutBack(intro, 1.6)) + lunge(pa.lunge, 1), pdy = hop(pa.hop) + lunge(pa.lunge, -.55);
+    let pdx = -80 * (1 - eOutBack(intro, 1.4)) + lunge(pa.lunge, 1), pdy = hop(pa.hop) + lunge(pa.lunge, -.55);
     if (pa.exit != null && pa.enter == null) pdx -= 340 * eOutCubic(clamp(since(pa.exit) / 250));
     if (pa.enter != null) pdx -= 340 * (1 - eOutBack(clamp(since(pa.enter) / 250), 1.4));
     if (end && end.kind === 'ran') { pdx -= 380 * clamp(endMs / RUN_MS); pdy -= Math.abs(Math.sin(endMs / RUN_MS * Math.PI * 3)) * 26; }
@@ -204,14 +209,14 @@ export function createBattleScene({ assets, data, battle, settings = {}, audio =
     const scale = playerScale(assets, id, hingeCurve(fm.form, hu, 'battle').o);   // the size follows the hinge
     const koU = pa.ko != null ? clamp(since(pa.ko) / 500) : 0;
     // enemy
-    let edx = 320 * (1 - eOutBack(intro, 1.6)) + lunge(ea.lunge, -1), edy = hop(ea.hop) + lunge(ea.lunge, .4);
+    let edx = 80 * (1 - eOutBack(intro, 1.4)) + lunge(ea.lunge, -1), edy = hop(ea.hop) + lunge(ea.lunge, .4);
 
     const choosing = !playing && !end && wt > INTRO;
     const lp = lifted && lifted.p, la = lifted && lifted.action;
     const isSwitch = la && la.t === 'switch';
     const c = cards(disp), dm = disp.party[disp.active];
     const vm = {
-      backdrop: art.backdrop, overlays: art.overlays, types, hasPortraits: st.party.length > 1,
+      backdrop: art.backdrop, overlays: art.overlays,
       shake: shakes.reduce((a, s) => { const d = shakeAt(rt, s.t0, 300, s.amp, s.t0 % 7); return [a[0] + d[0], a[1] + d[1]]; }, [0, 0]),
       enemy: { kind: st.enemy.id, dx: edx, dy: edy, curl: S.curl, win: end && end.kind === 'won' ? endMs : null, flash: flashA(ea.flash), pulse: pulseU(ea.pulse) },
       enemyBar: { max: st.enemy.maxHearts, shown: S.enemyHearts, lost: lp ? lp.enemyHeartsLost : 0 },
@@ -219,7 +224,6 @@ export function createBattleScene({ assets, data, battle, settings = {}, audio =
         ko: koU, flash: flashA(pa.flash), pulse: pulseU(pa.pulse), squash, alpha: S.sleepy[id] && pa.ko == null ? .5 : 1 },
       playerBar: { max: m.maxHearts, shown: S.hearts[id], lost: lp && !isSwitch ? lp.selfHeartsLost : 0, heal: lp && !isSwitch ? (lifted.heals[id] || 0) : 0 },
       strip: { strip: disp.enemy.strip, pointer: S.pointer, from: S.pointerFrom, u: since(S.pointerT0) / 300, dizzy: S.dizzy },
-      typeMark: { [st.enemy.type]: true, [m.type]: true },
       badges: S.sleepy[id] ? null : { ...S.badges, pop: Object.fromEntries(Object.entries(S.pops).map(([k, t0]) => [k, since(t0) / 300])) },
       fx, tear: end && end.kind === 'lost' ? clamp(endMs / 1500) : 0,
       uiAlpha: clamp((wt - 100) / 250) * (end ? 1 - clamp((endMs - 200) / 400) : 1),
@@ -253,8 +257,14 @@ export function createBattleScene({ assets, data, battle, settings = {}, audio =
         pulse: choosing && st.phase === 'chooseNext' && !S.sleepy[tm.id], webbed: S.sticky,
         bar: { max: tm.maxHearts, shown: S.hearts[tm.id], lost: sel ? lp.selfHeartsLost : 0, heal: lp && !isSwitch ? (lifted.heals[tm.id] || 0) : 0 } });
     }
+    // the type wheel only while the intent or the lifted card has a type bonus or penalty
+    const liftedCard = lifted && vm.cards[lifted.b];
+    if (vm.bubble.arrow || (liftedCard && liftedCard.arrow)) vm.types = types;
+    vm.typeMark = { [st.enemy.type]: true, [defType]: true };
     vm.run = st.canRun && st.phase === 'choose' && !end ? { progress: runHold } : null;
     if (end && end.kind !== 'ran') { vm.cards = null; vm.run = null; }
+    // Lead knocked out and waiting for L1 / R1: only the teammate tags are useful, so the cards, Run ring, hearts tag and badges go.
+    if (!playing && st.phase === 'chooseNext') { vm.cards = null; vm.run = null; vm.playerBar = null; vm.badges = null; }
     return vm;
   }
 

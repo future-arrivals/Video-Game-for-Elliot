@@ -75,6 +75,34 @@ const CHECKS = [
     const s = g.state();
     return { ok: r.lifted && r.lifted.button === 'cross' && s.round === 2 && s.enemy.hearts === 3, got: `lifted ${r.lifted && r.lifted.button}, round ${s.round}, bat ${s.enemy.hearts}` };
   }],
+  ['Tapping the small R1 tag lifts the switch; a tap on the empty Triangle slot does nothing', 'enemy=bat&lead=monster&party=3', async g => {
+    const { LAYOUT, CARD_W, CARD_H } = await import('/Game/src/render/battle/layout.js');
+    g.tick(1);
+    const t = LAYOUT.cards.triangle; g.tap(t.x + CARD_W / 2, t.y + CARD_H / 2); const e = g.tick(.1);
+    const r = LAYOUT.r1; g.tap(r.x + r.w / 2, r.y + r.h / 2); const s = g.tick(.1);
+    return { ok: e.lifted === null && s.lifted && s.lifted.button === 'r1' && s.lifted.action.t === 'switch',
+      got: `triangle tap lifted ${JSON.stringify(e.lifted)}, R1 tap lifted ${s.lifted && s.lifted.button}` };
+  }],
+  ['Lead knocked out (chooseNext): a tap where the Cross card was changes nothing', 'enemy=bat&lead=monster&party=3&hearts=1', async g => {
+    const { LAYOUT, CARD_W, CARD_H } = await import('/Game/src/render/battle/layout.js');
+    g.tick(1); g.press('square'); g.tick(.05); g.press('square'); g.tick(4);
+    const s0 = g.state(); const before = JSON.stringify(s0);
+    const c = LAYOUT.cards.cross; g.tap(c.x + CARD_W / 2, c.y + CARD_H / 2); const r = g.tick(.3);
+    g.tap(c.x + CARD_W / 2, c.y + CARD_H / 2); const r2 = g.tick(.3);
+    return { ok: s0.phase === 'chooseNext' && JSON.stringify(g.state()) === before && r.lifted === null && r2.lifted === null && !r2.playing,
+      got: `phase ${s0.phase}, lifted ${JSON.stringify(r2.lifted)}, state ${JSON.stringify(g.state()) === before ? 'unchanged' : 'changed'}` };
+  }],
+  ['Layout: the card diamond clears the enemy and its disc; tap targets at least 64 px', 'enemy=bat', async g => {
+    const { LAYOUT, CARD_W, CARD_H, CARD_PAD } = await import('/Game/src/render/battle/layout.js');
+    const D = LAYOUT.disc, E = LAYOUT.enemy, cards = Object.values(LAYOUT.cards);
+    const top = Math.min(...cards.map(c => c.y)) - 9;          // a lifted card rises 9 px
+    const discBottom = D.y + D.ry + 6, enemyBottom = E.y;       // disc plus its shadow; the enemy stands on the disc
+    const small = [];
+    if (CARD_W + 2 * CARD_PAD < 64 || CARD_H + 2 * CARD_PAD < 64) small.push(`card ${CARD_W + 2 * CARD_PAD}x${CARD_H + 2 * CARD_PAD}`);
+    for (const k of ['l1Hit', 'r1Hit']) if (LAYOUT[k].w < 64 || LAYOUT[k].h < 64) small.push(k);
+    if (LAYOUT.run.hit * 2 < 64) small.push('run');
+    return { ok: top > discBottom && top > enemyBottom && !small.length, got: `cards from y ${top}, disc to ${discBottom}, too small: ${small.join(', ') || 'none'}` };
+  }],
 ];
 
 const { server, port } = await serve();
