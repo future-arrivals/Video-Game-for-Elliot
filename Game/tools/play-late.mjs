@@ -216,7 +216,7 @@ export async function runLate({ run, boot, ev, check, opt }) {
   // chosen from the battle's own cards (the same cards the battle scene draws), then the round plays out.
   const BOSS = `
     (async () => {
-      const B = await import(new URL('src/battle/battle.js', location.href).href);
+      const B = await import(new URL('/Game/src/battle/battle.js', location.origin).href);   // from the server root, so it also works on the built file
       const P = window.__play, g = P.g;
       Object.assign(P, {
         // the button that plays a card word now: Cross / Circle / Triangle by slot, Square for Open / Fold
