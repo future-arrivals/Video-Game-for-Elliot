@@ -6,7 +6,8 @@
 //   audio.play('candy');       // does nothing (and never throws) before unlock
 //   audio.setVolume({ master: 0.8, music: 0.6, effects: 1 });
 
-export const SOUND_NAMES = ['step', 'fold', 'open', 'hit', 'bigHit', 'heal', 'candy', 'sting', 'fanfare', 'lose', 'boing', 'select'];
+export const SOUND_NAMES = ['step', 'fold', 'open', 'hit', 'bigHit', 'heal', 'candy', 'sting', 'fanfare', 'lose', 'boing', 'select',
+  'splash', 'stretch', 'push', 'bell', 'gate', 'join', 'spotted'];
 
 const BASE_GAIN = 0.32; // overall ceiling before the master setting
 
@@ -130,6 +131,46 @@ export function createAudio() {
     select(t) { // card lift: a little paper flick and a tick
       hiss(t, { dur: 0.05, gain: 0.15, filter: { type: 'highpass', freq: 2500, q: 0.7 } });
       tone(t, { type: 'sine', freq: [700, 1000], dur: 0.07, gain: 0.18 });
+    },
+    splash(t) { // boulder into water: soft noise burst over a downward plop
+      hiss(t, { dur: 0.3, gain: 0.3, attack: 0.012, filter: { type: 'lowpass', freq: [3000, 500], q: 0.7 } });
+      tone(t, { type: 'sine', freq: [420, 110], dur: 0.2, gain: 0.4, attack: 0.008 });
+      tone(t + 0.1, { type: 'sine', freq: [300, 140], dur: 0.15, gain: 0.15, attack: 0.01 });
+    },
+    stretch(t) { // rubbery rising glide with a wobble
+      const o = ctx.createOscillator(), g = ctx.createGain(), lfo = ctx.createOscillator(), lg = ctx.createGain();
+      o.type = 'triangle'; o.frequency.setValueAtTime(180, t); o.frequency.exponentialRampToValueAtTime(620, t + 0.5);
+      lfo.frequency.value = 11; lg.gain.value = 22;
+      lfo.connect(lg); lg.connect(o.frequency);
+      env(g.gain, t, 0.04, 0.5, 0.3);
+      o.connect(g); g.connect(effects);
+      o.start(t); lfo.start(t); o.stop(t + 0.55); lfo.stop(t + 0.55);
+    },
+    push(t) { // heavy stone scrape, then a soft thud
+      hiss(t, { dur: 0.3, gain: 0.34, attack: 0.05, filter: { type: 'lowpass', freq: [420, 260], q: 1.2 } });
+      tone(t + 0.3, { type: 'sine', freq: [130, 55], dur: 0.1, gain: 0.5, attack: 0.004 });
+    },
+    bell(t) { // small bright bell: strike plus ringing partials
+      [[note(84), 0.2, 0.9], [note(84) * 2.76, 0.07, 0.5], [note(84) * 5.4, 0.03, 0.25]].forEach(([f, g, d]) =>
+        tone(t, { type: 'sine', freq: f, dur: d, gain: g, attack: 0.004 }));
+      hiss(t, { dur: 0.03, gain: 0.08, filter: { type: 'bandpass', freq: 3500, q: 1 } });
+    },
+    gate(t) { // creak (narrow rising band) then a soft clack
+      hiss(t, { dur: 0.32, gain: 0.3, attack: 0.05, filter: { type: 'bandpass', freq: [350, 900], q: 9 } });
+      tone(t, { type: 'triangle', freq: [260, 420], dur: 0.32, gain: 0.05, attack: 0.05 });
+      hiss(t + 0.36, { dur: 0.05, gain: 0.25, filter: { type: 'lowpass', freq: 1800, q: 0.8 } });
+      tone(t + 0.36, { type: 'sine', freq: [200, 90], dur: 0.08, gain: 0.3 });
+    },
+    join(t) { // light happy four-note rise
+      [72, 76, 79, 84].forEach((n, i) => {
+        const last = i === 3;
+        tone(t + i * 0.13, { type: 'triangle', freq: note(n), dur: last ? 0.3 : 0.16, gain: 0.2, attack: 0.01 });
+        tone(t + i * 0.13, { type: 'sine', freq: note(n + 12), dur: last ? 0.3 : 0.12, gain: 0.05, attack: 0.01 });
+      });
+    },
+    spotted(t) { // "uh-oh" alert: two quick rising notes
+      tone(t, { type: 'triangle', freq: note(74), dur: 0.1, gain: 0.25, attack: 0.008 });
+      tone(t + 0.12, { type: 'triangle', freq: note(79), dur: 0.17, gain: 0.25, attack: 0.008 });
     },
   };
 
