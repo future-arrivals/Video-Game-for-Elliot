@@ -1,64 +1,88 @@
 // Save and load, tolerant of bad data. Pure apart from the storage object passed in
 // (localStorage in the game, a fake in tests). Nothing here ever throws.
 //
-// Save (v1): { v, stageId, party: [{ id, hearts, form }] (lead first),
-//   lead: { x, y, faceX, facing }, candyTaken: [[i, j]], boulders: [[i, j]],
-//   asleep: [creatureUid], restAt: { stageId, i, j }, candyCount, settings[, pendingBattle: { creatureUid, kind }] }
+// Save (v2): { v: 2, stageId,                         the live stage (equals world.stageId)
+//   world: World,                                     src/field/world.js, with the live stage's memory, party,
+//                                                     candy count, rest point and lollipop already written back
+//   lead: { x, y, faceX, facing, form },              the lead's position on the live stage
+//   settings[, pendingBattle: { creatureUid, kind }] }
 // pendingBattle is present only while a battle is running: on load the game restarts that battle at round 1
 // with the hearts saved here (the hearts the team had going in).
+//
+// Loading: const s = loadSave(storage); then enterStage(s.world, stageOf(s.stageId), data, { at: s.lead }).
+// enterStage moves the team to the stage start if the saved spot cannot be stood on (a save taken mid-bridge).
+// A v1 save (key 'elliot-game-save-v1') is never read: the game starts fresh. loadSave returns null for
+// anything odd: wrong version, a stage or character the data does not have, a character twice, broken memory.
 
-export const SAVE_KEY = 'elliot-game-save-v1';
-export const SAVE_VERSION = 1;
+import defaultData from './data/slice.gen.js';
+import { leaveStage } from './field/world.js';
+
+export const SAVE_KEY = 'elliot-game-save-v2';
+export const SAVE_VERSION = 2;
 
 const isObj = (o) => o !== null && typeof o === 'object' && !Array.isArray(o);
 const isNum = (n) => typeof n === 'number' && Number.isFinite(n);
 const isPair = (p) => Array.isArray(p) && p.length === 2 && Number.isInteger(p[0]) && Number.isInteger(p[1]);
+const isPairs = (l) => l === undefined || (Array.isArray(l) && l.every(isPair));
+const isStrings = (l) => l === undefined || (Array.isArray(l) && l.every((u) => typeof u === 'string'));
 
 const isPending = (p) => isObj(p) && typeof p.creatureUid === 'string' && typeof p.kind === 'string';
 
-export function toSave(fieldState, settings, pendingBattle = null) {
+export function toSave(world, fieldState, settings, pendingBattle = null) {
+  const w = JSON.parse(JSON.stringify(world));   // a snapshot: the live World is not changed
+  leaveStage(w, fieldState);
+  w.stageId = fieldState.stageId;
   const lead = fieldState.party[0];
   return {
     v: SAVE_VERSION,
     stageId: fieldState.stageId,
-    party: fieldState.party.map((m) => ({ id: m.id, hearts: m.hearts, form: m.form })),
-    lead: { x: lead.x, y: lead.y, faceX: lead.faceX, facing: lead.facing },
-    candyTaken: fieldState.candy.filter((c) => c.taken).map((c) => [c.i, c.j]),
-    boulders: fieldState.boulders.map((b) => [b.i, b.j]),
-    asleep: fieldState.creatures.filter((c) => c.mode === 'asleep').map((c) => c.uid),
-    restAt: { stageId: fieldState.restAt.stageId, i: fieldState.restAt.i, j: fieldState.restAt.j },
-    candyCount: fieldState.candyCount,
+    world: w,
+    lead: { x: lead.x, y: lead.y, faceX: lead.faceX, facing: lead.facing, form: lead.form },
     settings: settings ?? {},
     ...(isPending(pendingBattle) ? { pendingBattle: { creatureUid: pendingBattle.creatureUid, kind: pendingBattle.kind } } : {}),
   };
 }
 
-// True when `s` has the shape toSave produces, at the current version.
-export function isValidSave(s) {
-  if (!isObj(s) || s.v !== SAVE_VERSION) return false;
-  if (typeof s.stageId !== 'string') return false;
-  if (!Array.isArray(s.party) || s.party.length === 0) return false;
-  for (const m of s.party) {
-    if (!isObj(m) || typeof m.id !== 'string' || !isNum(m.hearts)) return false;
-    if (m.form !== 'folded' && m.form !== 'open') return false;
+function isMemory(m) {
+  return isObj(m) && isPairs(m.candyTaken) && isPairs(m.boulders) && isPairs(m.stones) && isPairs(m.gatesOpen)
+    && isPairs(m.postsTaken) && isStrings(m.joined) && isStrings(m.asleep);
+}
+
+function isWorld(w, data) {
+  const stageIds = new Set((data.stages ?? []).map((s) => s.id));
+  const charIds = new Set((data.characters ?? []).map((c) => c.id));
+  if (!isObj(w) || !stageIds.has(w.stageId)) return false;
+  if (!Array.isArray(w.party) || w.party.length === 0) return false;
+  const seen = new Set();
+  for (const m of w.party) {
+    if (!isObj(m) || !charIds.has(m.id) || seen.has(m.id) || !isNum(m.hearts)) return false;
+    seen.add(m.id);
   }
+  if (!isNum(w.candyCount) || w.candyCount < 0) return false;
+  if (typeof w.lollipop !== 'boolean') return false;
+  const r = w.restAt;
+  if (!isObj(r) || !stageIds.has(r.stageId) || !Number.isInteger(r.i) || !Number.isInteger(r.j)) return false;
+  if (!isObj(w.stages)) return false;
+  for (const [id, mem] of Object.entries(w.stages)) if (!stageIds.has(id) || !isMemory(mem)) return false;
+  return true;
+}
+
+// True when `s` has the shape toSave produces, at the current version, and fits the game data.
+export function isValidSave(s, data = defaultData) {
+  if (!isObj(s) || s.v !== SAVE_VERSION) return false;
+  if (!isWorld(s.world, data) || s.stageId !== s.world.stageId) return false;
   if (!isObj(s.lead) || !isNum(s.lead.x) || !isNum(s.lead.y)) return false;
-  if (!Array.isArray(s.candyTaken) || !s.candyTaken.every(isPair)) return false;
-  if (!Array.isArray(s.boulders) || !s.boulders.every(isPair)) return false;
-  if (!Array.isArray(s.asleep) || !s.asleep.every((u) => typeof u === 'string')) return false;
-  if (!isObj(s.restAt) || typeof s.restAt.stageId !== 'string' || !Number.isInteger(s.restAt.i) || !Number.isInteger(s.restAt.j)) return false;
-  if (!isNum(s.candyCount) || s.candyCount < 0) return false;
   if (!isObj(s.settings)) return false;
   return true;
 }
 
-export function loadSave(storage) {
+export function loadSave(storage, data = defaultData) {
   try {
     if (!storage || typeof storage.getItem !== 'function') return null;
     const raw = storage.getItem(SAVE_KEY);
     if (typeof raw !== 'string') return null;
     const s = JSON.parse(raw);
-    if (!isValidSave(s)) return null;
+    if (!isValidSave(s, data)) return null;
     if ('pendingBattle' in s && !isPending(s.pendingBattle)) delete s.pendingBattle;   // a bad one is dropped, the rest kept
     return s;
   } catch {

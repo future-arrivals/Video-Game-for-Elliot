@@ -10,7 +10,7 @@ const args = process.argv.slice(2);
 const opt = { page: 'Game/index.html' };
 for (let i = 0; i < args.length; i++) if (args[i].startsWith('--')) opt[args[i].slice(2)] = args[++i];
 
-const SAVE_KEY = 'elliot-game-save-v1';
+const SAVE_KEY = 'elliot-game-save-v2';
 const results = [];
 const check = (name, ok, got) => { results.push(ok); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}  (${got})`); };
 
@@ -102,7 +102,7 @@ try {
     check('A: the monster has 9 hearts', a.lead.id === 'monster' && a.lead.hearts === 9, `${a.lead.id} ${a.lead.hearts}`);
     check('A: the candy count went up by one', a.candy === before + 1, `${before} -> ${a.candy}`);
     const saved = await ev(page, `JSON.parse(localStorage.getItem('${SAVE_KEY}'))`);
-    check('A: the save has no pending battle after the win', saved && !('pendingBattle' in saved) && saved.candyCount === a.candy, saved ? `pendingBattle ${JSON.stringify(saved.pendingBattle)}, candy ${saved.candyCount}` : 'no save');
+    check('A: the save has no pending battle after the win', saved && !('pendingBattle' in saved) && saved.world.candyCount === a.candy, saved ? `pendingBattle ${JSON.stringify(saved.pendingBattle)}, candy ${saved.world.candyCount}` : 'no save');
   });
 
   // ---- Run B: party of one, lose on purpose ----------------------------------------------------
@@ -131,7 +131,7 @@ try {
   // ---- Run C: reload mid-battle ------------------------------------------------------------------
   await run('C', async page => {
     await boot(page, 'fresh=1');
-    await ev(page, '__play.meet()');
+    await ev(page, '__play.walkTo(16.5, 4.5)');   // in the bat's sight, so it is a normal battle, not a sneak attack
     await ev(page, `__play.until('battle', 2)`);
     const goingIn = await ev(page, '__game.battle().party.map(m => m.id + ":" + m.hearts).join(" ")');
     await ev(page, '__game.tick(1)');
@@ -186,7 +186,7 @@ try {
     const after = await ev(page, '({ candy: __game.state().candyCount, lead: __play.lead() })');
     check('E: walking up takes the candy at (20,0)', after.candy === before + 1 && after.lead.j === 0, `${before} -> ${after.candy}, lead at (${after.lead.i},${after.lead.j})`);
     const saved = await ev(page, `JSON.parse(localStorage.getItem('${SAVE_KEY}'))`);
-    check('E: the autosave has the boulder gone and the candy taken', saved && saved.boulders.length === 0 && saved.candyTaken.some(p => p[0] === 20 && p[1] === 0), saved ? `boulders ${JSON.stringify(saved.boulders)}, candyTaken ${JSON.stringify(saved.candyTaken)}` : 'no save');
+    check('E: the autosave has the boulder gone and the candy taken', saved && saved.world.stages.S1.boulders.length === 0 && saved.world.stages.S1.candyTaken.some(p => p[0] === 20 && p[1] === 0), saved ? `boulders ${JSON.stringify(saved.world.stages.S1.boulders)}, candyTaken ${JSON.stringify(saved.world.stages.S1.candyTaken)}` : 'no save');
   });
 } finally {
   await browser.close(); server.close();

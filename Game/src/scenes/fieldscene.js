@@ -17,8 +17,11 @@
 // that is not ready): 'boing'; the stage view hops the helper badge from field.target.nudgeAt.
 // Candy won in a battle: the candy sound and sparkle play over the lead on the first step back in the field.
 // Autosave: candy, rest, eat, battle end, and every 30 s of play.
-// Dev query parameters: x, y (lead tile position), form (folded|open), party (1|3), lead (id),
-// bat (patrol|asleep|ignore), zoom, fresh (1 = ignore the save). Any of them starts without the save.
+// World: scene.world (src/field/world.js) holds what outlives the stage; the save is v2 (src/save.js).
+// A fresh game is the monster alone in S1. Stage travel is not built here yet: an exit shows the bubble.
+// Dev query parameters: x, y (lead tile position), form (folded|open), party (1|3; default 1, the monster
+// alone), lead (id; without party=, it implies party=3), bat (patrol|asleep|ignore), zoom, fresh (1 = ignore
+// the save). Any of them starts without the save.
 import { W, H, INK, PEN, PAPER, FONT, wx, wy, clamp, eOutCubic, rng } from '../render/core.js';
 import { createStageView, renderStage } from '../render/stageview.js';
 import { createCamera, updateCamera, toScreen } from '../render/camera.js';
@@ -26,7 +29,8 @@ import { drawFieldHud } from '../render/hud.js';
 import { memberSize } from '../render/actors.js';
 import { burst, ring } from '../render/fx.js';
 import { parseStage } from '../field/stage.js';
-import { createField, stepField, applyBattleResult } from '../field/field.js';
+import { stepField, applyBattleResult } from '../field/field.js';
+import { createWorld, enterStage, leaveStage } from '../field/world.js';
 import { loadSave, writeSave, toSave } from '../save.js';
 
 const AUTOSAVE_EVERY = 30;   // seconds
@@ -42,10 +46,9 @@ const anyPress = f => !!f && (Object.values(f.pressed || {}).some(Boolean) || (f
 
 export function createFieldScene({ assets, data, input = null, audio = null, storage = null, settings = {}, onBattle = null,
   query = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams() }) {
-  const stage = parseStage(data.stages[0]);
   const dev = DEV_KEYS.some(k => query.has(k));
-  const saved = dev ? null : loadSave(storage);
-  const field = makeField(stage, data, query, saved, settings);
+  const saved = dev ? null : loadSave(storage, data);
+  const { world, stage, field } = makeField(data, query, saved);
   const pendingBattle = saved && saved.pendingBattle && field.creatures.some(c => c.uid === saved.pendingBattle.creatureUid && c.kind === saved.pendingBattle.kind)
     ? { ...saved.pendingBattle } : null;
   const view = createStageView(stage, assets);
@@ -62,7 +65,7 @@ export function createFieldScene({ assets, data, input = null, audio = null, sto
   const fx = [];                 // { kind, t0, x, y } world px
   let candyCue = 0;              // candy won in a battle: its sound and sparkle wait until the field is back on screen
 
-  const save = () => writeSave(storage, toSave(field, settings));
+  const save = () => writeSave(storage, toSave(world, field, settings));
   const snapCam = () => { const l = field.party[0]; updateCamera(cam, { x: l.x, y: l.y, vx: 0 }, 0, { zoom: zoom(), snap: true }); lastLeadX = l.x; };
   snapCam();
 
@@ -99,7 +102,7 @@ export function createFieldScene({ assets, data, input = null, audio = null, sto
 
   function beginBattle(creatureUid, kind, sneak) {
     waiting = { creatureUid };
-    writeSave(storage, toSave(field, settings, { creatureUid, kind }));
+    writeSave(storage, toSave(world, field, settings, { creatureUid, kind }));
     const party = field.party.map(m => ({ id: m.id, hearts: m.hearts }));
     if (onBattle) onBattle({ creatureUid, kind, sneak, party });
   }
@@ -160,30 +163,41 @@ export function createFieldScene({ assets, data, input = null, audio = null, sto
 
   return {
     update, render, resumeFromBattle, startPendingBattle, pendingBattle, inputMode: 'field',
-    get field() { return field; }, stage, view, cam,
+    get field() { return field; }, world, stage, view, cam,
     get paused() { return !!paused; }, get waiting() { return !!waiting; },
     save,
   };
 }
 
-// FieldState from the save, or fresh; dev parameters adjust a fresh one through a save-shaped object
-// so createField does all the placing and checking.
-function makeField(stage, data, q, saved, settings) {
-  let ids = q.get('party') === '1' ? ['monster'] : ALL.slice();
+// The World and the live FieldState: from the save, or fresh (S1). Dev parameters adjust a fresh one;
+// enterStage does all the placing and checking (a dev position that cannot be stood on goes to the start).
+function makeField(data, q, saved) {
+  if (saved) {
+    const world = saved.world;
+    const stage = parseStage(data.stages.find(s => s.id === world.stageId));
+    return { world, stage, field: enterStage(world, stage, data, { at: saved.lead }) };
+  }
+  const ids = q.get('party') === '3' || (q.has('lead') && !q.has('party')) ? ALL.slice() : ['monster'];
   const lead = q.get('lead');
   if (lead && ids.includes(lead)) { while (ids[0] !== lead) ids.push(ids.shift()); }
-  const party = ids.map(id => ({ id, hearts: data.characters.find(c => c.id === id)?.hearts }));
-  let f = createField({ stage, data, party, save: saved });
-  if (q.has('x') || q.has('y') || q.get('form') === 'open' || q.get('bat') === 'asleep') {
-    const s = toSave(f, settings);
-    if (q.has('x')) s.lead.x = Number(q.get('x'));
-    if (q.has('y')) s.lead.y = Number(q.get('y'));
-    if (q.get('form') === 'open') s.party[0].form = 'open';
-    if (q.get('bat') === 'asleep') s.asleep = f.creatures.map(c => c.uid);
-    f = createField({ stage, data, party, save: s });
+  const world = createWorld(data, { party: ids });
+  const stage = parseStage(data.stages[0]);
+  let at = null;
+  if (q.has('x') || q.has('y') || q.get('form') === 'open') {
+    at = {
+      x: q.has('x') ? Number(q.get('x')) : stage.start[0] + .5,
+      y: q.has('y') ? Number(q.get('y')) : stage.start[1] + .5,
+      ...(q.get('form') === 'open' ? { form: 'open' } : {}),
+    };
+  }
+  let f = enterStage(world, stage, data, { at });
+  if (q.get('bat') === 'asleep') {
+    for (const c of f.creatures) c.mode = 'asleep';
+    leaveStage(world, f);
+    f = enterStage(world, stage, data, { at });
   }
   if (q.get('bat') === 'ignore') for (const c of f.creatures) { c.mode = 'ignore'; f._sim.creatures[c.uid].ignore = 1e9; }
-  return f;
+  return { world, stage, field: f };
 }
 
 // ---------------------------------------------------------------- drawing helpers (screen space)

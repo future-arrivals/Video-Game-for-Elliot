@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import data from '../src/data/slice.gen.js';
 import { parseStage } from '../src/field/stage.js';
-import { createField, stepField, applyBattleResult, FOLLOW_GAP } from '../src/field/field.js';
+import { createField, stepField, applyBattleResult, touches, FOLLOW_GAP } from '../src/field/field.js';
 
 const S1 = data.stages[0];
 const DT = 1 / 60;
@@ -313,8 +313,9 @@ test('contact emits exactly one battle', () => {
   assert.ok(s2.state.party[0].x > s2.state.creatures[0].x - 0.36, 'stopped at the bat, not past it');
 
   // contact needs matching depth (±0.5 rows)
-  const s3 = setupAt(9.5, 3.2);
-  assert.equal(run(s3.state, s3.stage, inp(), 3).filter((e) => e.t === 'battle').length, 0);
+  // (tested on the contact rule itself: since M2 a bat that sees the lead one row off flies over and catches it)
+  assert.equal(touches({ x: 9.5, y: 3.2 }, { x: 9.5, y: 2.5 }), false);
+  assert.equal(touches({ x: 9.5, y: 3.0 }, { x: 9.5, y: 2.5 }), true);
 });
 
 test('battle outcome: won puts the creature to sleep at its spawn and carries hearts', () => {

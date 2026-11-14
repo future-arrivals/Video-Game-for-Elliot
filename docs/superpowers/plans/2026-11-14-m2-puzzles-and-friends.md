@@ -190,3 +190,12 @@ Wave A is three Opus tasks and one Sonnet task and needs no visual sign-off: eve
   2. `tools/play.mjs` run C: replace `__play.meet()` with `__play.walkTo(16.5, 4.5)` so the bat spots the lead and the battle is not a sneak attack.
   Follow-ups for Task 2 or a Sonnet task: `blocksSight` / `blocksMove` at the top of creatures.js should learn the new blockers (closed gates, posts, `Q`, do-over pumpkin, waiting friends; walkers follow `canStand`; ghost and bat pass `#`). The spider's 1 s pause at each patrol end is not implemented. `OVER_HEDGES` lets the bat fly over hedges.
 - **Task 1** (stages, world, save) and **Task 7a** (rig runtime + Munch) running.
+- **Tasks 1 and 3 committed** with both setup fixes applied: 94 tests pass, play.mjs all passed. Changes to the pinned shapes that Task 1 made (later tasks must use these):
+  - `stage.entrance(fromStageId, row?)` and `enterStage(world, stage, data, { from, row, at })`: `row` picks the nearest exit row; the team arrives one tile inside the exit. `at` may carry `faceX`, `facing`, `form`.
+  - `stage.doorTo` (S6: 'S7'); `stageId(to)` cleans annotated exit targets; every `exits[].to` is a plain id.
+  - `stage.isSolid` also blocks `Q ^ B r`. `canStand(state, stage, i, j)` (field.js) is the one walkability query: no for outside, `#`, `Q`, posts, `r`, live boulders, a waiting friend, a closed gate; water only with a stone; **live bridge tiles are not in it yet (Task 2 adds them; a comment marks the spot)**.
+  - The S3 post candy at (14,1) is only in `stage.posts` / `fieldState.posts` (not in `stage.candy`): Reach must add 1 to `candyCount`.
+  - `createField({ stage, data, party, memory, candyCount, restAt, lollipop, at, from, row })` is the builder `enterStage` uses. `fieldState._sim.joinIds` feeds `StageMemory.joined`.
+  - Save v2: `{ v: 2, stageId, world, lead: { x, y, faceX, facing, form }, settings[, pendingBattle] }`; `toSave(world, fieldState, settings, pendingBattle)`; load with `enterStage(s.world, stage, data, { at: s.lead })`. `scene.world` is exposed by fieldscene.js.
+  - Dev: a fresh game is the monster alone; `party=3` gives all three; `lead=X` implies `party=3`.
+  - Creature: `c.sees`, `c.sight {x0,y0,x1,y1}` (recomputed even when asleep: drawing skips asleep creatures); events `spotted`, `gaveUp`.

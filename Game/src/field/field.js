@@ -3,7 +3,9 @@
 // Buttons (fold, swap, Use/Eat), the power target, candy, rest blanket and exits live in
 // powers.js. Pure and deterministic; no DOM, no randomness.
 //
-// createField({ stage, data, party, save }) -> FieldState (shape pinned in the M1 plan)
+// createField({ stage, data, party, memory, candyCount, restAt, lollipop, at, from, row }) -> FieldState
+//   (shape pinned in the M1 and M2 plans; world.js enterStage() calls it with the World's pieces)
+// canStand(state, stage, i, j) -> bool   the one walkability query (movement here, powers in powers.js)
 // stepField(state, stage, input, dt) -> events     mutates `state`
 // applyBattleResult(state, stage, { outcome, creatureUid, hearts, candyDrop })   candyDrop: candy a won battle adds
 //
@@ -18,8 +20,8 @@
 //              speed = patrol tiles/s, dist = distance travelled along the patrol loop,
 //              ignore = seconds of 'ignore' left.
 //   eat:       { i, j } while an Eat waits for the lead's hinge to settle (see powers.js).
+//   joinIds:   [id] the join tiles this stage has ('fish', 'icecream'); world.js leaveStage reads it.
 
-import { isValidSave } from '../save.js';
 import { handleButtons, isBusy, advanceHinges, cancelPowers, computeTarget, checkCandy, checkTile } from './powers.js';
 import { resetCreature, stepCreature } from './creatures.js';
 
@@ -35,14 +37,20 @@ const EPS = 1e-9;
 
 // ---------------------------------------------------------------- creation
 
-export function createField({ stage, data, party, save = null }) {
+// Builds the FieldState for one stage. world.js enterStage() is the normal way in; it passes the World's
+// pieces. Tests may call it with just { stage, data, party }.
+//   party:   [{ id, hearts }] lead first (hearts missing = full)
+//   memory:  the stage's StageMemory (world.js), or null on a first visit
+//   at:      { x, y[, faceX, facing, form] } a saved or dev position; used only if the team can stand there
+//   from, row: otherwise the team arrives at stage.entrance(from, row)
+export function createField({ stage, data, party, memory = null, candyCount = 0, restAt = null, lollipop = false,
+  at = null, from = null, row = null }) {
   const chars = Object.fromEntries((data.characters ?? []).map((c) => [c.id, c]));
   const creatureData = Object.fromEntries((data.creatures ?? []).map((c) => [c.id, c]));
+  const mem = memory ?? {};
+  const has = (list, i, j) => Array.isArray(list) && list.some((p) => p[0] === i && p[1] === j);
 
-  const useSave =
-    save && isValidSave(save) && save.stageId === stage.id && save.party.every((m) => chars[m.id]);
-
-  const members = (useSave ? save.party : party).map((p) => {
+  const members = party.map((p) => {
     const max = chars[p.id]?.hearts ?? 1;
     const hearts = typeof p.hearts === 'number' && Number.isFinite(p.hearts) ? clamp(p.hearts, 0, max) : max;
     return {
@@ -50,16 +58,12 @@ export function createField({ stage, data, party, save = null }) {
       form: 'folded', foldAnim: 1, moving: false, hearts, maxHearts: max,
     };
   });
-  if (useSave) members[0].form = save.party[0].form === 'open' ? 'open' : 'folded';
+  const ids = members.map((m) => m.id);
 
-  const candyTaken = useSave ? save.candyTaken : [];
-  const candy = stage.candy.map(([i, j]) => ({ i, j, taken: candyTaken.some((p) => p[0] === i && p[1] === j) }));
-  const boulders = (useSave ? save.boulders : stage.boulders).map(([i, j]) => ({ i, j }));
-
+  const candy = stage.candy.map(([i, j]) => ({ i, j, taken: has(mem.candyTaken, i, j) }));
+  const boulders = (Array.isArray(mem.boulders) ? mem.boulders : stage.boulders).map(([i, j]) => ({ i, j }));
   const firstRest = stage.rest[0] ?? stage.start;
-  const restAt = useSave
-    ? { stageId: save.restAt.stageId, i: save.restAt.i, j: save.restAt.j }
-    : { stageId: stage.id, i: firstRest[0], j: firstRest[1] };
+  const r = restAt && typeof restAt.stageId === 'string' ? restAt : { stageId: stage.id, i: firstRest[0], j: firstRest[1] };
 
   const state = {
     stageId: stage.id,
@@ -68,28 +72,40 @@ export function createField({ stage, data, party, save = null }) {
     creatures: [],
     candy,
     boulders,
-    candyCount: useSave ? save.candyCount : 0,
-    restAt,
+    candyCount: Number.isFinite(candyCount) && candyCount > 0 ? candyCount : 0,
+    restAt: { stageId: r.stageId, i: r.i, j: r.j },
+    stones: (Array.isArray(mem.stones) ? mem.stones : []).map(([i, j]) => ({ i, j })),
+    gates: stage.gates.map(([i, j]) => ({ i, j, open: has(mem.gatesOpen, i, j) })),
+    plates: stage.plates.map(([i, j]) => ({ i, j, down: boulders.some((b) => b.i === i && b.j === j) })),
+    posts: stage.posts.map((p) => ({ i: p.at[0], j: p.at[1], kind: p.kind, taken: has(mem.postsTaken, p.at[0], p.at[1]) })),
+    friends: stage.joins
+      .filter((f) => !ids.includes(f.id) && !(Array.isArray(mem.joined) && mem.joined.includes(f.id)))
+      .map((f) => ({ id: f.id, i: f.at[0], j: f.at[1] })),
+    lollipop: stage.lollipop ? { i: stage.lollipop[0], j: stage.lollipop[1], taken: !!lollipop } : null,
+    action: null,
     target: null,
-    _sim: { trail: [], lastTile: [0, 0], touching: [], blocked: false, creatures: {} },
+    _sim: { trail: [], lastTile: [0, 0], touching: [], blocked: false, creatures: {}, joinIds: stage.joins.map((f) => f.id) },
   };
 
-  // lead position
+  // lead position: `at` if the team can stand there, else the entrance (or the nearest standable tile)
   const lead = members[0];
-  let x = stage.start[0] + 0.5;
-  let y = stage.start[1] + 0.5;
-  if (useSave) {
-    const sx = save.lead.x, sy = save.lead.y;
-    if (sx >= 0 && sx < stage.width && sy >= 0 && sy < stage.depth && !collides(stage, state.boulders, sx, sy)) {
-      x = sx; y = sy;
-    }
-    if (save.lead.faceX === -1 || save.lead.faceX === 1) lead.faceX = save.lead.faceX;
-    if (['left', 'right', 'back', 'front'].includes(save.lead.facing)) lead.facing = save.lead.facing;
+  let x, y;
+  const ax = Number(at?.x), ay = Number(at?.y);
+  if (at && Number.isFinite(ax) && Number.isFinite(ay) && ax >= 0 && ax < stage.width && ay >= 0 && ay < stage.depth
+      && !collides(state, stage, ax, ay)) {
+    x = ax; y = ay;
+    if (at.faceX === -1 || at.faceX === 1) lead.faceX = at.faceX;
+    if (['left', 'right', 'back', 'front'].includes(at.facing)) lead.facing = at.facing;
+    if (at.form === 'open') lead.form = 'open';
+  } else {
+    const [i, j] = standableNear(state, stage, at ? stage.entrance(null) : stage.entrance(from, row));
+    x = i + 0.5; y = j + 0.5;
+    if (!at && from != null && i >= stage.width / 2) { lead.faceX = -1; lead.facing = 'left'; }
   }
   placeTeam(state, stage, x, y);
 
   // creatures
-  const asleep = useSave ? save.asleep : [];
+  const asleep = Array.isArray(mem.asleep) ? mem.asleep : [];
   stage.spawns.forEach((sp, idx) => {
     const uid = `${stage.id}-${sp.kind}-${idx}`;
     const c = { uid, kind: sp.kind, x: sp.at[0] + 0.5, y: sp.at[1] + 0.5, faceX: 1, facing: 'right', mode: 'patrol' };
@@ -100,6 +116,34 @@ export function createField({ stage, data, party, save = null }) {
   state.target = computeTarget(state, stage);
 
   return state;
+}
+
+// Can the team stand on tile (i, j) right now? Not: outside the stage, a hedge, the giant pumpkin, a post,
+// the do-over pumpkin, a boulder (live list), a closed gate, a friend waiting to join, or water without a
+// stone. Movement and powers both ask this. (Task 2: a live bridge's water tiles are standable; add it here.)
+export function canStand(state, stage, i, j) {
+  i = Math.floor(i); j = Math.floor(j);
+  if (i < 0 || j < 0 || i >= stage.width || j >= stage.depth) return false;
+  if (stage.isSolid(i, j, state.boulders)) return false;
+  const at = (list) => Array.isArray(list) && list.some((p) => p.i === i && p.j === j);
+  if (at(state.friends)) return false;
+  const gate = state.gates?.find((g) => g.i === i && g.j === j);
+  if (gate && !gate.open) return false;
+  if (stage.tileAt(i, j) === '~') return at(state.stones);
+  return true;
+}
+
+// The tile itself if the team can stand there, else the nearest tile that can (rings outward).
+function standableNear(state, stage, [i0, j0]) {
+  for (let r = 0; r < stage.width + stage.depth; r++) {
+    for (let dj = -r; dj <= r; dj++) {
+      for (let di = -r; di <= r; di++) {
+        if (Math.max(Math.abs(di), Math.abs(dj)) !== r) continue;
+        if (canStand(state, stage, i0 + di, j0 + dj)) return [i0 + di, j0 + dj];
+      }
+    }
+  }
+  return [i0, j0];
 }
 
 // Puts the lead at (x, y), restarts the trail behind it and lines the followers up on it.
@@ -181,10 +225,10 @@ function circleHitsTile(x, y, i, j) {
   return dx * dx + dy * dy < RADIUS * RADIUS - 1e-12;
 }
 
-function collides(stage, boulders, x, y) {
+function collides(state, stage, x, y) {
   for (let j = Math.floor(y - RADIUS); j <= Math.floor(y + RADIUS); j++) {
     for (let i = Math.floor(x - RADIUS); i <= Math.floor(x + RADIUS); i++) {
-      if (stage.isSolid(i, j, boulders) && circleHitsTile(x, y, i, j)) return true;
+      if (!canStand(state, stage, i, j) && circleHitsTile(x, y, i, j)) return true;
     }
   }
   return false;
@@ -213,7 +257,7 @@ function tryAxis(state, stage, axis, s) {
   const lead = state.party[0];
   const at = (t) => (axis === 'x' ? [lead.x + s * t, lead.y] : [lead.x, lead.y + s * t]);
   let [nx, ny] = at(1);
-  if (!collides(stage, state.boulders, nx, ny)) {
+  if (!collides(state, stage, nx, ny)) {
     lead.x = nx; lead.y = ny;
     return true;
   }
@@ -221,7 +265,7 @@ function tryAxis(state, stage, axis, s) {
   for (let it = 0; it < 12; it++) {
     const mid = (lo + hi) / 2;
     const [mx, my] = at(mid);
-    if (collides(stage, state.boulders, mx, my)) hi = mid; else lo = mid;
+    if (collides(state, stage, mx, my)) hi = mid; else lo = mid;
   }
   [nx, ny] = at(lo);
   lead.x = nx; lead.y = ny;
@@ -236,17 +280,17 @@ function cornerAssist(state, stage, axis, s) {
   if (axis === 'y') {
     const i = Math.floor(lead.x);
     const j = Math.floor(lead.y + dir * (RADIUS + 0.01));
-    if (stage.isSolid(i, j, state.boulders)) return;
+    if (!canStand(state, stage, i, j)) return;
     const target = i + 0.5;
     const step = clamp(target - lead.x, -mag, mag);
-    if (Math.abs(step) > EPS && !collides(stage, state.boulders, lead.x + step, lead.y)) lead.x += step;
+    if (Math.abs(step) > EPS && !collides(state, stage, lead.x + step, lead.y)) lead.x += step;
   } else {
     const j = Math.floor(lead.y);
     const i = Math.floor(lead.x + dir * (RADIUS + 0.01));
-    if (stage.isSolid(i, j, state.boulders)) return;
+    if (!canStand(state, stage, i, j)) return;
     const target = j + 0.5;
     const step = clamp(target - lead.y, -mag, mag);
-    if (Math.abs(step) > EPS && !collides(stage, state.boulders, lead.x, lead.y + step)) lead.y += step;
+    if (Math.abs(step) > EPS && !collides(state, stage, lead.x, lead.y + step)) lead.y += step;
   }
 }
 
