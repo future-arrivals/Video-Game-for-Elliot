@@ -17,7 +17,7 @@ It runs in a phone browser in landscape, played with a PlayStation controller ov
 | Character art | Done: all 12 characters redrawn as clean SVG, plus creatures and items | `Art/Characters/` |
 | Look | Chosen: "Paper Page", cinematic version (A2) | `Art/Style/style-A2.html` |
 | Design for the first area | Done, reviewed twice | `Design/slice-design.md` |
-| The game itself | Milestone 1 built (14 Nov): walk stage S1, team follows, fold, bat, one full battle. Tested by script only: not yet on a real phone, controller or TV | `Game/` (open `Game/dist/elliot-game.html`) |
+| The game itself | Milestone 1 built (14 Nov): walk stage S1, team follows, fold, bat, one full battle. Clarity batch added the same day: depth pass on the field, a yellow ring under the lead, the Eat power on the boulder with a helper badge, and a decluttered battle screen. Controller confirmed working on the Mac; not yet tried on a phone or TV | `Game/` (open `Game/dist/elliot-game.html`) |
 
 ## Decisions made
 
@@ -116,16 +116,17 @@ Only these are needed before building. The full list, in three short sessions, i
 ## The game build
 
 - Source is small ES modules in `Game/src/`; `cd Game && npm run build` writes the single self-contained file `Game/dist/elliot-game.html`.
-- Checks: `npm test` (rules), `node tools/battle-check.mjs` (battle screen), `node tools/play.mjs` (a scripted playthrough: win, lose, reload mid-battle, run).
+- Checks: `npm test` (rules), `node tools/battle-check.mjs` (battle screen), `node tools/play.mjs` (a scripted playthrough: win, lose, reload mid-battle, run, eat the boulder).
+- Look: every visual choice sits behind a named constant at the top of `Game/src/render/stagebake.js`, `fieldmarks.js`, `layers.js`, `props.js` and `actors.js`, so any one can be dialled back. `node tools/sheet.mjs` builds before/after sheets.
 - Keyboard for testing: arrows or WASD move; `K` Cross, `L` Circle, `I` Triangle, `J` Square; `Q`/`E` L1/R1; hold `Shift` for R2; `Enter` pause.
 - The plan, with what each module does, is `docs/superpowers/plans/2026-11-14-m1-walk-and-fight.md`.
 - M1 starts with all three characters so following and swapping can be tried; add `?party=1` for the monster alone, `?fresh` to ignore the save.
 
 ## Next step
 
-1. Test M1 by hand: on the phone, with the PlayStation controller, cast to the TV.
-2. The visual depth pass (Task 7 in the plan): seven approved changes for focus, depth and texture.
-3. Then milestone 2.
+1. Checkpoint: the owner looks at the new field and battle visuals (before/after sheets in `Game/.shots/sheets/`) before anything else starts.
+2. Test by hand on the phone and cast to the TV (the controller already works on the Mac).
+3. Then milestone 2 (Eat is already in; the second puzzle, more stages).
 
 Milestone 1 as originally specified (section 13 of the design doc): walking on a stage, teammates following, one creature, and one complete battle, in the A2 look.
 

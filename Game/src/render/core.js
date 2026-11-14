@@ -72,6 +72,34 @@ export const wob = (pts, closed = true, amp = 1.6, seed = 1, step = 14) => toPat
 export function ell(cx, cy, rx, ry, n = 18, jit = 0, seed = 0) { const r = rng(seed); const o = []; for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, k = 1 + (r() - .5) * jit; o.push([cx + rx * k * Math.cos(a), cy + ry * k * Math.sin(a)]); } return o; }
 export function heartPts(cx, cy, s) { const o = []; for (let i = 0; i < 28; i++) { const t = i / 28 * Math.PI * 2; o.push([cx + 16 * Math.pow(Math.sin(t), 3) * s / 32, cy - (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) * s / 32]); } return o; }
 
+// ---------------------------------------------------------------- colour tone (bake time only)
+const hexRgb = h => { h = h.slice(1); if (h.length === 3) h = [...h].map(c => c + c).join(''); const n = parseInt(h, 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
+const rgbHex = c => '#' + c.map(v => Math.round(clamp(v, 0, 255)).toString(16).padStart(2, '0')).join('');
+/** A hex colour desaturated (`sat` 1 = unchanged), mixed `amt` toward hex `mix`, then multiplied by `mul`
+ *  (below 1 = darker). Anything that is not a #hex string is returned unchanged. */
+export function tone(col, { sat = 1, mix = null, amt = 0, mul = 1 } = {}) {
+  if (typeof col !== 'string' || col[0] !== '#') return col;
+  let c = hexRgb(col); const y = .3 * c[0] + .59 * c[1] + .11 * c[2];
+  c = c.map(v => y + (v - y) * sat);
+  if (mix && amt) { const m = hexRgb(mix); c = c.map((v, i) => lerp(v, m[i], amt)); }
+  return rgbHex(c.map(v => v * mul));
+}
+
+/** Marker streaks: faint overlapping strokes inside `path` (a Path2D), seeded. Bake time only.
+ *  o: { n (count; default from area), len [min, max], lw [min, max], ang (radians), spread, alpha } */
+export function streaks(g, path, bb, col, seed, o = {}) {
+  const { len = [10, 26], lw = [3, 5.5], ang = -.35, spread = .35, alpha = .55 } = o;
+  const [x0, y0, x1, y1] = bb, r = rng(seed), n = o.n ?? Math.round((x1 - x0) * (y1 - y0) / 140);
+  g.save(); g.clip(path); g.strokeStyle = col; g.globalAlpha = alpha; g.lineCap = 'round';
+  for (let i = 0; i < n; i++) {
+    const cx = x0 + r() * (x1 - x0), cy = y0 + r() * (y1 - y0), a = ang + (r() - .5) * 2 * spread;
+    const L = len[0] + r() * (len[1] - len[0]), dx = Math.cos(a) * L / 2, dy = Math.sin(a) * L / 2, bend = (r() - .5) * L * .25;
+    g.lineWidth = lw[0] + r() * (lw[1] - lw[0]);
+    g.beginPath(); g.moveTo(cx - dx, cy - dy); g.quadraticCurveTo(cx - dy * bend / L * 2, cy + dx * bend / L * 2, cx + dx, cy + dy); g.stroke();
+  }
+  g.restore();
+}
+
 /** Paper tag (UI): wobbly rectangle with a soft baked drop shadow. */
 export function paperTag(g, x, y, w, h, seed) {
   const t = wob([[x, y], [x + w, y], [x + w, y + h], [x, y + h]], true, .6, seed);

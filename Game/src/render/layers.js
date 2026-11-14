@@ -4,6 +4,13 @@
 import { W, H, R, PAPER, mk, rng, wob, ell } from './core.js';
 import { blurred } from './sprites.js';
 
+// Field depth pass (Task 7). Opt-in through the `opts` arguments / new functions; battle calls are unchanged.
+const HILL2 = true;              // item 5: a second, farther hill line on the far sheet
+const FAR_HAZE = .3;             // item 3: cool pale wash over the far sheet (0 = off)
+const MID_HAZE = .18;            // item 3: a lighter wash over the mid hedge row
+const HAZE = '#E3EBEE';          // the cool haze colour
+const CORNER_FRAME = true;       // item 5: dark-ish pre-blurred clumps fixed in the bottom corners
+
 export function bakeSky() {
   const c = mk(W * R.DPR, H * R.DPR), g = c.getContext('2d'); g.scale(R.DPR, R.DPR);
   const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, '#F5E6C8'); gr.addColorStop(.35, '#F8EFDD'); gr.addColorStop(1, PAPER);
@@ -11,9 +18,16 @@ export function bakeSky() {
 }
 
 /** Far sheet, parallax .25. stageW in world px; the giant pumpkin sits at far-sheet x `px`, scaled by `ps`. */
-export function bakeFar(stageW, ps, px, seed = 9) {
+/** opts (field only): { depth: true } adds the far hill line and the cool haze. */
+export function bakeFar(stageW, ps, px, seed = 9, opts = {}) {
   const f = .25, X0 = -520, X1 = stageW * f + 520, Y0 = -70, Y1 = 110;
   const c = mk((X1 - X0) * R.DPR, (Y1 - Y0) * R.DPR), g = c.getContext('2d'); g.scale(R.DPR, R.DPR); g.translate(-X0, -Y0);
+  if (opts.depth && HILL2) {                       // farther hills: higher, paler, cooler, thinner line
+    const r2 = rng(seed + 77), h2 = [[X0, Y1]];
+    for (let x = X0; x <= X1 + 1; x += 210) h2.push([x, 34 + Math.sin(x * .004 + 2.4) * 14 + r2() * 10]);
+    h2.push([X1, Y1]); const hp = wob(h2, true, 2, 37, 50);
+    g.fillStyle = '#ECE8DA'; g.fill(hp.p); g.strokeStyle = '#cfcbbd'; g.lineWidth = 1.2; g.stroke(hp.p);
+  }
   const r = rng(seed), hill = [[X0, Y1]];
   for (let x = X0; x <= X1 + 1; x += 160) hill.push([x, 52 + Math.sin(x * .006 + 1) * 12 + r() * 8]);
   hill.push([X1, Y1]);
@@ -34,15 +48,20 @@ export function bakeFar(stageW, ps, px, seed = 9) {
   g.fillStyle = '#FFE7A6'; g.fill(mouth.p); g.stroke(mouth.p);
   for (const d of [-1, 1]) { const e = wob([[gx + d * 34, gy - 82], [gx + d * 18, gy - 64], [gx + d * 46, gy - 64]], true, .4, 35 + d); g.fillStyle = '#FFE7A6'; g.fill(e.p); g.stroke(e.p); }
   g.restore();
+  if (opts.depth && FAR_HAZE) haze(g, X0, Y0, X1, Y1, FAR_HAZE);
   return { c, X0, Y0, f };
+}
+function haze(g, X0, Y0, X1, Y1, a) {
+  g.save(); g.globalCompositeOperation = 'source-atop'; g.globalAlpha = a; g.fillStyle = HAZE; g.fillRect(X0, Y0, X1 - X0, Y1 - Y0); g.restore();
 }
 
 /** Mid sheet, parallax .55: the pale hedge row behind the back fence. */
-export function bakeMid(stageW) {
+export function bakeMid(stageW, opts = {}) {
   const f = .55, X0 = -520, X1 = stageW * f + 520, Y0 = 40, Y1 = 110;
   const c = mk((X1 - X0) * R.DPR, (Y1 - Y0) * R.DPR), g = c.getContext('2d'); g.scale(R.DPR, R.DPR); g.translate(-X0, -Y0);
   const pts = [[X0, Y1]]; for (let x = X0; x <= X1 + 1; x += 34) pts.push([x, 80 - Math.abs(Math.sin(x * .05)) * 14]); pts.push([X1, Y1]);
   const hd = wob(pts, true, 1.5, 41, 12); g.fillStyle = '#DDE7C6'; g.fill(hd.p); g.strokeStyle = '#a9b693'; g.lineWidth = 1.8; g.stroke(hd.p);
+  if (opts.depth && MID_HAZE) haze(g, X0, Y0, X1, Y1, MID_HAZE);
   return { c, X0, Y0, f };
 }
 
@@ -60,11 +79,44 @@ export function bakeLight(dusk = false) {
 export function bakeForeground(stageW, seed = 11) {
   const leaf = blurred(g => { g.fillStyle = '#5f8a3c'; g.strokeStyle = '#2f4a1c'; g.lineWidth = 6; const l = wob([[10, 230], [40, 120], [120, 40], [200, 70], [240, 150], [200, 230]], true, 4, 51, 20); g.fill(l.p); g.stroke(l.p); g.beginPath(); g.moveTo(30, 230); g.quadraticCurveTo(110, 140, 190, 90); g.stroke(); }, 250, 240, 7);
   leaf.w = 110; leaf.h = 106;
-  const grass = blurred(g => { g.strokeStyle = '#6d9446'; g.lineWidth = 10; g.lineCap = 'round'; for (let i = 0; i < 9; i++) { g.beginPath(); g.moveTo(40 + i * 18, 200); g.quadraticCurveTo(30 + i * 20, 90, 20 + i * 24 + (i % 2) * 30, 10 + (i % 3) * 20); g.stroke(); } }, 220, 200, 7);
-  grass.w = 110; grass.h = 100;
+  const grass = blurred(g => { g.translate(30, 0); g.strokeStyle = '#6d9446'; g.lineWidth = 10; g.lineCap = 'round'; for (let i = 0; i < 9; i++) { g.beginPath(); g.moveTo(40 + i * 18, 200); g.quadraticCurveTo(30 + i * 20, 90, 20 + i * 24 + (i % 2) * 30, 10 + (i % 3) * 20); g.stroke(); } }, 280, 200, 7);   // 30 units of padding each side so the blur is never clipped
+  grass.w = 140; grass.h = 100;
   const post = blurred(g => { g.fillStyle = '#b89a6c'; g.strokeStyle = '#4a3a24'; g.lineWidth = 6; const p = wob([[30, 260], [26, 30], [60, 4], [94, 30], [90, 260]], true, 2, 52, 20); g.fill(p.p); g.stroke(p.p); }, 120, 260, 7);
   post.w = 50; post.h = 110;
   const r = rng(seed), items = [];
   for (let x = -150; x < stageW * 1.4 + 900; x += 300 + r() * 260) { const k = r(); items.push({ s: k < .5 ? grass : k < .8 ? leaf : post, x, flip: r() < .5, dy: 52 + r() * 30 }); }
   return items;
+}
+
+// Like sprites.blurred, but drawn at full size first and halved step by step (each step averages), then
+// enlarged step by step: the blur comes out soft instead of a blocky staircase. Bake time only.
+function softBlurred(drawFn, w, h, k) {
+  const step = (src, nw, nh) => { const n = mk(nw, nh), ng = n.getContext('2d'); ng.imageSmoothingQuality = 'high'; ng.drawImage(src, 0, 0, n.width, n.height); return n; };
+  let c = mk(w, h); drawFn(c.getContext('2d'));
+  while (c.width / 2 >= w / k) c = step(c, c.width / 2, c.height / 2);
+  const tw = w * R.DPR, th = h * R.DPR;
+  while (c.width * 2 < tw) c = step(c, c.width * 2, c.height * 2);
+  return { c: step(c, tw, th), w, h };
+}
+
+/** Screen-fixed frame for the field: two larger, darker, pre-blurred clumps for the bottom corners.
+ *  Returns [] when CORNER_FRAME is off. Each: { s: sprite, x (screen left edge), y (screen bottom) }.
+ *  They stay below y ~330 near the edges so the path and the touch buttons' centres stay clear. */
+export function bakeCornerFrame() {
+  if (!CORNER_FRAME) return [];
+  // a wedge of dark grass, tallest at the screen edge, with one leaf lying low in it
+  const clump = (flip, seed) => softBlurred(g => {
+    const r = rng(seed); g.lineCap = 'round';
+    if (flip) { g.translate(300, 0); g.scale(-1, 1); }
+    g.fillStyle = '#71865f'; g.strokeStyle = '#56684a'; g.lineWidth = 7;
+    const l = wob([[-20, 150], [20, 96], [90, 80], [160, 104], [170, 150]], true, 4, seed, 20); g.fill(l.p); g.stroke(l.p);
+    for (let i = 0; i < 16; i++) {
+      const bx = -10 + i * 17 + r() * 8, top = 10 + i * i * .45 + r() * 22;
+      g.strokeStyle = i < 7 ? '#63774f' : '#7c9068'; g.lineWidth = 12 - i * .4;
+      g.beginPath(); g.moveTo(bx, 175); g.quadraticCurveTo(bx + 4, (175 + top) / 2, bx + 12 + r() * 24, top); g.stroke();
+    }
+  }, 300, 170, 8);
+  const L = clump(false, 61), Rt = clump(true, 62);
+  L.w = 170; L.h = 84; Rt.w = 170; Rt.h = 84;
+  return [{ s: L, x: -30, y: H + 20 }, { s: Rt, x: W - 140, y: H + 20 }];
 }

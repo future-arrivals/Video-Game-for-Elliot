@@ -1,14 +1,24 @@
 // Props: pencil scenery (pale, thin, PEN outline) and ink interactables (black marker, full colour).
 // A prop is a list of parts (wobbly path + fill/stroke) baked once into its own sprite.
 // Ported from Source/a2_engine.js makeProp/drawParts/bakeProp, plus hedge, blanket, crate, corn, leaves.
-import { R, INK, PEN, clamp, lerp, mk, wob, ell } from './core.js';
+import { R, INK, PEN, PAPER, clamp, lerp, mk, wob, ell, tone, streaks } from './core.js';
+
+// Field look (Task 7). All of it is opt-in through makeProp's `look` argument, so the battle screen,
+// which calls makeProp/drawParts without one, draws exactly as before.
+const SHADOW_ON = true;          // item 4: baked smudge shadow under a prop whose look asks for one
+const SHADOW_ALPHA = { pencil: .13, ink: .2 };
+const STREAKS_ON = true;         // item 6: marker streaks inside ink fills whose look asks for them
+const STREAK_DARK = .9;          // streak colour = fill x this (about 6-10% darker once overlapped at .55)
+const HEDGE_W = .8;              // hedge width when look.fit is set: keeps hedges inside their tile column
 
 const part = (g, fill, stroke, lw, dash) => ({ g, fill, stroke, lw, dash });
 /** Kinds tall enough to hide the lead; these fade to 50% when standing in front of it. */
 export const STANDEE = new Set(['hedge', 'boulder', 'post', 'scarecrow', 'sign', 'cart', 'hay', 'corn', 'crate', 'pumpkin']);
 
-/** Builds a prop whose feet are at world px (x, y). Returns {kind, x, y, parts, bb, ink, cache}. */
-export function makeProp(kind, x, y, s, seed, ink) {
+/** Builds a prop whose feet are at world px (x, y). Returns {kind, x, y, parts, bb, ink, cache}.
+ *  look (optional, field only): { k: scale about the feet, sat, line (pencil strength 0..1),
+ *  mix: hex, amt: 0..1 (depth tint), shadow: bool, streaks: bool, fit: bool (hedge fits its tile) } */
+export function makeProp(kind, x, y, s, seed, ink, look) {
   const P = []; const L = ink ? INK : PEN; const lw = ink ? 4 : 2;
   if (kind === 'pumpkin') {
     P.push(part(wob(ell(x, y - 20 * s, 30 * s, 21 * s, 14, .1, seed), true, 1.1, seed), '#F6D2A6', L, lw));
@@ -59,8 +69,9 @@ export function makeProp(kind, x, y, s, seed, ink) {
       P.push(part(wob(ell(lx, ly - 5, 13, 6, 10, .3, seed + k), true, .7, seed + k), '#DCE7C2', '#a9b693', 1.6)); }
   } else if (kind === 'hedge') {      // interactive standee: ink + full colour
     const pts = [[x + 26, y]]; const r = Math.round(seed) % 7;
-    for (let i = 0; i <= 10; i++) { const a = i / 10 * Math.PI; const bump = 1 + (i % 2 ? .1 : -.04) + ((i + r) % 3) * .03; pts.push([x + Math.cos(a) * 28 * bump, y - 10 - Math.sin(a) * 50 * bump]); }
-    pts.push([x - 26, y]);
+    const hw = look && look.fit ? HEDGE_W : 1; pts[0][0] = x + 26 * hw;
+    for (let i = 0; i <= 10; i++) { const a = i / 10 * Math.PI; const bump = 1 + (i % 2 ? .1 : -.04) + ((i + r) % 3) * .03; pts.push([x + Math.cos(a) * 28 * hw * bump, y - 10 - Math.sin(a) * 50 * bump]); }
+    pts.push([x - 26 * hw, y]);
     P.push(part(wob(pts, true, 1.6, seed, 9), '#7FB24E', INK, 4));
     P.push(part(wob(ell(x - 8, y - 40, 11, 8, 10, .2, seed + 3), true, .8, seed + 3), '#9DCB68', null, 0));
     for (const [dx, dy] of [[-12, -22], [8, -36], [12, -16], [-4, -50]]) P.push(part(wob([[x + dx - 5, y + dy - 3], [x + dx, y + dy + 2], [x + dx + 5, y + dy - 3]], false, .3, seed + dx), null, INK, 2.4));
@@ -82,8 +93,27 @@ export function makeProp(kind, x, y, s, seed, ink) {
   }
   let bb = [1e9, 1e9, -1e9, -1e9];
   for (const q of P) { const b = q.g.bb; bb = [Math.min(bb[0], b[0]), Math.min(bb[1], b[1]), Math.max(bb[2], b[2]), Math.max(bb[3], b[3])]; }
-  const pad = 8; bb = [bb[0] - pad, bb[1] - pad, bb[2] + pad, bb[3] + pad];
-  return { kind, x, y, parts: P, bb, ink: !!ink, standee: STANDEE.has(kind), cache: null };
+  const pr = { kind, x, y, parts: P, bb, ink: !!ink, standee: STANDEE.has(kind), cache: null, k: 1 };
+  if (look) applyLook(pr, look);
+  const pad = 8, k = pr.k, b0 = pr.bb;
+  pr.bb = [x + (b0[0] - x) * k - pad, y + (b0[1] - y) * k - pad, x + (b0[2] - x) * k + pad, y + (b0[3] - y) * k + pad];
+  return pr;
+}
+
+const FLAT = new Set(['leaves', 'vine', 'blanket', 'glow', 'spot', 'rail']);
+function applyLook(pr, L) {
+  pr.k = L.k ?? 1;
+  if (!pr.ink) for (const q of pr.parts) {        // item 2 (quieter) and item 3 (depth tint) for pencil
+    const t = { sat: L.sat ?? 1, mix: L.mix, amt: L.amt ?? 0 };
+    if (q.fill) q.fill = tone(q.fill, t);
+    if (q.stroke) { q.stroke = tone(tone(q.stroke, { sat: t.sat, mix: PAPER, amt: (1 - (L.line ?? 1)) * .8 }), t); q.lw *= .85 + .15 * (L.line ?? 1); }
+  }
+  if (L.streaks && STREAKS_ON && pr.ink) { const body = pr.parts.find(q => q.fill); if (body) body.streak = true; }
+  if (L.shadow && SHADOW_ON && !FLAT.has(pr.kind)) {
+    const w = (pr.bb[2] - pr.bb[0]) * pr.k;
+    pr.shadow = { rx: Math.min(60, w * .42), ry: pr.ink ? 6 : 4.5, a: pr.ink ? SHADOW_ALPHA.ink : SHADOW_ALPHA.pencil };
+    pr.bb = [pr.bb[0], pr.bb[1], pr.bb[2], Math.max(pr.bb[3], pr.y + pr.shadow.ry + 1)];
+  }
 }
 
 /** p: reveal 0..1 (pencil draws in, then the colour washes in). 1 = fully drawn. */
@@ -91,7 +121,8 @@ export function drawParts(ctx, parts, p = 1) {
   const q = clamp(p / .7), f = clamp((p - .35) / .65);
   ctx.lineJoin = 'round'; ctx.lineCap = 'round';
   for (const k of parts) {
-    if (k.fill && f > 0) { ctx.globalAlpha = f; ctx.fillStyle = k.fill; ctx.fill(k.g.p); ctx.globalAlpha = 1; }
+    if (k.fill && f > 0) { ctx.globalAlpha = f; ctx.fillStyle = k.fill; ctx.fill(k.g.p); ctx.globalAlpha = 1;
+      if (k.streak) streaks(ctx, k.g.p, k.g.bb, tone(k.fill, { mul: STREAK_DARK }), (k.g.len * 7) | 0); }
     if (k.stroke && q > 0) {
       ctx.strokeStyle = k.stroke; ctx.lineWidth = k.lw;
       if (k.dash) { ctx.setLineDash(k.dash); ctx.globalAlpha = q; }
@@ -104,7 +135,14 @@ export function drawParts(ctx, parts, p = 1) {
 /** Bakes a prop into its own sprite at bake scale. `extra(g)` may draw more on top in world coords. */
 export function bakeProp(pr, extra) {
   const [x0, y0, x1, y1] = pr.bb; const c = mk((x1 - x0) * R.BS, (y1 - y0) * R.BS); const g = c.getContext('2d');
-  g.scale(R.BS, R.BS); g.translate(-x0, -y0); drawParts(g, pr.parts, 1); if (extra) extra(g);
+  g.scale(R.BS, R.BS); g.translate(-x0, -y0);
+  if (pr.shadow) {                                  // soft smudge on the ground under the feet
+    const { rx, ry, a } = pr.shadow; g.save(); g.translate(pr.x, pr.y); g.scale(rx / ry, 1);
+    const gr = g.createRadialGradient(0, 0, 0, 0, 0, ry); gr.addColorStop(0, `rgba(90,65,40,${a})`); gr.addColorStop(.6, `rgba(90,65,40,${a * .5})`); gr.addColorStop(1, 'rgba(90,65,40,0)');
+    g.fillStyle = gr; g.beginPath(); g.arc(0, 0, ry, 0, 7); g.fill(); g.restore();
+  }
+  if (pr.k !== 1 && pr.k != null) { g.translate(pr.x, pr.y); g.scale(pr.k, pr.k); g.translate(-pr.x, -pr.y); }
+  drawParts(g, pr.parts, 1); if (extra) extra(g);
   pr.cache = c; return pr;
 }
 /** Draws a baked prop at its own world position, optionally offset and faded. */

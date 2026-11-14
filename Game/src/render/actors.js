@@ -10,6 +10,10 @@ import { INK, PAPER, FONT, mk, clamp, eOutCubic, eInOutCubic } from './core.js';
 import { bakeSprite, alphaBounds, tinted, radial, paperFilled } from './sprites.js';
 
 export const FOLDED_H = 78;                  // folded height on screen (logical px)
+// Task 7 additions (field only; both are drawMember options that default to off).
+export const FOLLOWER_SCALE = .85;           // followers step back: drawn at 85% about their feet
+const FOLLOWER_PALE = { monster: .28, fish: .38, icecream: .38 }; // paper wash baked over a paler copy (pink and red need more)
+const paleWash = id => `rgba(251,248,240,${FOLLOWER_PALE[id] ?? .4})`;
 
 // viewBoxes [x, y, w, h] and hinge numbers copied from the manifests (SVG user units).
 const CHARS = {
@@ -39,8 +43,8 @@ export function prepareActors(assets) {
     const sF = bakeSprite(imF, d.vbF[3] * k), sO = bakeSprite(imO, d.vbO[3] * k);
     const rec = {
       k, d, openFootU,
-      folded: { s: sF, ax: d.hinge ? (ax - d.vbF[0]) * k : sF.w / 2, foot: footF, dark: tinted(sF, 'rgba(90,60,40,.35)') },
-      open: { s: sO, ax: d.hinge ? (ax - d.vbO[0]) * k : sO.w / 2, foot: bO.b * sO.h, dark: tinted(sO, 'rgba(90,60,40,.35)') },
+      folded: { s: sF, ax: d.hinge ? (ax - d.vbF[0]) * k : sF.w / 2, foot: footF, dark: tinted(sF, 'rgba(90,60,40,.35)'), pale: tinted(sF, paleWash(id)) },
+      open: { s: sO, ax: d.hinge ? (ax - d.vbO[0]) * k : sO.w / 2, foot: bO.b * sO.h, dark: tinted(sO, 'rgba(90,60,40,.35)'), pale: tinted(sO, paleWash(id)) },
       axU: ax,
     };
     if (d.hinge) {
@@ -133,7 +137,9 @@ function drawFlip(ctx, r, form, u) {
 
 /** Draws a party member with feet at (sx, sy) in the current transform.
  *  opts: { alpha = 1, shadow = true, lead = false (draws the back/front facing marker),
- *          pace = 'field' | 'battle' (which hinge curve; see hingeCurve) } */
+ *          pace = 'field' | 'battle' (which hinge curve; see hingeCurve),
+ *          follower = false (field: smaller and paler, see FOLLOWER_SCALE),
+ *          pop = 1 (extra scale about the feet, e.g. the swap pop) } */
 export function drawMember(ctx, assets, member, sx, sy, timeMs, opts = {}) {
   const A = prepareActors(assets); const r = A.chars[member.id]; if (!r) return;
   const settled = member.foldAnim >= 1, u = clamp(member.foldAnim);
@@ -141,11 +147,12 @@ export function drawMember(ctx, assets, member, sx, sy, timeMs, opts = {}) {
   const ph = member.id.length * 1.7, w = .00692;
   const lift = member.moving && settled ? Math.abs(Math.sin(timeMs * w + ph)) * 4 : 0;
   const tilt = member.moving && settled ? Math.sin(timeMs * w + ph) * .05 : 0;
-  if (opts.shadow !== false) { const sw = r.folded.s.w * .75; ctx.drawImage(A.shadow.c, sx - sw / 2, sy - 7, sw, 14); }
+  const fol = !!opts.follower, ks = (fol ? FOLLOWER_SCALE : 1) * (opts.pop || 1);
+  if (opts.shadow !== false) { const sw = r.folded.s.w * .75 * ks; ctx.drawImage(A.shadow.c, sx - sw / 2, sy - 7 * ks, sw, 14 * ks); }
   if (opts.lead && (member.facing === 'back' || member.facing === 'front')) drawFacingMarker(ctx, sx, sy, member.facing);
   ctx.save(); if (opts.alpha != null && opts.alpha < 1) ctx.globalAlpha *= opts.alpha;
-  ctx.translate(sx, sy - lift); if (tilt) ctx.rotate(tilt); ctx.scale(member.faceX < 0 ? -1 : 1, 1);
-  if (settled) drawRec(ctx, v);
+  ctx.translate(sx, sy - lift * ks); if (tilt) ctx.rotate(tilt); ctx.scale(member.faceX < 0 ? -ks : ks, ks);
+  if (settled) drawRec(ctx, v, fol ? v.pale : v.s);
   else if (r.parts) drawHinge(ctx, r, member.form, u, opts.pace);
   else drawFlip(ctx, r, member.form, u);
   ctx.restore();
@@ -153,9 +160,10 @@ export function drawMember(ctx, assets, member, sx, sy, timeMs, opts = {}) {
 
 function drawFacingMarker(ctx, x, y, facing) {
   const d = facing === 'back' ? -1 : 1, cy = y + (d > 0 ? 12 : -2);
-  ctx.save(); ctx.fillStyle = '#FFF1A8'; ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.lineJoin = 'round';
-  ctx.beginPath(); ctx.moveTo(x - 8, cy - 3 * d); ctx.lineTo(x + 8, cy - 3 * d); ctx.lineTo(x, cy + 6 * d); ctx.closePath();
-  ctx.fill(); ctx.stroke(); ctx.restore();
+  // A small solid ink arrowhead with a paper edge: a pointer, not an outlined triangle (that would read as the Triangle button).
+  ctx.save(); ctx.fillStyle = INK; ctx.strokeStyle = '#FBF8F0'; ctx.lineWidth = 2; ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.moveTo(x - 6, cy - 2 * d); ctx.lineTo(x + 6, cy - 2 * d); ctx.lineTo(x, cy + 5 * d); ctx.closePath();
+  ctx.stroke(); ctx.fill(); ctx.restore();
 }
 
 /** Draws a creature with feet (its ground spot) at (sx, sy), at its field size (CREATURES[kind].h; scale the
