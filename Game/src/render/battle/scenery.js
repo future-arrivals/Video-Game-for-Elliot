@@ -155,6 +155,8 @@ function droppedCandy(ctx, assets, x, y, win) {
 
 // While a rig's hurt clip plays, the clip's own white flash is the one flash of the hit: the battle's flash is skipped.
 const HURT_CLIP_OWNS_FLASH = true;
+// The demos' hurt and happy clips run about 3.5 s; battles play them faster so they end before the next turn.
+const CLIP_SPEED = 1.7;
 
 /** The active character, large in the near foreground. p: { member, dx, dy, scale, ko 0..1, flash, pulse, squash, alpha, pace,
  *  hurtMs (real ms since the last hit it took, or null), winMs (ms since the battle was won, or null), calm (reduce flash) } */
@@ -164,7 +166,7 @@ export function drawPlayer(ctx, assets, p, t) {
   let clip = null;
   if (!p.ko) {
     const rg = RIG.on ? loadRig(assets, p.member.id) : null, h = p.winMs != null && p.winMs >= 0 ? ['happy', p.winMs] : p.hurtMs != null && p.hurtMs >= 0 ? ['hurt', p.hurtMs] : null;
-    if (h) { const cd = rg && rg.clips[h[0]]; if (cd && h[1] / 1000 < cd.dur) clip = { name: h[0], t: h[1] / 1000 }; }
+    if (h) { const cd = rg && rg.clips[h[0]]; const ct = h[1] / 1000 * CLIP_SPEED; if (cd && ct < cd.dur) clip = { name: h[0], t: ct }; }
   }
   let played = false;
   const draw = g => {

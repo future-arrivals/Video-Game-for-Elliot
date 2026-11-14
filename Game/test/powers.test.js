@@ -303,7 +303,7 @@ test('badge: a lead without the power shows the first member whose power would w
   assert.deepEqual(c.state.target, { i: 14, j: 7, kind: 'bell', power: 'reach', by: 'icecream', ready: false });
 });
 
-test('reach: 0.4 s after the hinge it rings the bell and opens every gate once; ringing again opens nothing new', () => {
+test('reach: 0.4 s after the hinge it rings the bell and opens every gate once; a rung bell is no longer a target', () => {
   const { state, stage } = at('S6', ['icecream'], 13.5, 7.5, 'right');
   stepField(state, stage, inp({ pressed: { cross: true } }), DT);
   assert.deepEqual(state.action, { kind: 'reach', i: 14, j: 7, what: 'bell', u: 0 });
@@ -313,7 +313,8 @@ test('reach: 0.4 s after the hinge it rings the bell and opens every gate once; 
   assert.deepEqual(ev, [{ t: 'reach', kind: 'bell', i: 14, j: 7 }, { t: 'gate', i: 23, j: 6 }]);
   assert.equal(canStand(state, stage, 23, 6), true);
   ev = run(state, stage, inp({ pressed: { cross: true } }), DT).concat(run(state, stage, inp(), 0.5));
-  assert.deepEqual(ev, [{ t: 'reach', kind: 'bell', i: 14, j: 7 }]);
+  assert.equal(only(ev, 'reach').length, 0, 'a second press rings nothing');
+  assert.notEqual(state.target?.kind, 'bell', 'no outline or badge on a rung bell');
 });
 
 // ---------------------------------------------------------------- review focus 2: mid wind-up

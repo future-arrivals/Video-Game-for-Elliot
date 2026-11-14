@@ -232,7 +232,7 @@ function things(state, stage) {
   const out = [];
   if (can('boulder')) for (const b of state.boulders) out.push({ i: b.i, j: b.j, kind: 'boulder' });
   for (const p of state.posts ?? []) {
-    if (p.kind === 'bell' && can('bell')) out.push({ i: p.i, j: p.j, kind: 'bell' });
+    if (p.kind === 'bell' && !p.taken && can('bell')) out.push({ i: p.i, j: p.j, kind: 'bell' });
     else if (p.kind !== 'bell' && !p.taken && can('post')) out.push({ i: p.i, j: p.j, kind: 'post' });
   }
   for (const [i, j] of stage.doOver ?? []) out.push({ i, j, kind: 'doover' });
