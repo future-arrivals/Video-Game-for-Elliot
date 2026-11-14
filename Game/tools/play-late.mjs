@@ -211,4 +211,109 @@ export async function runLate({ run, boot, ev, check, opt }) {
     check('J: walking into Big Ghost starts a battle for it (the field waits; the save says bigghost)', w === 'ok' && ok && sv && sv.pending && sv.pending.creatureUid === 'boss' && sv.pending.kind === 'bigghost',
       `walk ${w}, after ${n} steps, mode ${s.mode}, ${JSON.stringify(sv)}`);
   });
+
+  // The boss fight itself, both ways, from `stage=S7` on row 4 next to Big Ghost. Every move is a button press
+  // chosen from the battle's own cards (the same cards the battle scene draws), then the round plays out.
+  const BOSS = `
+    (async () => {
+      const B = await import(new URL('src/battle/battle.js', location.href).href);
+      const P = window.__play, g = P.g;
+      Object.assign(P, {
+        // the button that plays a card word now: Cross / Circle / Triangle by slot, Square for Open / Fold
+        button(word) {
+          const b = g.battle();
+          if (word === 'Open' || word === 'Fold') return 'square';
+          const slot = B.cards(b).moves.findIndex(m => m.word === word);
+          return slot < 0 ? null : ['cross', 'circle', 'triangle'][slot];
+        },
+        // press (lift, then play) and read the state the round ends in, then let it play out until the next choice
+        round(button) {
+          g.press(button); g.tick(.05); g.press(button); g.tick(1 / 60);
+          const b = g.battle(); if (!b) return null;
+          const a = b.party[b.active];
+          const snap = { id: a.id, hearts: a.hearts, phase: b.boss.phase, littles: b.boss.littles, boss: b.enemy.hearts, state: b.phase };
+          for (let t = 0; t < 6; t += 1 / 60) { g.tick(1 / 60); const c = g.battle(); if (c) this.lastPhase = c.phase; if (c && (c.phase === 'won' || c.phase === 'lost')) break; }   // the round's playback (a finished battle is left for the caller to run out)
+          return snap;
+        },
+      });
+      return true;
+    })()`;
+  // boots S7 beside Big Ghost, walks into it and waits for the battle page; returns what it saw
+  const intoBoss = async (page, lead) => {
+    await boot(page, `stage=S7&party=3&lead=${lead}&x=11.5&y=4.5`); await ev(page, LATE); await ev(page, BOSS);
+    const info = await ev(page, '({ stage: __play.stage(), party: __play.party(), lead: __play.lead(), boss: __game.state().boss, candy: __game.state().candyCount, rest: __game.fieldScene.stage.rest[0] })');
+    let n = 0;
+    for (; n < 120 && (await ev(page, '__game.mode()')) === 'field' && !(await ev(page, '__game.fieldScene.waiting')); n++) await ev(page, '__game.move(1, 0, 1 / 30); __game.tick(1 / 30)');
+    const t = await ev(page, `__play.until('battle', 3)`);
+    await ev(page, '__game.tick(1)');
+    const b = await ev(page, '(() => { const b = __game.battle(); return b && { enemy: b.enemy.id, canRun: b.canRun, round: b.round, active: b.party[b.active].id, phase: b.phase }; })()');
+    return { info, t, b };
+  };
+
+  // Run K: beat Big Ghost with Scoops (Ice Cream), the worked "Solo Ice Cream" line from test/boss.test.js.
+  await run('K', async page => {
+    const { info, t, b } = await intoBoss(page, 'icecream');
+    check('K: start in S7 next to Big Ghost with Scoops in front', info.stage === 'S7' && info.party === 'icecream,monster,fish' && info.boss && info.boss.i0 === 13, JSON.stringify(info));
+    check('K: walking into Big Ghost starts the battle (via the page turn), against bigghost, Run unavailable', t >= 0 && b && b.enemy === 'bigghost' && b.canRun === false && b.round === 1 && b.active === 'icecream',
+      `after ${t.toFixed ? t.toFixed(2) : t} s, ${JSON.stringify(b)}`);
+    // [card word, action, hearts of Scoops, Big Ghost: 'nLG' or its hearts]
+    const rows = [['Bonk', 10, '2LG'], ['Bonk', 10, '1LG'], ['Bonk', 10, 11], ['Open', 10, 11], ['Drop', 9, 6], ['Smash', 6, 1], ['Bonk', 6, 0]];
+    for (let i = 0; i < rows.length; i++) {
+      const [word, hearts, bg] = rows[i];
+      const btn = await ev(page, `__play.button('${word}')`);
+      const snap = btn ? await ev(page, `__play.round('${btn}')`) : null;
+      const okBoss = snap && (typeof bg === 'string' ? snap.phase === 1 && snap.littles === Number(bg[0]) : snap.phase === 2 && snap.boss === bg);
+      check(`K: round ${i + 1}: ${word} (${btn}): Scoops ${hearts} hearts, Big Ghost ${bg}`, !!snap && snap.id === 'icecream' && snap.hearts === hearts && okBoss, JSON.stringify(snap));
+    }
+    const ph = await ev(page, '__play.lastPhase');
+    check('K: the battle phase ends as won', ph === 'won', `phase ${ph}`);
+    const back = await ev(page, `__play.until('field', 8)`);
+    let a = await ev(page, '({ stage: __play.stage(), mode: __game.mode(), battle: __game.battle(), ending: __game.fieldScene.ending, lead: __play.lead() })');
+    check('K: back in the field in S7 and the ending moment is playing', back >= 0 && a.stage === 'S7' && a.mode === 'field' && a.battle === null && a.ending === true, `after ${back.toFixed ? back.toFixed(2) : back} s, ${JSON.stringify(a)}`);
+    await ev(page, '__game.move(-1, 0, .5); __game.tick(.5)');
+    const during = await ev(page, '__play.lead()');
+    check('K: input is ignored while the ending plays', during.x === a.lead.x && during.y === a.lead.y, `before (${a.lead.x},${a.lead.y}), after (${during.x},${during.y})`);
+    const endAt = await ev(page, '(() => { for (let t = 0; t < 10; t += 1 / 30) { if (!__game.fieldScene.ending) return t; __game.tick(1 / 30); } return -1; })()');
+    await ev(page, '__game.move(-1, 0, .5); __game.tick(.5)');
+    const after = await ev(page, '__play.lead()');
+    check('K: the ending finishes and input returns', endAt >= 1.5 && endAt <= 3 && after.x < during.x - .2, `ended after ${endAt.toFixed ? endAt.toFixed(1) : endAt} s more, x ${during.x} -> ${after.x}`);
+    const c = await ev(page, '({ candy: __game.state().candyCount, boss: __game.state().boss, beaten: __game.state().bossBeaten })');
+    check('K: candy went up by exactly 10', c.candy === info.candy + 10, `${info.candy} -> ${c.candy}`);
+    check('K: Big Ghost is gone (boss null, bossBeaten)', c.boss === null && c.beaten === true, JSON.stringify(c));
+    const tiles = [];
+    for (let i = info.boss.i0; i <= info.boss.i1; i++) for (let j = info.boss.j0; j <= info.boss.j1; j++) tiles.push([i, j]);
+    const stand = await ev(page, `${JSON.stringify(tiles)}.map(([i, j]) => __game.canStand(i, j))`);
+    const w = await ev(page, `__play.walk(${info.boss.i0}, ${info.boss.j0})`);
+    const at = await ev(page, '__play.lead()');
+    check('K: its tiles can be walked on', stand.every(Boolean) && w === 'ok' && at.i === info.boss.i0 && at.j === info.boss.j0 && (await ev(page, '__game.mode()')) === 'field', `canStand ${stand.join()}, walk ${w}, lead (${at.i},${at.j})`);
+    await ev(page, '__game.fieldScene.save()');
+    await boot(page, '', { clear: false });
+    a = await ev(page, '({ stage: __play.stage(), mode: __game.mode(), boss: __game.state().boss, beaten: __game.state().bossBeaten, candy: __game.state().candyCount, pending: (JSON.parse(localStorage.getItem("' + SAVE_KEY + '")) || {}).pendingBattle || null })');
+    check('K: after a save and reload Big Ghost is still gone and bossBeaten is true', a.stage === 'S7' && a.mode === 'field' && a.boss === null && a.beaten === true && a.candy === info.candy + 10 && !a.pending, JSON.stringify(a));
+  });
+
+  // Run L: lose to Big Ghost with Heartfin (Fish): Splash x3 to get past the Little Ghosts, then Open / Fold every round (Square, which never hurts Big Ghost), no switching except the free pick
+  // after each knockout, until the whole team is out.
+  await run('L', async page => {
+    const { info, t, b } = await intoBoss(page, 'fish');
+    check('L: start in S7 next to Big Ghost with Heartfin in front', info.stage === 'S7' && info.party === 'fish,icecream,monster' && info.boss && info.boss.i0 === 13, JSON.stringify(info));
+    check('L: the boss battle starts, Run unavailable', t >= 0 && b && b.enemy === 'bigghost' && b.canRun === false && b.active === 'fish', `${JSON.stringify(b)}`);
+    let rounds = 0, picks = 0, last = null;
+    for (; rounds < 80; rounds++) {
+      const ph = await ev(page, '(() => { const b = __game.battle(); return b ? b.phase : null; })()');
+      last = ph; if (ph === null || ph === 'lost' || ph === 'won') break;
+      if (ph === 'chooseNext') {                           // the free pick: whichever neighbour is still awake
+        picks++;
+        for (const btn of ['l1', 'r1']) { await ev(page, `__play.round('${btn}')`); if ((await ev(page, '(() => { const b = __game.battle(); return !b || b.phase !== "chooseNext"; })()'))) break; }
+      } else await ev(page, `__play.round('${rounds < 3 ? 'cross' : 'square'}')`);   // Splash x3 clears the Little Ghosts, then Open / Fold
+    }
+    for (let k = 0; k < 20 && (await ev(page, '__game.battle()')); k++) await ev(page, '__game.tick(.5)');
+    const ph = await ev(page, '__play.lastPhase');
+    check('L: Splash x3 then Open / Fold loses, with 2 free picks after knockouts', ph === 'lost' && picks === 2, `phase ${ph}, ${rounds} rounds, ${picks} picks`);
+    const back = await ev(page, `__play.until('field', 8)`);
+    const a = await ev(page, '({ stage: __play.stage(), mode: __game.mode(), lead: __play.lead(), hearts: __game.state().party.map(m => m.hearts === m.maxHearts), boss: __game.state().boss, beaten: __game.state().bossBeaten, candy: __game.state().candyCount })');
+    check('L: back in the field in S7 on the rest blanket', back >= 0 && a.stage === 'S7' && a.mode === 'field' && a.lead.i === info.rest[0] && a.lead.j === info.rest[1], `after ${back.toFixed ? back.toFixed(2) : back} s, lead (${a.lead.i},${a.lead.j}), rest ${JSON.stringify(info.rest)}`);
+    check('L: the whole team has full hearts', a.hearts.length === 3 && a.hearts.every(Boolean), a.hearts.join());
+    check('L: Big Ghost is still there and the candy is unchanged', a.boss && a.boss.i0 === 13 && !a.beaten && a.candy === info.candy, JSON.stringify({ boss: a.boss, beaten: a.beaten, candy: a.candy }));
+  });
 }
