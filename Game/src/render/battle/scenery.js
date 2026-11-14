@@ -14,9 +14,12 @@ import { candyArt } from '../sprites.js';
 
 const PUMPKIN = { S1: .75, S2: .8, S3: .85, S4: .9, S5: 1, S6: 1.25, S7: 1.25 };
 const HORIZON = 166;
+// Boss fight (Big Ghost's house at night): a dark blue-purple wash over the backdrop only, same family as NIGHT.S7 in stageview.js.
+const BOSS_NIGHT = { wash: 'rgba(28,20,96,.5)', pencil: 'rgba(214,206,236,.5)', flame: 'rgba(255,226,140,.7)', lw: 1.4,
+  candles: [[96, 178, 26], [740, 172, 22], [790, 186, 30]], webs: [[0, 0, 1], [W, 0, -1]], webReach: 96, webStrands: 5 };
 
 /** Bakes the screen-sized backdrop once. stage: a Stage or stage data ({ id, width }) or null (plain page). */
-export function bakeBackdrop(stage) {
+export function bakeBackdrop(stage, { boss = false } = {}) {
   const c = mk(W * R.DPR, H * R.DPR), g = c.getContext('2d'); g.scale(R.DPR, R.DPR);
   g.lineJoin = 'round'; g.lineCap = 'round';
   const r = rng(stage ? [...String(stage.id)].reduce((a, ch) => a * 31 + ch.charCodeAt(0), 7) : 3);
@@ -47,6 +50,7 @@ export function bakeBackdrop(stage) {
   }
   // a light paper wash so the actors and the cards read first (was .3: the owner found that too faded)
   g.save(); g.globalAlpha = .08; g.fillStyle = PAPER; g.fillRect(0, 0, W, H); g.restore();
+  if (boss) nightWash(g);
   // the enemy's raised paper disc
   const D = LAYOUT.disc;
   const disc = wob(ell(D.x, D.y, D.rx, D.ry, 18), true, 1.4, 92);
@@ -55,6 +59,21 @@ export function bakeBackdrop(stage) {
   g.fillStyle = '#E5EFCF'; g.fill(disc.p); g.strokeStyle = PEN; g.lineWidth = 2; g.stroke(disc.p);
   scratch();                                            // make the hit-flash canvas now, not on the first hit
   return c;
+}
+
+function nightWash(g) {
+  const N = BOSS_NIGHT;
+  g.save(); g.fillStyle = N.wash; g.fillRect(0, 0, W, H);
+  g.strokeStyle = N.pencil; g.lineWidth = N.lw; g.lineCap = 'round';
+  for (const [x, y, sx] of N.webs) {                    // a cobweb in each top corner
+    for (let i = 0; i < N.webStrands; i++) { const a = (i / (N.webStrands - 1)) * Math.PI / 2; g.beginPath(); g.moveTo(x, y); g.lineTo(x - sx * Math.cos(a) * N.webReach, y + Math.sin(a) * N.webReach); g.stroke(); }
+    for (const f of [.4, .7, 1]) { g.beginPath(); for (let i = 0; i < N.webStrands; i++) { const a = (i / (N.webStrands - 1)) * Math.PI / 2; g.lineTo(x - sx * Math.cos(a) * N.webReach * f, y + Math.sin(a) * N.webReach * f); } g.stroke(); }
+  }
+  for (const [x, y, h] of N.candles) {                  // pale-pencil candles with a small flame
+    g.strokeStyle = N.pencil; g.strokeRect(x - 5, y - h, 10, h);
+    g.fillStyle = N.flame; g.beginPath(); g.ellipse(x, y - h - 6, 3, 6, 0, 0, 7); g.fill();
+  }
+  g.restore();
 }
 
 /** Overlays drawn on top of the actors: afternoon light and a blurred foreground leaf. */
