@@ -107,7 +107,7 @@ export default {
  "characters": [
   {
    "id": "monster",
-   "placeholder_name": "Fuzzy Monster",
+   "placeholder_name": "Munch",
    "drawings": {
     "folded": "IMG_3526.jpg",
     "open": "IMG_3527.jpg"
@@ -181,7 +181,7 @@ export default {
   },
   {
    "id": "fish",
-   "placeholder_name": "Pink Fish (placeholder; may not be a fish)",
+   "placeholder_name": "Heartfin",
    "drawings": {
     "folded": "IMG_3521.jpg",
     "open": "IMG_3522.jpg"
@@ -240,7 +240,7 @@ export default {
   },
   {
    "id": "icecream",
-   "placeholder_name": "Ice Cream",
+   "placeholder_name": "Scoops",
    "drawings": {
     "folded": "IMG_3523.jpg",
     "open": "IMG_3524.jpg"
@@ -300,7 +300,7 @@ export default {
  "creatures": [
   {
    "id": "bat",
-   "placeholder_name": "Zigzag Bat",
+   "placeholder_name": "Zigzag",
    "type": "chompy",
    "hearts": 5,
    "zone": "A",
@@ -333,7 +333,7 @@ export default {
   },
   {
    "id": "spider",
-   "placeholder_name": "Toothy Spider",
+   "placeholder_name": "Webster",
    "type": "sweet",
    "hearts": 6,
    "zone": "B and C",
@@ -367,7 +367,7 @@ export default {
   },
   {
    "id": "ghost",
-   "placeholder_name": "Ghost",
+   "placeholder_name": "Spook",
    "type": "spooky",
    "hearts": 6,
    "zone": "D",
@@ -396,7 +396,7 @@ export default {
  ],
  "boss": {
   "id": "bigghost",
-  "placeholder_name": "Big Ghost",
+  "placeholder_name": "Old Howler",
   "type": "spooky",
   "arena": "inside the giant pumpkin (ghost house)",
   "phases": [

@@ -58,6 +58,32 @@ All files are in `Art/Characters/svg/` (vector, built in named parts) and `Art/C
 
 How each folding character opens (hinge lines, part names, the move that closes it) is in `Art/Characters/manifests/`.
 
+## Names and creative calls (chosen 14 Nov)
+
+Elliot had no fixed idea for most of these, so the names and powers below were chosen to suit the gameplay. He can overrule any of them. Names in the game come from `placeholder_name` in `Design/slice-data.json`; the design doc still uses the old placeholders in its text.
+
+| Drawing | Name | Why |
+|---|---|---|
+| Fuzzy orange monster | **Munch** | He eats boulders and gulps attacks. |
+| Heart that grows into a fish | **Heartfin** | A heart when folded; a long fish-heart with tail fins when it grows. |
+| Ice cream with dumbbells | **Scoops** | Five scoops, and he lifts. |
+| Jack-o'-lantern with ghosts inside | **Punkin** | Ghosts come out of him when he opens. |
+| Red flowerpot monster | **Sprout** | A plant grows out. |
+| Frankenstein | **Bolts** | He stretches between bolt-posts. |
+| White block with a flaming head | **Toasty** | A toasted marshmallow. |
+| Beaver with a log | **Chip** | Wood chips. |
+| Orange with an owl face | **Zest** | An orange. |
+| Juice box | **Sip** | |
+| Crab in a cowboy hat | **Sheriff Pinch** | |
+| Red, white and blue ball | **Roly** | A ball; something long comes out of him and eats things. |
+| Bat, spider, ghost | **Zigzag**, **Webster**, **Spook** | |
+| The boss and his minions | **Old Howler** and the **Wisps** | His big move is Howl. Not "Big Boo" or similar: those are Nintendo's. |
+
+Creative calls that go with them:
+- **Roly:** the long green spiky friend shoots out of him and eats things at a distance (a ranged eat, up to 3 tiles in a straight line, across water too), where Munch eats only what is next to him. In battle he is the Carrier (brings a teammate in already open) and his open attack is the green friend's **Snap**. This replaces the earlier "Haul" idea.
+- **Heartfin:** a heart who grows into a fish. This confirms the Bridge power (he grows long and tips over the water) and the Splash and tail-Slap moves.
+- **Punkin:** ghosts come out of him. The giant pumpkin in the Patch is Old Howler's house; Punkin himself joins later and his ghosts float through walls.
+
 ## Questions for Elliot
 
 Only these are needed before building. The full list, in three short sessions, is in section 12 of the design doc.
