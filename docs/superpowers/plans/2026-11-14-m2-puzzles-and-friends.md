@@ -250,3 +250,5 @@ Wave A is three Opus tasks and one Sonnet task and needs no visual sign-off: eve
 - `tools/play-late.mjs` runs I to L: S4 to S6, the door and S7, a boss win (Solo Ice Cream line), a boss loss. 148 tests, 15 battle checks, all playthrough runs pass on the dev page and the built file (1647 KB).
 - Observed: with three friends, first-move spam beats the boss (the design's "mindless play loses" was solved for solo). Tuning item.
 - Not done: comics, letterbox intro, boss-loss hint, night battle backdrop, Frankenstein cameo. Not checked by a person: boss, start screen (touch and gamepad Triangle untested), phone, TV.
+
+- 17:10: `bakeBackdrop(stage, { boss })` in battle/scenery.js can draw a night wash (`BOSS_NIGHT`), but `battlescene.js` does not pass `boss` yet, so the boss fight still shows the daytime backdrop. Wiring is one line (`bakeBackdrop(stage || null, { boss: !!battle.boss })`) and has never been run or looked at. The agent that wrote it reported a denied command, so the main session left the wiring for the owner to approve.
