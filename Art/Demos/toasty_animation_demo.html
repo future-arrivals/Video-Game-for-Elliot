@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Toasty: character animation demo</title>
+<style>
+<style>
+*{box-sizing:border-box}
+:root{--ink:#1a1a1a;--paper:#efe9dc;--sheet:#FBF8F0;--orange:#ee6228;--yellow:#FFF1A8;--mute:#5b554b}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font-family:Andika,"Avenir Next Rounded","Arial Rounded MT Bold",Verdana,"DejaVu Sans",sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center}
+header{width:100%;max-width:1100px;padding:14px 20px 0;display:flex;align-items:center;gap:14px}
+.chip{width:46px;height:46px;border-radius:12px;border:3px solid var(--ink);background:var(--orange);color:#fff;display:grid;place-items:center;font-size:26px;font-weight:900;text-shadow:0 2px 0 var(--ink);flex:none}
+h1{margin:0;font-size:22px;line-height:1.1}
+h1 small{display:block;font-size:13px;font-weight:400;color:var(--mute);margin-top:3px}
+main{width:100%;max-width:1100px;padding:10px 20px 20px;display:flex;flex-direction:column;align-items:center;gap:10px}
+.stage{position:relative;width:min(100%,calc((100vh - 230px)*1.6));aspect-ratio:960/600;border:3px solid var(--ink);border-radius:14px;overflow:hidden;
+  background:
+   radial-gradient(120% 90% at 18% 8%,rgba(255,236,170,.65),rgba(255,236,170,0) 60%),
+   repeating-linear-gradient(0deg,rgba(120,150,190,.13) 0 1.5px,transparent 1.5px 34px),
+   var(--sheet);
+  box-shadow:0 3px 0 rgba(0,0,0,.18),0 12px 24px -12px rgba(80,60,20,.35)}
+.stage::after{content:"";position:absolute;inset:0;pointer-events:none;mix-blend-mode:multiply;opacity:.55;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' seed='4'/><feColorMatrix values='0 0 0 0 .55  0 0 0 0 .47  0 0 0 0 .33  0 0 0 .22 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
+#stage{position:absolute;inset:0;width:100%;height:100%;display:block}
+.tag{position:absolute;left:12px;top:10px;font-weight:800;font-size:15px;background:var(--yellow);border:3px solid var(--ink);border-radius:10px;padding:3px 10px;transform:rotate(-1.5deg);z-index:2}
+.badge{position:absolute;right:12px;top:10px;font-weight:800;font-size:14px;background:#fff;border:3px solid var(--ink);border-radius:10px;padding:3px 10px;transform:rotate(1.5deg);z-index:2;display:none}
+.badge.on{display:block}
+.bar{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+button{font:800 15px inherit;font-family:inherit;color:var(--ink);padding:8px 14px;border-radius:12px;border:3px solid var(--ink);background:#fff;cursor:pointer;box-shadow:0 3px 0 var(--ink);transition:transform .06s,box-shadow .06s}
+button:active{transform:translateY(2px);box-shadow:0 1px 0 var(--ink)}
+button[aria-pressed=true]{background:var(--yellow)}
+button kbd{font:inherit;font-size:12px;opacity:.55;margin-right:5px}
+.seg{display:flex;gap:6px;align-items:center}
+.seg span{font-size:13px;color:var(--mute);font-weight:700}
+.seg button{padding:5px 10px;font-size:13px;box-shadow:0 2px 0 var(--ink)}
+.thumb{width:26px;height:18px;vertical-align:-4px;margin-right:4px}
+#cap{max-width:900px;font-size:14px;line-height:1.45;color:#3d382f;text-align:center;margin:2px 0 0}
+#cap b{color:var(--ink)}
+@media (max-height:520px){
+  html,body{overflow:hidden;height:100%}
+  header{display:none}
+  main{padding:6px 10px;gap:6px}
+  .stage{width:min(100%,calc((100vh - 104px)*1.6))}
+  #cap{display:none}
+  button{padding:5px 9px;font-size:12px;box-shadow:0 2px 0 var(--ink)}
+  .seg button{padding:3px 7px;font-size:11px}
+  .tag{font-size:12px}
+}
+@media (max-width:640px) and (min-height:521px){ .stage{width:100%} h1{font-size:18px} }
+
+</style></head>
+<body>
+<header><span class="chip">T</span><h1>Toasty, animated part by part<small>A marshmallow with a head on fire. The flame, core, cheeks, legs and eyes are separate pieces of the kid's drawing. Number keys 1&ndash;6 pick an animation.</small></h1></header>
+<main>
+<div class="stage">
+<svg id="stage" viewBox="0 0 960 600" preserveAspectRatio="xMidYMid meet" aria-label="Toasty the marshmallow with a flaming head, animated">
+<defs>
+  <radialGradient id="shadowG"><stop offset="0" stop-color="#3a2a10" stop-opacity=".5"/><stop offset=".6" stop-color="#3a2a10" stop-opacity=".22"/><stop offset="1" stop-color="#3a2a10" stop-opacity="0"/></radialGradient>
+  <radialGradient id="glowG"><stop offset="0" stop-color="#fff0a8" stop-opacity=".95"/><stop offset=".5" stop-color="#ffb84a" stop-opacity=".4"/><stop offset="1" stop-color="#ff9a2e" stop-opacity="0"/></radialGradient>
+  <radialGradient id="duskG" gradientUnits="userSpaceOnUse" cx="480" cy="300" r="300"><stop offset="0" stop-color="#1b1a3a" stop-opacity="0"/><stop offset=".45" stop-color="#1b1a3a" stop-opacity=".12"/><stop offset="1" stop-color="#1b1a3a" stop-opacity=".82"/></radialGradient>
+  <filter id="flash" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB"><feColorMatrix id="fm" type="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 1 0"/></filter>
+  <symbol id="s-star" overflow="visible"><polygon points="0,-10 3,-3.5 10,-3 4.6,1.6 6.2,8.6 0,4.8 -6.2,8.6 -4.6,1.6 -10,-3 -3,-3.5" stroke-linejoin="round"/></symbol>
+  <symbol id="s-dot" overflow="visible"><circle r="5"/></symbol>
+  <symbol id="s-ring" overflow="visible"><circle r="1" fill="none"/></symbol>
+  <symbol id="s-scrap" overflow="visible"><rect x="-6" y="-3.5" width="12" height="7" rx="1"/></symbol>
+  <symbol id="s-spike" overflow="visible"><polygon points="0,-30 7,-12 26,-20 15,-4 34,2 14,8 22,28 6,16 0,34 -6,16 -22,28 -14,8 -34,2 -15,-4 -26,-20 -7,-12" stroke-linejoin="round"/></symbol>
+  <symbol id="s-flame" overflow="visible"><g transform="translate(-88 -166)" stroke-linecap="round" stroke-linejoin="round"><path d="M32.0 163.0 C32.0 163.0 32.0 147.5 33.0 140.0 C34.0 132.5 35.8 125.5 38.0 118.0 C40.2 110.5 43.2 101.3 46.0 95.0 C48.8 88.7 51.3 84.8 55.0 80.0 C58.7 75.2 63.5 70.3 68.0 66.0 C72.5 61.7 77.8 57.8 82.0 54.0 C86.2 50.2 90.2 47.0 93.0 43.0 C95.8 39.0 97.5 34.8 99.0 30.0 C100.5 25.2 102.0 14.0 102.0 14.0 C102.0 14.0 106.7 17.0 108.0 20.0 C109.3 23.0 110.2 27.5 110.0 32.0 C109.8 36.5 107.0 47.0 107.0 47.0 C107.0 47.0 112.8 50.5 116.0 50.0 C119.2 49.5 123.2 46.7 126.0 44.0 C128.8 41.3 130.8 37.5 133.0 34.0 C135.2 30.5 139.0 23.0 139.0 23.0 C139.0 23.0 143.7 28.8 145.0 33.0 C146.3 37.2 147.0 43.2 147.0 48.0 C147.0 52.8 145.8 57.7 145.0 62.0 C144.2 66.3 142.0 74.0 142.0 74.0 C142.0 74.0 148.2 69.2 152.0 66.0 C155.8 62.8 160.7 58.2 165.0 55.0 C169.3 51.8 174.0 48.7 178.0 47.0 C182.0 45.3 189.0 45.0 189.0 45.0 C189.0 45.0 192.5 51.3 192.0 54.0 C191.5 56.7 188.5 59.7 186.0 61.0 C183.5 62.3 180.2 60.5 177.0 62.0 C173.8 63.5 169.7 66.7 167.0 70.0 C164.3 73.3 162.5 77.3 161.0 82.0 C159.5 86.7 158.8 92.8 158.0 98.0 C157.2 103.2 157.7 109.7 156.0 113.0 C154.3 116.3 148.0 118.0 148.0 118.0 C148.0 118.0 147.5 129.0 147.0 136.0 C146.5 143.0 146.2 152.7 145.0 160.0 C143.8 167.3 142.3 174.7 140.0 180.0 C137.7 185.3 134.2 188.8 131.0 192.0 C127.8 195.2 121.0 199.0 121.0 199.0 C121.0 199.0 118.8 190.2 118.0 185.0 C117.2 179.8 116.0 168.0 116.0 168.0 C116.0 168.0 99.3 166.8 90.0 166.0 C80.7 165.2 69.7 163.5 60.0 163.0 C50.3 162.5 32.0 163.0 32.0 163.0 Z" fill="#ee6228" stroke="#1a1a1a" stroke-width="9" /><path d="M60.0 163.0 C60.0 163.0 61.0 150.8 62.0 145.0 C63.0 139.2 64.0 133.2 66.0 128.0 C68.0 122.8 71.0 117.8 74.0 114.0 C77.0 110.2 81.0 107.2 84.0 105.0 C87.0 102.8 92.0 101.0 92.0 101.0 C92.0 101.0 95.2 106.5 96.0 110.0 C96.8 113.5 96.7 118.2 97.0 122.0 C97.3 125.8 98.0 133.0 98.0 133.0 C98.0 133.0 103.3 125.7 106.0 122.0 C108.7 118.3 111.0 114.7 114.0 111.0 C117.0 107.3 124.0 100.0 124.0 100.0 C124.0 100.0 126.7 107.3 127.0 112.0 C127.3 116.7 126.8 122.3 126.0 128.0 C125.2 133.7 123.5 140.7 122.0 146.0 C120.5 151.3 118.3 156.3 117.0 160.0 C115.7 163.7 114.0 168.0 114.0 168.0 C114.0 168.0 99.0 166.8 90.0 166.0 C81.0 165.2 60.0 163.0 60.0 163.0 Z" fill="#f7ce2f" stroke="#1a1a1a" stroke-width="9" /></g></symbol>
+</defs>
+<g id="world">
+  <g id="far"></g>
+  <g id="groundBack">
+    <path d="M-20 548 C 120 540, 240 552, 380 543 S 640 551, 780 542 S 920 550, 990 545 L990 620 L-20 620Z" fill="#eadfc4" opacity=".7"/>
+    <path d="M-20 543 C 120 536, 240 548, 380 539 S 640 547, 780 538 S 920 546, 990 541" fill="none" stroke="#1a1a1a" stroke-width="4" stroke-linecap="round"/>
+    <path d="M30 560 L170 559 M260 574 L420 572 M520 560 L690 561 M770 576 L930 574" stroke="#a8b4c4" stroke-width="2.5" stroke-linecap="round" fill="none" opacity=".7"/>
+  </g>
+  <g id="tufts"></g>
+  <rect id="dusk" x="-50" y="-50" width="1060" height="720" fill="url(#duskG)" opacity="0" pointer-events="none"/>
+  <g id="glow"><circle id="glowC" r="1" fill="url(#glowG)" opacity="0"/></g>
+  <g id="target" style="display:none"><g stroke-linecap="round" stroke-linejoin="round">
+    <path d="M0 -10 V140" stroke="#1a1a1a" stroke-width="12" fill="none"/><path d="M0 -10 V140" stroke="#d9b07a" stroke-width="5" fill="none"/>
+    <rect x="-34" y="-62" width="68" height="84" rx="22" fill="#fbf4e4" stroke="#1a1a1a" stroke-width="8"/>
+    <rect id="tOver" x="-34" y="-62" width="68" height="84" rx="22" fill="#d9a04a" opacity="0"/>
+    <rect id="tChar" x="-34" y="-62" width="68" height="84" rx="22" fill="#6b3a17" opacity="0"/>
+    <rect x="-34" y="-62" width="68" height="84" rx="22" fill="none" stroke="#1a1a1a" stroke-width="8"/>
+    <g id="tEyes"><circle cx="-12" cy="-18" r="4.5" fill="#1a1a1a"/><circle cx="12" cy="-18" r="4.5" fill="#1a1a1a"/></g>
+    <path id="tMouth" d="M-7 12 q7 7 14 0" transform="translate(0 -16)" fill="none" stroke="#1a1a1a" stroke-width="4"/>
+  </g></g>
+  <ellipse id="shadow" cx="480" cy="543" rx="70" ry="12" fill="url(#shadowG)"/>
+  <g id="rig"><g stroke-linecap="round" stroke-linejoin="round">
+    <g id="leg-l"><path d="M76.0 378.0 C76.0 378.0 77.3 387.8 78.0 392.0 C78.7 396.2 78.3 400.3 80.0 403.0 C81.7 405.7 85.2 407.7 88.0 408.0 C90.8 408.3 95.3 406.8 97.0 405.0 C98.7 403.2 98.5 399.7 98.0 397.0 C97.5 394.3 94.8 391.7 94.0 389.0 C93.2 386.3 93.0 381.0 93.0 381.0 C93.0 381.0 76.0 378.0 76.0 378.0 Z" fill="#a3a3a3" stroke="#1a1a1a" stroke-width="9" /></g><g id="leg-r"><path d="M116.0 382.0 C116.0 382.0 116.5 388.8 117.0 392.0 C117.5 395.2 117.5 399.2 119.0 401.0 C120.5 402.8 123.8 403.3 126.0 403.0 C128.2 402.7 131.2 401.3 132.0 399.0 C132.8 396.7 131.0 391.8 131.0 389.0 C131.0 386.2 132.0 382.0 132.0 382.0 C132.0 382.0 116.0 382.0 116.0 382.0 Z" fill="#a3a3a3" stroke="#1a1a1a" stroke-width="9" /></g>
+    <g id="upper">
+      <g id="flame"><g id="flame-o"><path d="M32.0 163.0 C32.0 163.0 32.0 147.5 33.0 140.0 C34.0 132.5 35.8 125.5 38.0 118.0 C40.2 110.5 43.2 101.3 46.0 95.0 C48.8 88.7 51.3 84.8 55.0 80.0 C58.7 75.2 63.5 70.3 68.0 66.0 C72.5 61.7 77.8 57.8 82.0 54.0 C86.2 50.2 90.2 47.0 93.0 43.0 C95.8 39.0 97.5 34.8 99.0 30.0 C100.5 25.2 102.0 14.0 102.0 14.0 C102.0 14.0 106.7 17.0 108.0 20.0 C109.3 23.0 110.2 27.5 110.0 32.0 C109.8 36.5 107.0 47.0 107.0 47.0 C107.0 47.0 112.8 50.5 116.0 50.0 C119.2 49.5 123.2 46.7 126.0 44.0 C128.8 41.3 130.8 37.5 133.0 34.0 C135.2 30.5 139.0 23.0 139.0 23.0 C139.0 23.0 143.7 28.8 145.0 33.0 C146.3 37.2 147.0 43.2 147.0 48.0 C147.0 52.8 145.8 57.7 145.0 62.0 C144.2 66.3 142.0 74.0 142.0 74.0 C142.0 74.0 148.2 69.2 152.0 66.0 C155.8 62.8 160.7 58.2 165.0 55.0 C169.3 51.8 174.0 48.7 178.0 47.0 C182.0 45.3 189.0 45.0 189.0 45.0 C189.0 45.0 192.5 51.3 192.0 54.0 C191.5 56.7 188.5 59.7 186.0 61.0 C183.5 62.3 180.2 60.5 177.0 62.0 C173.8 63.5 169.7 66.7 167.0 70.0 C164.3 73.3 162.5 77.3 161.0 82.0 C159.5 86.7 158.8 92.8 158.0 98.0 C157.2 103.2 157.7 109.7 156.0 113.0 C154.3 116.3 148.0 118.0 148.0 118.0 C148.0 118.0 147.5 129.0 147.0 136.0 C146.5 143.0 146.2 152.7 145.0 160.0 C143.8 167.3 142.3 174.7 140.0 180.0 C137.7 185.3 134.2 188.8 131.0 192.0 C127.8 195.2 121.0 199.0 121.0 199.0 C121.0 199.0 118.8 190.2 118.0 185.0 C117.2 179.8 116.0 168.0 116.0 168.0 C116.0 168.0 99.3 166.8 90.0 166.0 C80.7 165.2 69.7 163.5 60.0 163.0 C50.3 162.5 32.0 163.0 32.0 163.0 Z" fill="#ee6228" stroke="#1a1a1a" stroke-width="9" /></g><g id="flame-i"><path d="M60.0 163.0 C60.0 163.0 61.0 150.8 62.0 145.0 C63.0 139.2 64.0 133.2 66.0 128.0 C68.0 122.8 71.0 117.8 74.0 114.0 C77.0 110.2 81.0 107.2 84.0 105.0 C87.0 102.8 92.0 101.0 92.0 101.0 C92.0 101.0 95.2 106.5 96.0 110.0 C96.8 113.5 96.7 118.2 97.0 122.0 C97.3 125.8 98.0 133.0 98.0 133.0 C98.0 133.0 103.3 125.7 106.0 122.0 C108.7 118.3 111.0 114.7 114.0 111.0 C117.0 107.3 124.0 100.0 124.0 100.0 C124.0 100.0 126.7 107.3 127.0 112.0 C127.3 116.7 126.8 122.3 126.0 128.0 C125.2 133.7 123.5 140.7 122.0 146.0 C120.5 151.3 118.3 156.3 117.0 160.0 C115.7 163.7 114.0 168.0 114.0 168.0 C114.0 168.0 99.0 166.8 90.0 166.0 C81.0 165.2 60.0 163.0 60.0 163.0 Z" fill="#f7ce2f" stroke="#1a1a1a" stroke-width="9" /></g></g>
+      <g id="torso"><path d="M17.0 166.0 C17.0 166.0 32.8 164.5 40.0 164.0 C47.2 163.5 51.7 162.7 60.0 163.0 C68.3 163.3 80.7 165.2 90.0 166.0 C99.3 166.8 116.0 168.0 116.0 168.0 C116.0 168.0 116.7 189.3 117.0 200.0 C117.3 210.7 117.3 221.7 118.0 232.0 C118.7 242.3 119.3 250.7 121.0 262.0 C122.7 273.3 125.5 287.8 128.0 300.0 C130.5 312.2 133.8 325.0 136.0 335.0 C138.2 345.0 140.2 353.5 141.0 360.0 C141.8 366.5 141.8 370.5 141.0 374.0 C140.2 377.5 136.0 381.0 136.0 381.0 C136.0 381.0 130.0 384.0 130.0 384.0 C130.0 384.0 118.0 383.0 118.0 383.0 C118.0 383.0 104.7 383.2 100.0 383.0 C95.3 382.8 90.0 382.0 90.0 382.0 C90.0 382.0 76.0 380.0 76.0 380.0 C76.0 380.0 66.0 377.0 62.0 374.0 C58.0 371.0 54.7 366.8 52.0 362.0 C49.3 357.2 48.3 352.3 46.0 345.0 C43.7 337.7 41.0 328.5 38.0 318.0 C35.0 307.5 31.2 295.0 28.0 282.0 C24.8 269.0 21.3 252.8 19.0 240.0 C16.7 227.2 14.8 214.2 14.0 205.0 C13.2 195.8 13.5 191.5 14.0 185.0 C14.5 178.5 17.0 166.0 17.0 166.0 Z" fill="#fbfaf6" stroke="#1a1a1a" stroke-width="9" /><path d="M47.0 346.0 C47.0 346.0 54.8 354.5 60.0 354.0 C65.2 353.5 71.3 345.8 78.0 343.0 C84.7 340.2 93.3 337.2 100.0 337.0 C106.7 336.8 113.3 339.8 118.0 342.0 C122.7 344.2 125.0 347.7 128.0 350.0 C131.0 352.3 133.8 353.0 136.0 356.0 C138.2 359.0 141.0 363.8 141.0 368.0 C141.0 372.2 136.0 381.0 136.0 381.0 C136.0 381.0 124.0 382.7 118.0 383.0 C112.0 383.3 107.0 383.5 100.0 383.0 C93.0 382.5 82.3 381.5 76.0 380.0 C69.7 378.5 66.0 377.0 62.0 374.0 C58.0 371.0 54.5 366.7 52.0 362.0 C49.5 357.3 47.0 346.0 47.0 346.0 Z" fill="#a3a3a3" stroke="none" /><path d="M60.0 355.0 C63.0 353.2 71.3 346.8 78.0 344.0 C84.7 341.2 93.3 338.2 100.0 338.0 C106.7 337.8 115.0 342.2 118.0 343.0" fill="none" stroke="#1a1a1a" stroke-width="9"/><path d="M17.0 166.0 C17.0 166.0 32.8 164.5 40.0 164.0 C47.2 163.5 51.7 162.7 60.0 163.0 C68.3 163.3 80.7 165.2 90.0 166.0 C99.3 166.8 116.0 168.0 116.0 168.0 C116.0 168.0 116.7 189.3 117.0 200.0 C117.3 210.7 117.3 221.7 118.0 232.0 C118.7 242.3 119.3 250.7 121.0 262.0 C122.7 273.3 125.5 287.8 128.0 300.0 C130.5 312.2 133.8 325.0 136.0 335.0 C138.2 345.0 140.2 353.5 141.0 360.0 C141.8 366.5 141.8 370.5 141.0 374.0 C140.2 377.5 136.0 381.0 136.0 381.0 C136.0 381.0 130.0 384.0 130.0 384.0 C130.0 384.0 118.0 383.0 118.0 383.0 C118.0 383.0 104.7 383.2 100.0 383.0 C95.3 382.8 90.0 382.0 90.0 382.0 C90.0 382.0 76.0 380.0 76.0 380.0 C76.0 380.0 66.0 377.0 62.0 374.0 C58.0 371.0 54.7 366.8 52.0 362.0 C49.3 357.2 48.3 352.3 46.0 345.0 C43.7 337.7 41.0 328.5 38.0 318.0 C35.0 307.5 31.2 295.0 28.0 282.0 C24.8 269.0 21.3 252.8 19.0 240.0 C16.7 227.2 14.8 214.2 14.0 205.0 C13.2 195.8 13.5 191.5 14.0 185.0 C14.5 178.5 17.0 166.0 17.0 166.0 Z" fill="none" stroke="#1a1a1a" stroke-width="9" /></g>
+      <g id="cheek-l"><path d="M37.0 298.0 C36.2 300.7 38.3 308.2 40.0 313.0 C41.7 317.8 44.2 323.5 47.0 327.0 C49.8 330.5 53.5 332.7 57.0 334.0 C60.5 335.3 65.0 335.5 68.0 335.0 C71.0 334.5 73.8 333.7 75.0 331.0 C76.2 328.3 75.0 319.0 75.0 319.0 C75.0 319.0 69.5 318.5 67.0 319.0 C64.5 319.5 62.3 322.5 60.0 322.0 C57.7 321.5 55.0 318.7 53.0 316.0 C51.0 313.3 49.3 309.2 48.0 306.0 C46.7 302.8 46.8 298.3 45.0 297.0 C43.2 295.7 37.8 295.3 37.0 298.0 Z" fill="#a3a3a3" stroke="#1a1a1a" stroke-width="6" /></g><g id="cheek-r"><path d="M104.0 276.0 C105.3 275.0 110.5 274.7 113.0 277.0 C115.5 279.3 118.0 285.2 119.0 290.0 C120.0 294.8 119.8 301.3 119.0 306.0 C118.2 310.7 116.7 314.8 114.0 318.0 C111.3 321.2 106.7 324.0 103.0 325.0 C99.3 326.0 95.0 325.5 92.0 324.0 C89.0 322.5 85.7 318.8 85.0 316.0 C84.3 313.2 88.0 307.0 88.0 307.0 C88.0 307.0 93.5 310.3 96.0 310.0 C98.5 309.7 101.2 307.8 103.0 305.0 C104.8 302.2 106.7 296.7 107.0 293.0 C107.3 289.3 105.5 285.8 105.0 283.0 C104.5 280.2 102.7 277.0 104.0 276.0 Z" fill="#a3a3a3" stroke="#1a1a1a" stroke-width="6" /></g>
+      <g id="nose"><path d="M63.0 267.0 C66.0 266.2 69.0 267.2 71.0 269.0 C73.0 270.8 74.7 274.8 75.0 278.0 C75.3 281.2 74.5 285.3 73.0 288.0 C71.5 290.7 68.7 293.2 66.0 294.0 C63.3 294.8 59.3 294.5 57.0 293.0 C54.7 291.5 52.7 288.2 52.0 285.0 C51.3 281.8 51.2 277.0 53.0 274.0 C54.8 271.0 60.0 267.8 63.0 267.0 Z" fill="#1a1a1a" stroke="#1a1a1a" stroke-width="7" /></g><g id="hl-1"><path d="M65.0 272.0 C65.5 271.3 68.2 272.2 69.0 273.0 C69.8 273.8 70.5 276.3 70.0 277.0 C69.5 277.7 66.8 277.8 66.0 277.0 C65.2 276.2 64.5 272.7 65.0 272.0 Z" fill="#fbfaf6" stroke="none" /></g><g id="hl-2"><path d="M56.0 285.0 C56.5 284.7 57.8 285.3 58.0 286.0 C58.2 286.7 57.5 288.7 57.0 289.0 C56.5 289.3 55.2 288.7 55.0 288.0 C54.8 287.3 55.5 285.3 56.0 285.0 Z" fill="#fbfaf6" stroke="none" /></g>
+      <g id="eye-l"><path d="M40.7 266.0 C40.7 267.1 40.3 268.6 39.8 269.5 C39.4 270.3 38.6 270.9 38.0 270.9 C37.4 271.0 36.5 270.5 36.1 269.7 C35.7 268.8 35.5 267.2 35.5 266.0 C35.5 264.8 35.7 263.2 36.1 262.4 C36.5 261.6 37.4 260.9 38.0 260.9 C38.6 261.0 39.3 261.7 39.8 262.6 C40.2 263.4 40.7 264.9 40.7 266.0 Z" fill="#1a1a1a" stroke="#1a1a1a" stroke-width="3" /></g><g id="eye-r"><path d="M82.3 256.0 C82.3 257.1 81.8 258.4 81.2 259.2 C80.7 259.9 79.8 260.5 79.0 260.6 C78.2 260.6 77.2 260.1 76.7 259.4 C76.1 258.6 75.9 257.1 75.9 256.0 C75.9 254.9 76.2 253.5 76.7 252.7 C77.2 251.9 78.3 251.3 79.0 251.4 C79.7 251.4 80.6 252.1 81.2 252.9 C81.7 253.6 82.3 254.9 82.3 256.0 Z" fill="#1a1a1a" stroke="#1a1a1a" stroke-width="3" /></g>
+      <path id="arc-l" fill="none" stroke="#1a1a1a" stroke-width="4"/><path id="arc-r" fill="none" stroke="#1a1a1a" stroke-width="4"/>
+    </g></g></g>
+  <g id="flames"></g>
+  <g id="fx"></g>
+  <text id="word" x="0" y="0" text-anchor="middle" font-family="Andika,'Avenir Next Rounded','Arial Rounded MT Bold',Verdana,sans-serif" font-weight="900" font-size="52" fill="#FFF1A8" stroke="#1a1a1a" stroke-width="9" stroke-linejoin="round" paint-order="stroke" opacity="0"></text>
+</g>
+</svg>
+<div class="tag" id="tag">Idle</div><div class="badge" id="badge">slow-mo</div>
+</div>
+<div class="bar" id="modes" role="group" aria-label="Animations"></div>
+<div class="bar">
+  <div class="seg" role="group" aria-label="Speed"><span>Speed</span><button data-speed="1" aria-pressed="true">1&times;</button><button data-speed=".5" aria-pressed="false">&frac12;&times;</button><button data-speed=".25" aria-pressed="false">&frac14;&times;</button></div>
+  <button id="replay"><kbd>R</kbd>Replay</button><button id="pause"><kbd>Space</kbd>Pause</button>
+</div>
+<p id="cap"></p>
+</main>
+<script>
+(()=>{
+"use strict";
+const $=s=>document.querySelector(s);
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const sm=t=>{t=clamp(t);return t*t*(3-2*t)};
+const eob=t=>{t=clamp(t);const c1=1.70158,c3=c1+1;return 1+c3*Math.pow(t-1,3)+c1*Math.pow(t-1,2)};
+const eoc=t=>1-Math.pow(1-clamp(t),3);
+const eic=t=>{t=clamp(t);return t*t*t};
+const TAU=Math.PI*2;
+const sin=Math.sin,cos=Math.cos,exp=Math.exp,PI=Math.PI;
+function keys(t,k){if(t<=k[0][0])return k[0][1];for(let i=0;i<k.length-1;i++)if(t<k[i+1][0]){const u=(t-k[i][0])/(k[i+1][0]-k[i][0]);return lerp(k[i][1],k[i+1][1],sm(u))}return k[k.length-1][1]}
+const wrap=(t,d)=>((t%d)+d)%d;
+function rng(seed){return()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+
+/* ---------- stage constants ---------- */
+const SX=480,GY=540,BASE=0.78,CX=78,CGY=408;
+const SVG='http://www.w3.org/2000/svg';
+const rig=$('#rig'),shadow=$('#shadow'),worldEl=$('#world'),fxG=$('#fx'),word=$('#word'),glowC=$('#glowC'),fm=$('#fm'),dusk=$('#dusk'),duskG=$('#duskG');
+const FP0=[88,166];                     // flame base pivot
+/* ---------- parts ---------- */
+const IDS=['leg-l','leg-r','upper','cheek-l','cheek-r','nose','hl-1','hl-2','eye-l','eye-r','arc-l','arc-r'];
+const FIX={'leg-l':[86,379],'leg-r':[124,381],'upper':[78,383],'cheek-l':[40,300],'cheek-r':[106,277]};
+const P={};
+for(const id of IDS){const el=rig.querySelector('#'+id);const bb=el.getBBox();
+  P[id]={el,bb,piv:FIX[id]||[bb.x+bb.width/2,bb.y+bb.height/2],last:''}}
+const fo=rig.querySelector('#flame-o'),fi=rig.querySelector('#flame-i');
+const foP=fo.querySelector('path'),fiP=fi.querySelector('path');
+/* happy-eye arcs sit over the eyes */
+for(const s of ['l','r']){const e=P['eye-'+s].piv,a=P['arc-'+s].el;a.setAttribute('d',`M${e[0]-6} ${e[1]+2} Q${e[0]} ${e[1]-8} ${e[0]+6} ${e[1]+2}`);P['arc-'+s].piv=[e[0],e[1]];a.setAttribute('visibility','hidden')}
+let acc={};
+function add(id,o){const a=acc[id]||(acc[id]={x:0,y:0,r:0,sx:1,sy:1,k:0});
+  if(o.x)a.x+=o.x;if(o.y)a.y+=o.y;if(o.r)a.r+=o.r;if(o.k)a.k+=o.k;if(o.sx)a.sx*=o.sx;if(o.sy)a.sy*=o.sy}
+const f2=n=>Math.round(n*100)/100;
+function setT(id,s){const p=P[id];if(p.last!==s){p.last=s;if(s)p.el.setAttribute('transform',s);else p.el.removeAttribute('transform')}}
+const mixc=(a,b,t)=>{const pa=[1,3,5].map(i=>parseInt(a.substr(i,2),16)),pb=[1,3,5].map(i=>parseInt(b.substr(i,2),16));return'#'+pa.map((v,i)=>Math.round(lerp(v,pb[i],clamp(t))).toString(16).padStart(2,'0')).join('')};
+
+/* ---------- ground scribbles ---------- */
+(function(){
+  const g=$('#tufts'),far=$('#far');const R=rng(7);
+  let h='';
+  for(let i=-1;i<6;i++){const x=i*240;
+    h+=`<path d="M${x+60} 580 l-6 -20 M${x+66} 580 l2 -26 M${x+72} 580 l8 -20" stroke="#1a1a1a" stroke-width="4" stroke-linecap="round" fill="none"/>`;
+    h+=`<path d="M${x+172} 584 v-22" stroke="#4aa24a" stroke-width="4" stroke-linecap="round"/><circle cx="${x+172}" cy="556" r="9" fill="#FFD23C" stroke="#1a1a1a" stroke-width="3.5"/><circle cx="${x+172}" cy="556" r="3" fill="#E8921C"/>`;
+    h+=`<ellipse cx="${x+120}" cy="590" rx="11" ry="6" fill="#d9cfb8" stroke="#1a1a1a" stroke-width="3"/>`;
+  }
+  g.innerHTML=`<g id="tuftsM">${h}</g>`;
+  let f='';
+  for(let i=-1;i<4;i++){const x=i*480;
+    f+=`<path d="M${x+120} 150 c-30 0 -34 -34 -6 -38 c4 -26 40 -28 50 -8 c24 -8 44 14 28 30 c8 14 -8 18 -22 16 Z" fill="#fff" stroke="#b7c2d3" stroke-width="3.5" stroke-linejoin="round" opacity=".85"/>`;
+    f+=`<path d="M${x+380} 96 c-20 0 -22 -22 -4 -26 c4 -16 28 -18 34 -4 c16 -4 28 10 18 20 Z" fill="#fff" stroke="#b7c2d3" stroke-width="3" stroke-linejoin="round" opacity=".8"/>`;
+  }
+  f+=`<g transform="translate(830 88)" opacity=".9"><circle r="30" fill="#FFE27A" stroke="#d4a82a" stroke-width="3.5"/><path d="M0 -44 v-14 M0 44 v14 M-44 0 h-14 M44 0 h14 M31 31 l10 10 M-31 -31 l-10 -10 M31 -31 l10 -10 M-31 31 l-10 10" stroke="#d4a82a" stroke-width="3.5" stroke-linecap="round"/></g>`;
+  far.innerHTML=`<g id="farM">${f}</g>`;
+})();
+const tuftsM=$('#tuftsM'),farM=$('#farM');
+
+/* ---------- target: a marshmallow on a stick ---------- */
+const TGX=790,TGY=400;
+const tgt=$('#target'),tOver=$('#tOver'),tChar=$('#tChar'),tEyes=$('#tEyes'),tMouth=$('#tMouth');
+/* ---------- fx pool ---------- */
+const pool=[];for(let i=0;i<48;i++){const u=document.createElementNS(SVG,'use');u.setAttribute('stroke','#1a1a1a');u.setAttribute('stroke-width','2.5');u.style.display='none';fxG.appendChild(u);pool.push(u)}
+let fxList=[];
+const fxAdd=o=>fxList.push(o);
+function drawFx(){
+  let i=0;
+  for(const o of fxList){if(i>=pool.length)break;const u=pool[i++];
+    u.style.display='';u.setAttribute('href','#s-'+o.k);u.setAttribute('fill',o.c);u.setAttribute('opacity',f2(o.a==null?1:o.a));
+    u.setAttribute('transform',`translate(${f2(o.x)} ${f2(o.y)}) rotate(${f2(o.r||0)}) scale(${f2(o.s)})`);u.setAttribute('stroke-width',o.ns?0:f2(2.5/Math.max(o.s,.3)))}
+  for(;i<pool.length;i++)pool[i].style.display='none';
+}
+const COL=['#E8921C','#FFD23C','#202c5e','#ef6d27','#f06a8a','#7cc3e8','#fbfaf6'];
+function confetti(t,t0,ox,oy,n,seed,speed=520,life=1.6){const tau=t-t0;if(tau<0||tau>life)return;const R=rng(seed);
+  for(let i=0;i<n;i++){const a=-PI/2+(R()-.5)*2.3,v=speed*(.45+R()*.7),vx=cos(a)*v,vy=sin(a)*v;
+    fxAdd({k:i%3?'scrap':'star',x:ox+vx*tau,y:oy+vy*tau+.5*900*tau*tau,s:(i%3?1.1:.9)*(.8+R()*.6),r:R()*360+tau*(R()-.5)*900,c:COL[i%COL.length],a:1-sm((tau-life*.55)/(life*.45))})}}
+function crumbs(t,t0,ox,oy,n,seed,speed=260,life=.7,col='#FFD23C'){const tau=t-t0;if(tau<0||tau>life)return;const R=rng(seed);
+  for(let i=0;i<n;i++){const a=(i/n)*TAU+R()*.6,v=speed*(.5+R()*.6);fxAdd({k:'dot',x:ox+cos(a)*v*tau*(1-.4*tau),y:oy+sin(a)*v*tau+300*tau*tau,s:(1-tau/life)*(.5+R()*.5),c:i%2?col:'#ef6d27',a:1})}}
+function wordPop(txt,x,y,t,t0,life,rot=-8){const tau=t-t0;if(tau<0||tau>life){return false}
+  const s=eob(tau/.14)*(1-sm((tau-life+.15)/.15)*.3);word.textContent=txt;word.setAttribute('opacity',f2(1-sm((tau-life+.12)/.12)));
+  word.setAttribute('transform',`translate(${f2(x)} ${f2(y)}) rotate(${rot}) scale(${f2(Math.max(s,.01))})`);return true}
+
+/* ---------- blink + eye wander (global time) ---------- */
+const blinks=[];(function(){const R=rng(11);let t=1.1;for(let i=0;i<400;i++){blinks.push(t);const r=R();if(r<.18){blinks.push(t+.26)}t+=1.3+R()*3.4+(r>.85?2.2:0)}})();
+function blinkAmt(T){let lo=0,hi=blinks.length-1;while(lo<hi){const m=(lo+hi+1)>>1;if(blinks[m]<=T)lo=m;else hi=m-1}
+  const d=T-blinks[lo];if(d<0||d>.2)return 0;return d<.07?d/.07:1-sm((d-.07)/.13)}
+
+
+/* flame pool (copies of fx_flame) */
+const fpool=[];const flG=$('#flames');for(let i=0;i<18;i++){const u=document.createElementNS(SVG,'use');u.setAttribute('href','#s-flame');u.style.display='none';flG.appendChild(u);fpool.push(u)}
+let flList=[];
+function drawFl(){let i=0;for(const o of flList){if(i>=fpool.length)break;const u=fpool[i++];u.style.display='';u.setAttribute('opacity',f2(o.a==null?1:o.a));
+  u.setAttribute('transform',`translate(${f2(o.x)} ${f2(o.y)}) rotate(${f2(o.r)}) scale(${f2(o.s)})`)}
+  for(;i<fpool.length;i++)fpool[i].style.display='none'}
+const ang=(dx,dy)=>Math.atan2(dx,-dy)*180/PI;
+
+/* ---------- modes ---------- */
+const B=o=>Object.assign({x:0,y:0,r:0,sx:1,sy:1,pv:0},o);
+const F=o=>Object.assign({h:1,lean:0,heat:0,wild:1,sq:1},o);   // flame pose: size, lean (deg, +right), heat 0..1, flicker amount
+const breath=t=>{const b=sin(TAU*t/3.2);return b+.25*sin(TAU*t/1.6)};
+const volume=sy=>1+(1-sy)*.65;
+const M={};
+const hop=(t,s,e,H)=>{const u=(t-s)/(e-s);return u>0&&u<1?H*4*u*(1-u):0};
+/* 1: idle */
+M.idle={name:'Idle',dur:6.4,
+ caption:'<b>Idle.</b> A soft marshmallow breathing, squashing a little with the head lagging behind the body. The <b>flame never stops flickering</b>: three overlapping wobbles that stretch, lean and lick, with a separate yellow core and a few embers rising. <b>Cheeks</b> sway a beat late, the <b>eyes</b> drift and blink at irregular intervals, and now and then he gives a small proud puff.',
+ state(t){const br=breath(t);const sy=1+.03*br;
+  const puff=exp(-7*Math.max(0,t-3.4))*sin(14*Math.max(0,t-3.4))*(t>3.4&&t<4.6?1:0);
+  const pf=t>3.4&&t<3.62?sm((t-3.4)/.22):t>=3.62?1-sm((t-3.62)/.5):0;
+  return{b:B({sy,sx:volume(sy),r:1.2*sin(TAU*t/6.4)}),fl:F({h:1+.035*br+.3*pf+.05*puff,lean:1.5*sin(TAU*t/6.4),heat:.4*pf})}},
+ extra(t,st,T,A,api){const pf=t>3.4&&t<4.1?1:0;if(pf&&t<3.55)api.sparks(t,3.42,10,31)}};
+/* 2: walk */
+const WALK=.6;
+M.walk={name:'Waddle',dur:1.2,
+ caption:'<b>Waddle.</b> Stubby legs swing in opposition and <b>lift on the forward swing</b>, the body rocks onto the planted foot, bounces and squashes at each footfall. The <b>flame streams backwards</b> and stretches with each bounce, the cheeks flap, and the ground and clouds scroll at different speeds.',
+ state(t){const u=wrap(t,WALK)/WALK,ph=TAU*t/(2*WALK);
+  const y=13*Math.sin(PI*u);const sy=keys(u,[[0,.9],[.14,1.05],[.5,1.07],[.86,1],[1,.9]]);
+  return{b:B({y,sy,sx:volume(sy),r:5*cos(ph)}),fl:F({h:1.06+.1*sin(PI*u),lean:-13+3*sin(PI*u),wild:1.4})}},
+ extra(t,st,T,A){const ph=TAU*t/(2*WALK);const s=sin(ph),c=cos(ph);
+  A('leg-l',{r:-30*s,y:-10*Math.max(0,c)});A('leg-r',{r:30*s,y:-10*Math.max(0,-c)});
+  A('cheek-l',{r:8*sin(ph*2+.6)});A('cheek-r',{r:-8*sin(ph*2+.2)});
+  A('nose',{y:-1.5*Math.abs(sin(ph))})},
+ scroll(t){return 200*t}};
+/* 3: power (glow) */
+M.glow={name:'Power: Warm Glow',dur:6.4,
+ caption:'<b>Power: Warm Glow.</b> The world goes dusky. Toasty crouches and pulls his flame small, <b>blooms</b> it up into a hot white-yellow blaze with a springy overshoot, and a <b>circle of warm light</b> spreads across the page. He peers about, delighted, while embers rise, then the light settles back and the flame relaxes to normal. (Field power: lights dark corners and warms frozen things.)',
+ state(t){let sy=1+.02*breath(t),y=0,h=1,heat=0,lean=0,r=0;
+  if(t<.85){const c=sm(t/.7);sy*=1-.2*c;h=1-.4*c;heat=.2*c;r=1.2*sin(TAU*12*t)*c*(t>.4?1:0)}
+  else if(t<4.7){const tau=t-.85;const o=1-exp(-7*tau)*cos(12*tau);
+   h=lerp(.6,1.85,o)+.07*sin(TAU*1.3*t)*sm(tau);heat=sm(tau/.35);
+   sy=keys(tau,[[0,.8],[.1,1.2],[.28,.95],[.45,1.03],[.7,1]])*(1+.02*breath(t));y=16*sin(PI*clamp(tau/.4));
+   if(t>4.1){const f=sm((t-4.1)/.6);h=lerp(h,1,f);heat=heat*(1-f)}}
+  else{const tau=t-4.7;h=1+.08*exp(-6*tau)*sin(14*tau);sy*=1+.03*exp(-6*tau)*sin(14*tau)}
+  return{b:B({y,sy,sx:volume(sy),r}),fl:F({h,lean,heat,wild:1+.4*heat}),
+   dusk:sm((t-.5)/.9)*(1-sm((t-4.2)/.9)),light:t<.85?0:1}},
+ extra(t,st,T,A,api){
+  const tau=t-.85;
+  if(t>.85&&t<4.7){
+   const look=sm((t-1.7)/.3)*(1-sm((t-4)/.3));
+   const ex=14*sin(TAU*.45*(t-1.5)),ey=-1+3*sin(TAU*.7*t);
+   A('eye-l',{x:look*ex*.5,y:look*ey,sx:1+.3*look,sy:1+.3*look});A('eye-r',{x:look*ex*.5,y:look*ey,sx:1+.3*look,sy:1+.3*look});
+   A('nose',{x:look*ex*.2});A('cheek-l',{r:-6*sin(TAU*1.1*t)});A('cheek-r',{r:6*sin(TAU*1.1*t+1)})}
+  if(t<.85){const w=sm((t-.2)/.5);A('eye-l',{sx:1-.15*w,sy:1-.25*w});A('eye-r',{sx:1-.15*w,sy:1-.25*w})}
+  if(t>.85&&t<1.7){api.sparks(t,.88,18,5,520);api.word('FWOOM!',api.S(78,-70)[0]-130,Math.max(70,api.S(78,-70)[1]),t,.9,.8,-9)}
+ }};
+/* 4: attack (toast) */
+const TOAST_X=-150;
+M.toast={name:'Flare-up: toast him',dur:6,
+ caption:'<b>Flare-up!</b> Toasty leans back and sucks his flame in small, then <b>blasts it up huge</b> with his body lunging after it. A <b>jet of flame licks across the page</b> to the marshmallow on the stick, which wobbles, turns golden and then brown, and smokes. Toasty bounces proudly.',
+ state(t){let x=TOAST_X,y=0,r=0,sy=1+.02*breath(t),h=1,lean=0,heat=0,wild=1;
+  if(t<.45){x+=0}
+  else if(t<1.05){const c=sm((t-.45)/.5);r=-8*c;x-=14*c;sy*=1-.14*c;h=1-.5*c;wild=1+.4*c;heat=.3*c}
+  else if(t<3.6){const tau=t-1.05;const o=eob(tau/.3);const e=1-exp(-9*tau)*cos(17*tau);
+   x=TOAST_X-14+(14+22)*clamp(e,-.2,1.2);r=lerp(-8,9,clamp(e,-.3,1.3));
+   sy*=keys(tau,[[0,.86],[.1,1.2],[.3,1],[.6,1.04],[1.5,1.02],[2.5,1]]);
+   const hold=1-sm((tau-1.5)/.9);h=lerp(1,lerp(.5,1.7,clamp(e,-.1,1.12)),hold)+.08*sin(TAU*2*t)*hold;
+   lean=lerp(0,9,hold);heat=hold;wild=1+.6*hold;
+   x=lerp(TOAST_X,x,1)*1;x=lerp(x,TOAST_X,sm((tau-1.9)/.7));r=lerp(r,0,sm((tau-1.9)/.7))}
+  else{const tau=t-3.6;const bn=exp(-3.5*tau)*Math.abs(sin(8*tau))*26;y=bn;sy*=1+.04*exp(-6*tau)*sin(16*tau);h=1+.15*exp(-4*tau)*sin(14*tau)}
+  return{b:B({x,y,r,sy,sx:volume(sy)}),fl:F({h,lean,heat,wild}),
+   toast:sm((t-1.5)/1.8)*(1-sm((t-5.1)/.6)),tgtShake:t>1.4&&t<3.3?1:0}},
+ extra(t,st,T,A,api){
+  if(t>.5&&t<1.05){const w=sm((t-.5)/.4);A('eye-l',{sy:1-.35*w});A('eye-r',{sy:1-.35*w})}
+  if(t>1.05&&t<3.0){const w=1-sm((t-2.4)/.5);A('eye-l',{sx:1.15,sy:1+.15*w});A('eye-r',{sx:1.15,sy:1+.15*w});A('nose',{sx:1+.1*w,sy:1+.1*w})}
+  if(t>3.5){const w=sm((t-3.5)/.2)*(1-sm((t-4.8)/.5));A('eye-l',{sy:1-.65*w,sx:1.1});A('eye-r',{sy:1-.65*w,sx:1.1});api.arcs(w)}
+  A('cheek-l',{r:cl(-st.b.r*.8,8)});A('cheek-r',{r:cl(st.b.r*.8,8)});
+  if(t>1.05&&t<1.5){api.word('FWOOSH!',api.S(78,-30)[0]+30,70,t,1.08,.9,-6)}
+  if(t>3.2&&t<4.5){api.word('TOASTED!',TGX-20,150,t,3.2,1.2,5)}
+ }};
+const cl=(x,m)=>clamp(x,-m,m);
+/* 5: hurt */
+const HT=.45;
+M.hurt={name:'Ouch!',dur:3.8,
+ caption:'<b>Ouch.</b> A white then pink hit flash, <b>knockback</b> with squash-then-stretch and a wobble on a decaying spring. The <b>flame is knocked nearly out</b> (shrunk and blown flat, flickering wildly), eyes bulge, little puffs of steam hiss from the stub, dizzy stars circle, then the flame <b>sputters back</b> up with a springy flare.',
+ state(t){const h=t-HT;let x=0,y=0,r=0,sx=1,sy=1,fh=1,lean=0,wild=1;
+  if(h>0){x=-96*eoc(h/.4);if(h>1.4)x=-96*(1-sm((h-1.4)/.9));
+   y=34*sin(PI*clamp(h/.42))+(h>1.4&&h<2.2?9*sin(PI*(h-1.4)/.8):0);
+   r=-17*exp(-4.2*h)*cos(12*h)+(h>1.4&&h<2.25?4*sin(PI*(h-1.4)/.85):0);
+   sx=1-.24*exp(-9*h)*cos(24*h);sy=1+.28*exp(-9*h)*cos(24*h);
+   const hit=clamp(h/.12);fh=1-.78*hit;
+   if(h>1.0){const g=h-1.0;const o=1-exp(-6*g)*cos(11*g);fh=lerp(.22,1,clamp(o,0,1.25))}
+   lean=-34*exp(-2.5*h)*(h<1.2?1:0);wild=1+2.5*exp(-1.5*h)}
+  else{sy=1+.028*breath(t);sx=volume(sy)}
+  return{b:B({x,y,r,sx,sy}),fl:F({h:fh,lean,wild,heat:h>1?0:0}),flash:flashAt(h)}},
+ extra(t,st,T,A,api){const h=t-HT;
+  if(h>0){const w=exp(-3*h);const e=1+.38*exp(-1.5*h);
+   A('eye-l',{sx:e,sy:e});A('eye-r',{sx:e,sy:e});A('nose',{sx:1+.25*exp(-2*h),sy:1+.25*exp(-2*h)});
+   A('cheek-l',{r:30*w*sin(16*h)});A('cheek-r',{r:-30*w*sin(16*h+.5)});
+   A('leg-l',{r:12*w*sin(14*h)});A('leg-r',{r:-12*w*sin(14*h)});
+   const [bx,by]=api.S(120,300);
+   if(h<.3){const s=eob(h/.1)*(1-sm((h-.18)/.12));fxAdd({k:'spike',x:bx,y:by,s:2.1*s,r:h*60,c:'#FFD23C',a:1})}
+   api.word('OUCH!',api.S(78,60)[0]-90,api.S(78,60)[1]-20,t,HT+.04,.8,-10);
+   if(h>.35&&h<1.9){const a=1-sm((h-1.5)/.4),[hx,hy]=api.S(78,70);
+    for(let i=0;i<3;i++){const an=h*5+i*TAU/3;fxAdd({k:'star',x:hx+cos(an)*62,y:hy+sin(an)*16,s:.9+.2*sin(an+1),r:an*40,c:i==1?'#f06a8a':'#FFD23C',a})}}
+   if(h>.15&&h<1.5)api.steam(t,h)}}};
+function flashAt(h){if(h<0)return null;if(h<.06)return{a:.8,c:[1,1,1]};if(h<.12)return{a:0,c:[1,1,1]};if(h<.2)return{a:.7,c:[1,1,1]};
+  if(h<.8)return{a:.55*exp(-5*(h-.2)),c:[1,.35,.32]};return null}
+/* 6: happy */
+M.happy={name:'Yay!',dur:3.2,
+ caption:'<b>Celebrate.</b> A squat, a springy hop, then a bigger jump ending in a <b>full spin</b>, with confetti. Eyes squeeze into happy arches, the cheeks flap, and the <b>flame whooshes taller</b> on every take-off and trails behind on the way up. Embers shower off with the confetti.',
+ state(t){let y=0,r=0,pv=0,sy=1+.02*breath(t);
+  y=hop(t,.55,1.15,105)+hop(t,1.95,2.7,135);
+  sy*=keys(t,[[0,1],[.2,.8],[.28,.82],[.36,1.2],[.9,1.08],[1.15,1.1],[1.22,.74],[1.34,1.08],[1.45,1],[1.7,1],[1.85,.76],[1.95,.8],[2.02,1.22],[2.55,1.08],[2.7,1.12],[2.78,.72],[2.92,1.08],[3.05,.99],[3.2,1]]);
+  if(t>2.0&&t<2.72){r=360*sm((t-2.0)/.7);pv=200}
+  if(t>.55&&t<1.15)r=6*sin(PI*(t-.55)/.6);
+  const fh=keys(t,[[0,1],[.25,.7],[.4,1.1],[.6,1.8],[1.1,1.45],[1.3,1],[1.8,.75],[2.0,1.1],[2.1,1.45],[2.7,1.2],[3.0,1.0],[3.2,1]]);
+  return{b:B({y,r,pv,sy,sx:volume(sy)}),fl:F({h:fh,lean:keys(t,[[0,0],[.5,0],[.8,-8],[1.2,0],[2.1,0],[2.5,-6],[3,0]]),heat:clamp((fh-1)*.9)})}},
+ extra(t,st,T,A,api){
+  const sq=keys(t,[[0,0],[.3,.6],[.5,1],[1.2,1],[1.5,0],[1.8,.4],[2,1],[2.8,1],[3.0,0]]);
+  api.arcs(sq);A('eye-l',{sy:1-sq*.9});A('eye-r',{sy:1-sq*.9});
+  const fl=sin(TAU*3.2*t);A('cheek-l',{r:sq*16*fl});A('cheek-r',{r:-sq*16*fl});A('leg-l',{r:sq*7*fl});A('leg-r',{r:-sq*7*fl});
+  A('nose',{sy:1+.1*sq*Math.abs(fl)});
+  const [cx,cy]=api.S(78,160);
+  confetti(t,.95,cx,cy-90,20,5,560,1.7);confetti(t,2.45,cx,cy-60,30,8,700,1.9);
+  api.sparks(t,.6,14,2,480);api.sparks(t,2.1,18,3,560);
+  api.word('YAY!',api.S(78,0)[0]+130,api.S(78,-30)[1]+30,t,.62,.9,8);
+  api.word('WHEE!',api.S(78,0)[0]-140,api.S(78,-30)[1]+30,t,2.1,.9,-8);
+ }};
+const ORDER=['idle','walk','glow','toast','hurt','happy'];
+const LABEL={idle:'Idle',walk:'Waddle',glow:'Power',toast:'Toast!',hurt:'Ouch',happy:'Yay'};
+
+/* ---------- helpers ---------- */
+let K=BASE,curB=null,wordShown=false,arcAmt=0,tgtMode=false;
+const api={S:(cx,cy)=>[SX+(cx-CX+curB.x)*K,GY+(cy-CGY-curB.y)*K],
+ word:(txt,x,y,t,t0,life,rot)=>{if(wordPop(txt,x,y,t,t0,life,rot))wordShown=true},
+ arcs:a=>{arcAmt=Math.max(arcAmt,a)},
+ sparks(t,t0,n,seed,speed=380){const tau=t-t0;if(tau<0||tau>1.1)return;const R=rng(seed);const [x,y]=api.S(88,120);
+  for(let i=0;i<n;i++){const a=-PI/2+(R()-.5)*2.6,v=speed*(.4+R()*.7);fxAdd({k:'dot',x:x+cos(a)*v*tau,y:y+sin(a)*v*tau+300*tau*tau,s:(1-tau/1.1)*(.6+R()*.6),c:i%2?'#f7ce2f':'#ee6228',a:1,ns:1})}},
+ ring(p){const [x,y]=api.S(88,150);fxAdd({k:'ring',x,y,s:p*20,c:'none',a:(1-p)*.5})},
+ steam(t,h){for(let i=0;i<4;i++){const p=wrap(h*1.4+i/4,1);const [x,y]=api.S(70+i*14,150);fxAdd({k:'dot',x:x+sin(i*2+h*5)*6,y:y-p*80,s:.8+p*1.3,c:'#cfc9bd',a:(1-p)*.8,ns:1})}}};
+
+/* ---------- render ---------- */
+let cur='idle',t0=0,speed=1,paused=false,T=0;
+function render(T){
+  const m=M[cur];const t=wrap(T-t0,m.dur);
+  const st=m.state(t);const b=st.b;curB=b;K=BASE;acc={};fxList=[];flList=[];wordShown=false;arcAmt=0;
+  const lag=d=>m.state(wrap(t-d,m.dur)).b;
+  const vel=d=>{const a=lag(d),c=lag(d+.04);return{x:(a.x-c.x)/.04,y:(a.y-c.y)/.04,r:(a.r-c.r)/.04,sy:(a.sy-c.sy)/.04}};
+  const A=add;
+  const v1=vel(.04),v2=vel(.08),v3=vel(.12);
+  /* secondary motion */
+  A('cheek-l',{r:cl(-v2.x*.03,22)+cl(v2.y*.02,18)+5*sin(2.8*T)+cl(v2.r*.2,12)});A('cheek-r',{r:cl(-v2.x*.03,22)-cl(v2.y*.02,18)+5*sin(2.5*T+1)+cl(v2.r*.2,12)});
+  A('leg-l',{r:2*sin(1.1*T)+cl(v2.y*.012,8)});A('leg-r',{r:-2*sin(1.1*T+.8)-cl(v2.y*.012,8)});
+  const lx=2.2*sin(.6*T)+1.2*sin(1.7*T+1),ly=1.1*sin(.9*T+2);const bl=blinkAmt(T);
+  A('eye-l',{x:lx,y:ly,sy:1-.92*bl});A('eye-r',{x:lx,y:ly,sy:1-.92*bl});A('nose',{x:lx*.4,y:ly*.4});A('hl-1',{x:lx*.4,y:ly*.4});A('hl-2',{x:lx*.4,y:ly*.4});
+  m.extra(t,st,T,A,api);
+  /* rig */
+  rig.setAttribute('transform',`translate(${SX} ${GY}) scale(${f2(K)}) translate(${f2(b.x)} ${f2(-b.y)}) translate(0 ${-b.pv}) rotate(${f2(b.r)}) translate(0 ${b.pv}) scale(${f2(b.sx)} ${f2(b.sy)}) translate(${-CX} ${-CGY})`);
+  /* upper body lags the feet */
+  const L=lag(.07);const uk=cl((-v3.x*.02)+(L.r-b.r)*.5,7);
+  setT('upper',`translate(78 383) skewX(${f2(uk)}) scale(1 ${f2(1+cl((L.sy-b.sy)*.5,.05))}) translate(-78 -383)`);
+  /* flame: layered flicker */
+  const fl=st.fl;const w=fl.wild;
+  const fs=1+(.05*sin(11*T)+.04*sin(17*T+1)+.025*sin(29*T+2))*w;
+  const fx=1+(.045*sin(13*T+2)+.03*sin(21*T))*w;
+  const fk=(6*sin(7*T)+4*sin(13*T+1)+2*sin(23*T+.5))*w;
+  const lean=fl.lean+cl(-v1.x*.05,25)+cl(v1.r*.15,10);
+  const stretch=1+cl(v2.y*.0005,.3);
+  const hs=fl.h,hx=Math.pow(hs,.7);
+  const so=Math.max(.5,(fx*hx+fs*hs*stretch)/2);
+  fo.setAttribute('transform',`translate(${FP0[0]} ${FP0[1]}) skewX(${f2(-lean-fk)}) scale(${f2(fx*hx)} ${f2(fs*hs*stretch)}) translate(${-FP0[0]} ${-FP0[1]})`);
+  const ik=(-5*sin(9*T+1)-3*sin(19*T))*w,is=1+(.1*sin(15*T+.5)+.05*sin(23*T))*w;
+  fi.setAttribute('transform',`translate(${FP0[0]} ${FP0[1]}) skewX(${f2(-lean*1.1-ik)}) scale(${f2((1+.05*sin(19*T))*hx)} ${f2(is*hs*(1+.04*sin(11*T)))}) translate(${-FP0[0]} ${-FP0[1]})`);
+  foP.setAttribute('stroke-width',f2(9/so));fiP.setAttribute('stroke-width',f2(9/so));
+  foP.setAttribute('fill',mixc('#ee6228','#ff9a2e',fl.heat));fiP.setAttribute('fill',mixc('#f7ce2f','#fff6b8',fl.heat));
+  /* tip position (for the jet) */
+  const tipX=FP0[0]+(189-FP0[0])*fx*hx+Math.tan((lean+fk)*PI/180)*(FP0[1]-45)*fs*hs,tipY=FP0[1]-(FP0[1]-45)*fs*hs*stretch;
+  /* parts */
+  for(const id of IDS){if(id==='upper')continue;const a=acc[id];if(!a){setT(id,'');continue}
+    const pv=P[id].piv;setT(id,`translate(${f2(pv[0]+a.x)} ${f2(pv[1]+a.y)}) rotate(${f2(a.r)}) skewX(${f2(a.k)}) scale(${f2(a.sx)} ${f2(a.sy)}) translate(${-pv[0]} ${-pv[1]})`)}
+  for(const s of ['l','r']){const ar=P['arc-'+s].el;ar.setAttribute('visibility',arcAmt>.5?'visible':'hidden');P['eye-'+s].el.setAttribute('opacity',arcAmt>.5?0:1)}
+  /* embers (constant) */
+  for(let i=0;i<7;i++){const per=1.5+.17*i,p=wrap(T/per+i*.37,1);const bx=60+(i*23)%70+8*sin(T*2+i);
+    const [ex,ey]=api.S(bx-lean*.3*p*3,166-(125*hs+10+90*p));
+    fxAdd({k:'dot',x:ex+sin(T*3+i*2)*5,y:ey,s:.55*(1-p)*(.8+.4*hs),c:p<.5?'#f7ce2f':'#ee6228',a:sm(p*6)*(1-p),ns:1})}
+  /* shadow */
+  const hgt=Math.max(b.y,0);const sc=1/(1+hgt/230);const rx=70*K*sc*(1+(1-b.sy)*.5);
+  shadow.setAttribute('cx',f2(SX+b.x*K));shadow.setAttribute('cy',GY+3);shadow.setAttribute('rx',f2(rx));shadow.setAttribute('ry',f2(rx*.16));shadow.setAttribute('opacity',f2(.95*(.4+.6*sc)));
+  /* world */
+  let sc2=0;if(cur==='walk')sc2=m.scroll(t);
+  tuftsM.setAttribute('transform',`translate(${f2(-(sc2%240))} 0)`);farM.setAttribute('transform',`translate(${f2(-((sc2*.3)%480))} 0)`);
+  let shk=0;if(cur==='hurt'&&t>HT&&t<HT+.4)shk=exp(-9*(t-HT))*sin(70*(t-HT))*7;
+  if(cur==='glow'&&t>.85&&t<1.4)shk=exp(-9*(t-.85))*sin(60*(t-.85))*5;
+  if(cur==='toast'&&t>1.05&&t<1.45)shk=exp(-9*(t-1.05))*sin(60*(t-1.05))*6;
+  worldEl.setAttribute('transform',shk?`translate(${f2(shk)} ${f2(shk*.4)})`:'');
+  /* dusk + light */
+  const dk=st.dusk||0;
+  if(dk>.01){const [gx,gy]=api.S(88,230);const R=(150+300*sm((t-.85)/.7))*(1+.04*sin(9*T)+.03*sin(14*T))*K/.78;
+    duskG.setAttribute('cx',f2(gx));duskG.setAttribute('cy',f2(gy));duskG.setAttribute('r',f2(R));dusk.setAttribute('opacity',f2(dk));
+    const [lx2,ly2]=api.S(88,230);glowC.setAttribute('cx',f2(lx2));glowC.setAttribute('cy',f2(ly2));glowC.setAttribute('r',f2(R*.9));glowC.setAttribute('opacity',f2(.8*dk))}
+  else{dusk.setAttribute('opacity',0);glowC.setAttribute('opacity',0)}
+  /* target */
+  const showT=cur==='toast';tgt.style.display=showT?'':'none';
+  if(showT){const to=st.toast||0;
+    const shake=st.tgtShake?sin(60*t)*2.2*(.3+to):0;const tw=st.tgtShake?sin(TAU*1.4*t)*3:0;
+    const tsq=cur==='toast'&&t<1.3?1+.02*sin(8*t):1;
+    tgt.setAttribute('transform',`translate(${f2(TGX+shake)} ${TGY}) rotate(${f2(tw)} 0 70) scale(${f2(tsq)})`);
+    tOver.setAttribute('opacity',f2(clamp(to*1.25)*.9));tChar.setAttribute('opacity',f2(clamp((to-.55)*2.2)*.9));
+    const wide=t>1.0&&t<1.6?1.35:1;const squ=t>3.4?sm((t-3.4)/.2)*(1-sm((t-4.8)/.4)):0;
+    tEyes.setAttribute('transform',`translate(0 -2) scale(${f2(wide)} ${f2(wide*(1-.8*squ))})`);tMouth.setAttribute('d',to>.15&&to<.95?'M-8 12 q8 -6 16 0':squ>.3?'M-9 8 q9 12 18 0':'M-7 12 q7 7 14 0');
+    /* jet */
+    const jS=1.1,jE=2.45;
+    if(t>jS&&t<jE+.4){const sp=api.S(tipX,tipY);const dx=TGX-45-sp[0],dy=TGY-50-sp[1];
+      const fade=1-sm((t-jE)/.4);
+      for(let i=0;i<8;i++){const te=jS+i*.1,age=t-te,ph=wrap(age,.8)/.8;const on=t<jE+.2?(age>0):age>0;if(!on)continue;
+        const u=ph;const cyc=Math.floor(age/.8);if(te+cyc*.8>jE)continue;
+        const x=sp[0]+dx*u,y=sp[1]+dy*u-sin(PI*u)*25;
+        const rd=ang(dx,dy+30*cos(PI*u)*-0.2);
+        flList.push({x,y,r:rd,s:.2+.5*sin(PI*Math.min(1,u*1.2+.05)),a:Math.min(1,u*8)*(1-sm((u-.85)/.15))*fade})}}
+    if(t>1.5&&t<3.1){for(let i=0;i<5;i++){const p=wrap(t*1.2+i/5,1);fxAdd({k:'dot',x:TGX+sin(i*3+t*3)*10,y:TGY-50-p*110,s:.9+p*1.8,c:'#8d877d',a:(1-p)*.55*clamp(to*2)})}}
+    if(t>1.5&&t<2.6){api.sparks;const tau=t-1.5;const R=rng(77);for(let i=0;i<8;i++){const a=-PI*R(),v=140*(.4+R());fxAdd({k:'dot',x:TGX-30+cos(a)*v*tau,y:TGY+sin(a)*v*tau+200*tau*tau,s:(1-tau/1.1)*.7,c:i%2?'#f7ce2f':'#ee6228',a:1})}}
+    if(t>3.2&&t<4.4){const tau=t-3.2;fxAdd({k:'star',x:TGX-26,y:TGY-48-tau*10,s:eob(tau/.2)*(1-sm((tau-.8)/.4))*1.1,r:tau*60,c:'#FFF1A8',a:1});fxAdd({k:'star',x:TGX+30,y:TGY-20,s:eob((tau-.15)/.2)*(1-sm((tau-.9)/.3))*.8,r:-tau*50,c:'#FFF1A8',a:1})}
+  }
+  if(!wordShown)word.setAttribute('opacity',0);
+  const fl2=st.flash;
+  if(fl2&&fl2.a>.01){const a=fl2.a,c=fl2.c;fm.setAttribute('values',`${1-a} 0 0 0 ${a*c[0]} 0 ${1-a} 0 0 ${a*c[1]} 0 0 ${1-a} 0 ${a*c[2]} 0 0 0 1 0`);rig.setAttribute('filter','url(#flash)')}else rig.removeAttribute('filter');
+  drawFx();drawFl();
+}
+
+/* ---------- UI ---------- */
+const modesBar=$('#modes');
+ORDER.forEach((k,i)=>{const b=document.createElement('button');b.dataset.mode=k;b.innerHTML=`<kbd>${i+1}</kbd>${LABEL[k]}`;b.setAttribute('aria-pressed',k===cur);b.onclick=()=>setMode(k);modesBar.appendChild(b)});
+function setMode(k){cur=k;t0=T;[...modesBar.children].forEach(b=>b.setAttribute('aria-pressed',b.dataset.mode===k));$('#tag').textContent=M[k].name;$('#cap').innerHTML=M[k].caption}
+function setSpeed(s){speed=s;document.querySelectorAll('[data-speed]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.speed===s));$('#badge').classList.toggle('on',s<1);$('#badge').textContent=s+'× slow-mo'}
+document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>setSpeed(+b.dataset.speed));
+$('#replay').onclick=()=>{t0=T};
+function setPause(p){paused=p;$('#pause').innerHTML=`<kbd>Space</kbd>${p?'Play':'Pause'}`}
+$('#pause').onclick=()=>setPause(!paused);
+addEventListener('keydown',e=>{if(e.metaKey||e.ctrlKey||e.altKey)return;const k=e.key;
+  if(k>='1'&&k<='6'){setMode(ORDER[+k-1])}else if(k===' '){e.preventDefault();setPause(!paused)}
+  else if(k==='r'||k==='R')t0=T;else if(k==='s'||k==='S')setSpeed(speed===1?.5:speed===.5?.25:1)});
+setMode('idle');
+let last=performance.now();
+function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;if(!paused)T+=dt*speed;render(T);requestAnimationFrame(loop)}
+requestAnimationFrame(t=>{last=t;loop(t)});
+window.__toasty={seek(mode,t){setMode(mode);paused=true;T=t;t0=0;render(T)},setSpeed,setPause};
+})();
+
+</script>
+</body></html>

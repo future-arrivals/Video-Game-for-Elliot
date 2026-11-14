@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Chip: character animation demo</title>
+<style>
+*{box-sizing:border-box}
+:root{--ink:#1a1a1a;--paper:#efe9dc;--sheet:#FBF8F0;--orange:#E5713F;--yellow:#FFF1A8;--mute:#5b554b}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font-family:Andika,"Avenir Next Rounded","Arial Rounded MT Bold",Verdana,"DejaVu Sans",sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center}
+header{width:100%;max-width:1100px;padding:14px 20px 0;display:flex;align-items:center;gap:14px}
+.chip{width:46px;height:46px;border-radius:12px;border:3px solid var(--ink);background:var(--orange);color:#fff;display:grid;place-items:center;font-size:26px;font-weight:900;text-shadow:0 2px 0 var(--ink);flex:none}
+h1{margin:0;font-size:22px;line-height:1.1}
+h1 small{display:block;font-size:13px;font-weight:400;color:var(--mute);margin-top:3px}
+main{width:100%;max-width:1100px;padding:10px 20px 20px;display:flex;flex-direction:column;align-items:center;gap:10px}
+.stage{position:relative;width:min(100%,calc((100vh - 230px)*1.6));aspect-ratio:960/600;border:3px solid var(--ink);border-radius:14px;overflow:hidden;
+  background:
+   radial-gradient(120% 90% at 18% 8%,rgba(255,236,170,.65),rgba(255,236,170,0) 60%),
+   repeating-linear-gradient(0deg,rgba(120,150,190,.13) 0 1.5px,transparent 1.5px 34px),
+   var(--sheet);
+  box-shadow:0 3px 0 rgba(0,0,0,.18),0 12px 24px -12px rgba(80,60,20,.35)}
+.stage::after{content:"";position:absolute;inset:0;pointer-events:none;mix-blend-mode:multiply;opacity:.55;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' seed='4'/><feColorMatrix values='0 0 0 0 .55  0 0 0 0 .47  0 0 0 0 .33  0 0 0 .22 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
+#stage{position:absolute;inset:0;width:100%;height:100%;display:block}
+.tag{position:absolute;left:12px;top:10px;font-weight:800;font-size:15px;background:var(--yellow);border:3px solid var(--ink);border-radius:10px;padding:3px 10px;transform:rotate(-1.5deg);z-index:2}
+.badge{position:absolute;right:12px;top:10px;font-weight:800;font-size:14px;background:#fff;border:3px solid var(--ink);border-radius:10px;padding:3px 10px;transform:rotate(1.5deg);z-index:2;display:none}
+.badge.on{display:block}
+.bar{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+button{font:800 15px inherit;font-family:inherit;color:var(--ink);padding:8px 14px;border-radius:12px;border:3px solid var(--ink);background:#fff;cursor:pointer;box-shadow:0 3px 0 var(--ink);transition:transform .06s,box-shadow .06s}
+button:active{transform:translateY(2px);box-shadow:0 1px 0 var(--ink)}
+button[aria-pressed=true]{background:var(--yellow)}
+button kbd{font:inherit;font-size:12px;opacity:.55;margin-right:5px}
+.seg{display:flex;gap:6px;align-items:center}
+.seg span{font-size:13px;color:var(--mute);font-weight:700}
+.seg button{padding:5px 10px;font-size:13px;box-shadow:0 2px 0 var(--ink)}
+.thumb{width:26px;height:18px;vertical-align:-4px;margin-right:4px}
+#cap{max-width:900px;font-size:14px;line-height:1.45;color:#3d382f;text-align:center;margin:2px 0 0}
+#cap b{color:var(--ink)}
+@media (max-height:520px){
+  header{display:none}
+  main{padding:6px 10px;gap:6px}
+  .stage{width:min(100%,calc((100vh - 104px)*1.6))}
+  #cap{display:none}
+  button{padding:5px 9px;font-size:12px;box-shadow:0 2px 0 var(--ink)}
+  .seg button{padding:3px 7px;font-size:11px}
+  .tag{font-size:12px}
+}
+@media (max-width:640px) and (min-height:521px){ .stage{width:100%} h1{font-size:18px} }
+
+</style></head>
+<body>
+<header><span class="chip">C</span><h1>Chip, animated part by part<small>Ears, eyes, teeth, paws, log, tail and feet are each their own piece of the kid's drawing. Number keys 1&ndash;6 pick an animation.</small></h1></header>
+<main>
+<div class="stage">
+<svg id="stage" viewBox="0 0 960 600" preserveAspectRatio="xMidYMid meet" aria-label="Chip the beaver chewing a log, animated">
+<defs>
+  <radialGradient id="shadowG"><stop offset="0" stop-color="#3a2a10" stop-opacity=".5"/><stop offset=".6" stop-color="#3a2a10" stop-opacity=".22"/><stop offset="1" stop-color="#3a2a10" stop-opacity="0"/></radialGradient>
+  <filter id="flash" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB"><feColorMatrix id="fm" type="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 1 0"/></filter>
+  <symbol id="s-star" overflow="visible"><polygon points="0,-10 3,-3.5 10,-3 4.6,1.6 6.2,8.6 0,4.8 -6.2,8.6 -4.6,1.6 -10,-3 -3,-3.5" stroke-linejoin="round"/></symbol>
+  <symbol id="s-dot" overflow="visible"><circle r="5"/></symbol>
+  <symbol id="s-scrap" overflow="visible"><rect x="-6" y="-3.5" width="12" height="7" rx="1"/></symbol>
+  <symbol id="s-spike" overflow="visible"><polygon points="0,-30 7,-12 26,-20 15,-4 34,2 14,8 22,28 6,16 0,34 -6,16 -22,28 -14,8 -34,2 -15,-4 -26,-20 -7,-12" stroke-linejoin="round"/></symbol>
+  <g stroke-linecap="round" stroke-linejoin="round">
+<g id="chipsrc-1"><path d="M30.0 22.0 C32.7 20.7 45.3 12.0 46.0 14.0 C46.7 16.0 38.0 27.7 34.0 34.0 C30.0 40.3 21.0 49.7 22.0 52.0 C23.0 54.3 38.7 45.0 40.0 48.0 C41.3 51.0 33.7 63.7 30.0 70.0 C26.3 76.3 18.7 81.0 18.0 86.0 C17.3 91.0 22.0 98.3 26.0 100.0 C30.0 101.7 40.3 99.0 42.0 96.0 C43.7 93.0 39.3 81.7 36.0 82.0 C32.7 82.3 23.0 91.7 22.0 98.0 C21.0 104.3 26.3 113.0 30.0 120.0 C33.7 127.0 42.3 133.3 44.0 140.0 C45.7 146.7 43.0 152.3 40.0 160.0 C37.0 167.7 28.3 181.7 26.0 186.0" fill="none" stroke="#1a1a1a" stroke-width="17"/><path d="M30.0 22.0 C32.7 20.7 45.3 12.0 46.0 14.0 C46.7 16.0 38.0 27.7 34.0 34.0 C30.0 40.3 21.0 49.7 22.0 52.0 C23.0 54.3 38.7 45.0 40.0 48.0 C41.3 51.0 33.7 63.7 30.0 70.0 C26.3 76.3 18.7 81.0 18.0 86.0 C17.3 91.0 22.0 98.3 26.0 100.0 C30.0 101.7 40.3 99.0 42.0 96.0 C43.7 93.0 39.3 81.7 36.0 82.0 C32.7 82.3 23.0 91.7 22.0 98.0 C21.0 104.3 26.3 113.0 30.0 120.0 C33.7 127.0 42.3 133.3 44.0 140.0 C45.7 146.7 43.0 152.3 40.0 160.0 C37.0 167.7 28.3 181.7 26.0 186.0" fill="none" stroke="#e8743a" stroke-width="7"/></g>
+<g id="chipsrc-2"><path d="M20.0 196.0 C22.0 186.0 27.0 187.0 30.0 186.0 C33.0 185.0 35.3 191.7 38.0 190.0 C40.7 188.3 43.3 177.3 46.0 176.0 C48.7 174.7 51.7 183.3 54.0 182.0 C56.3 180.7 58.0 169.3 60.0 168.0 C62.0 166.7 67.3 164.3 66.0 174.0 C64.7 183.7 55.7 218.0 52.0 226.0 C48.3 234.0 46.7 220.3 44.0 222.0 C41.3 223.7 39.0 234.3 36.0 236.0 C33.0 237.7 29.0 230.3 26.0 232.0 C23.0 233.7 19.0 252.0 18.0 246.0 C17.0 240.0 18.0 206.0 20.0 196.0 Z" fill="#e8743a" stroke="#1a1a1a" stroke-width="7" /></g>
+<g id="chipsrc-3"><path d="M84.0 180.0 C84.0 180.0 108.0 174.0 108.0 174.0 C108.0 174.0 100.0 264.0 100.0 264.0 C100.0 264.0 78.0 262.0 78.0 262.0 C78.0 262.0 84.0 180.0 84.0 180.0 Z" fill="#e8743a" stroke="#1a1a1a" stroke-width="7" /></g>
+<g id="chipsrc-4"><path d="M136.0 312.0 C134.7 307.3 139.7 295.0 142.0 294.0 C144.3 293.0 147.3 307.0 150.0 306.0 C152.7 305.0 155.3 288.3 158.0 288.0 C160.7 287.7 163.0 303.7 166.0 304.0 C169.0 304.3 173.0 289.7 176.0 290.0 C179.0 290.3 181.0 305.3 184.0 306.0 C187.0 306.7 191.3 293.7 194.0 294.0 C196.7 294.3 196.7 306.7 200.0 308.0 C203.3 309.3 211.3 300.7 214.0 302.0 C216.7 303.3 226.7 312.7 216.0 316.0 C205.3 319.3 163.3 322.7 150.0 322.0 C136.7 321.3 137.3 316.7 136.0 312.0 Z" fill="#8a5a3b" stroke="#1a1a1a" stroke-width="7" /></g>
+<g id="chipsrc-5"><path d="M250.0 276.0 C250.7 270.0 258.7 260.3 262.0 262.0 C265.3 263.7 266.3 284.0 270.0 286.0 C273.7 288.0 279.7 273.3 284.0 274.0 C288.3 274.7 291.7 288.0 296.0 290.0 C300.3 292.0 308.3 284.3 310.0 286.0 C311.7 287.7 310.0 297.3 306.0 300.0 C302.0 302.7 291.7 302.0 286.0 302.0 C280.3 302.0 276.7 300.7 272.0 300.0 C267.3 299.3 261.7 302.0 258.0 298.0 C254.3 294.0 249.3 282.0 250.0 276.0 Z" fill="#e8743a" stroke="#1a1a1a" stroke-width="7" /></g>
+<g id="chipsrc-6"><path d="M316.0 230.0 C316.7 219.0 326.3 180.7 330.0 170.0 C333.7 159.3 337.7 161.0 338.0 166.0 C338.3 171.0 334.0 188.3 332.0 200.0 C330.0 211.7 328.7 231.0 326.0 236.0 C323.3 241.0 315.3 241.0 316.0 230.0 Z" fill="#8a5a3b" stroke="#1a1a1a" stroke-width="7" /></g>
+<g id="chipsrc-7"><path d="M380.0 148.0 C381.3 142.0 389.0 138.7 392.0 140.0 C395.0 141.3 397.7 150.0 398.0 156.0 C398.3 162.0 393.3 169.3 394.0 176.0 C394.7 182.7 401.3 187.7 402.0 196.0 C402.7 204.3 400.7 221.7 398.0 226.0 C395.3 230.3 389.3 227.0 386.0 222.0 C382.7 217.0 378.3 203.7 378.0 196.0 C377.7 188.3 383.7 184.0 384.0 176.0 C384.3 168.0 378.7 154.0 380.0 148.0 Z" fill="#b4532e" stroke="#1a1a1a" stroke-width="7" /></g>
+<g id="chipsrc-8"><path d="M330.0 110.0 C330.0 110.0 356.0 108.0 356.0 108.0 C356.0 108.0 362.0 154.0 362.0 154.0 C362.0 154.0 338.0 156.0 338.0 156.0 C338.0 156.0 330.0 110.0 330.0 110.0 Z" fill="#8a5a3b" stroke="#1a1a1a" stroke-width="7" /><path d="M342.0 118.0 C343.0 123.3 347.0 144.7 348.0 150.0" fill="none" stroke="#1a1a1a" stroke-width="5"/></g>
+<g id="chipsrc-9"><path d="M430.0 110.0 C431.0 107.3 435.3 107.0 438.0 112.0 C440.7 117.0 442.7 132.3 446.0 140.0 C449.3 147.7 457.3 154.3 458.0 158.0 C458.7 161.7 453.3 164.0 450.0 162.0 C446.7 160.0 441.0 151.7 438.0 146.0 C435.0 140.3 433.3 134.0 432.0 128.0 C430.7 122.0 429.0 112.7 430.0 110.0 Z" fill="#e8743a" stroke="#1a1a1a" stroke-width="7" /></g>
+<g id="chipsrc-10"><path d="M420.0 214.0 C420.0 214.0 431.0 202.7 432.0 212.0 C433.0 221.3 429.0 255.7 426.0 270.0 C423.0 284.3 414.0 298.0 414.0 298.0 C414.0 298.0 404.0 302.0 404.0 296.0 C404.0 290.0 411.3 275.7 414.0 262.0 C416.7 248.3 420.0 214.0 420.0 214.0 Z" fill="#8a5a3b" stroke="#1a1a1a" stroke-width="7" /><path d="M424.0 226.0 C421.3 224.0 410.7 216.0 408.0 214.0" fill="none" stroke="#1a1a1a" stroke-width="6"/></g>
+</g>
+</defs>
+<g id="world">
+  <g id="far"></g>
+  <g id="groundBack">
+    <path d="M-20 548 C 120 540, 240 552, 380 543 S 640 551, 780 542 S 920 550, 990 545 L990 620 L-20 620Z" fill="#eadfc4" opacity=".7"/>
+    <path d="M-20 543 C 120 536, 240 548, 380 539 S 640 547, 780 538 S 920 546, 990 541" fill="none" stroke="#1a1a1a" stroke-width="4" stroke-linecap="round"/>
+    <path d="M30 560 L170 559 M260 574 L420 572 M520 560 L690 561 M770 576 L930 574" stroke="#a8b4c4" stroke-width="2.5" stroke-linecap="round" fill="none" opacity=".7"/>
+  </g>
+  <g id="tufts"></g>
+  <g id="gapG" display="none">
+    <path d="M700 536 L712 600 L858 600 L870 536 Z" fill="#a79877" stroke="none"/>
+    <path d="M700 538 C 703 560 708 582 713 604 M870 538 C 867 560 862 582 857 604" fill="none" stroke="#1a1a1a" stroke-width="4.5" stroke-linecap="round"/>
+    <path d="M730 570 l14 -6 M790 584 l16 -4 M826 566 l12 5" stroke="#6f6248" stroke-width="3" stroke-linecap="round"/>
+    <rect x="696" y="536" width="178" height="4" fill="#efe9dc" opacity="0"/>
+  </g>
+  <ellipse id="shadow" cx="480" cy="543" rx="120" ry="18" fill="url(#shadowG)"/>
+  <g id="rig"><g stroke-linecap="round" stroke-linejoin="round">
+<g id="tail"><path d="M127.8 325.9 C129.0 333.8 125.3 344.5 119.1 351.5 C113.0 358.4 101.4 364.3 91.0 367.9 C80.5 371.4 67.4 373.8 56.5 372.7 C45.6 371.7 32.5 367.4 25.5 361.6 C18.4 355.8 14.9 345.9 14.4 337.8 C13.9 329.8 16.8 320.5 22.4 313.2 C27.9 305.8 37.6 297.6 47.8 294.0 C57.9 290.4 72.7 289.8 83.4 291.5 C94.1 293.1 104.7 298.3 112.1 304.0 C119.5 309.8 126.6 318.0 127.8 325.9 Z" fill="#7e4a31" stroke="#1a1a1a" stroke-width="9" /><path d="M30.2 304.7 C30.4 309.7 31.1 324.8 31.5 334.8 C31.9 344.9 32.6 359.9 32.8 365.0" fill="none" stroke="#1a1a1a" stroke-width="7"/><path d="M47.7 295.3 C48.1 301.7 49.2 320.8 49.9 333.6 C50.7 346.4 51.7 365.5 52.1 371.9" fill="none" stroke="#1a1a1a" stroke-width="7"/><path d="M66.4 291.2 C66.9 298.0 68.3 318.4 69.3 332.1 C70.3 345.7 71.7 366.1 72.2 373.0" fill="none" stroke="#1a1a1a" stroke-width="7"/><path d="M84.4 291.5 C84.9 298.0 86.2 317.5 87.2 330.5 C88.1 343.5 89.5 363.0 90.0 369.5" fill="none" stroke="#1a1a1a" stroke-width="7"/><path d="M101.7 296.3 C102.1 301.7 103.3 318.1 104.1 329.0 C104.9 339.9 106.0 356.3 106.4 361.7" fill="none" stroke="#1a1a1a" stroke-width="7"/><path d="M25.2 309.0 C32.5 308.5 54.5 307.0 69.2 306.1 C83.9 305.1 105.9 303.6 113.2 303.1" fill="none" stroke="#1a1a1a" stroke-width="7"/><path d="M15.1 324.1 C24.1 323.4 51.3 321.4 69.4 320.0 C87.6 318.7 114.7 316.6 123.8 316.0" fill="none" stroke="#1a1a1a" stroke-width="7"/><path d="M13.7 340.7 C23.1 339.9 51.4 337.5 70.3 336.0 C89.1 334.4 117.4 332.1 126.8 331.3" fill="none" stroke="#1a1a1a" stroke-width="7"/><path d="M20.8 355.1 C29.2 354.4 54.4 352.3 71.2 350.9 C88.0 349.5 113.2 347.4 121.6 346.7" fill="none" stroke="#1a1a1a" stroke-width="7"/></g>
+<g id="ear-l"><path d="M92.0 82.0 C88.3 76.8 81.8 63.2 80.0 55.0 C78.2 46.8 78.5 38.0 81.0 33.0 C83.5 28.0 90.2 26.0 95.0 25.0 C99.8 24.0 105.5 25.0 110.0 27.0 C114.5 29.0 118.8 33.3 122.0 37.0 C125.2 40.7 129.0 44.2 129.0 49.0 C129.0 53.8 126.5 59.8 122.0 66.0 C117.5 72.2 107.0 83.3 102.0 86.0 C97.0 88.7 95.7 87.2 92.0 82.0 Z" fill="#e5713f" stroke="#1a1a1a" stroke-width="9" /><path d="M100.0 76.0 C98.7 71.3 95.7 57.0 96.0 52.0 C96.3 47.0 99.3 46.5 102.0 46.0 C104.7 45.5 109.8 47.2 112.0 49.0 C114.2 50.8 114.7 53.8 115.0 57.0 C115.3 60.2 115.8 64.2 114.0 68.0 C112.2 71.8 106.3 78.7 104.0 80.0 C101.7 81.3 101.3 80.7 100.0 76.0 Z" fill="#fbfaf6" stroke="none" /><path d="M100.0 76.0 C99.3 72.0 95.7 57.0 96.0 52.0 C96.3 47.0 99.3 46.5 102.0 46.0 C104.7 45.5 109.8 47.2 112.0 49.0 C114.2 50.8 114.5 55.7 115.0 57.0" fill="none" stroke="#1a1a1a" stroke-width="7"/></g>
+<g id="ear-r"><path d="M230.0 40.0 C227.8 33.8 231.7 29.2 235.0 25.0 C238.3 20.8 245.5 17.2 250.0 15.0 C254.5 12.8 258.3 11.2 262.0 12.0 C265.7 12.8 269.7 16.2 272.0 20.0 C274.3 23.8 276.0 29.2 276.0 35.0 C276.0 40.8 273.8 49.5 272.0 55.0 C270.2 60.5 269.0 66.8 265.0 68.0 C261.0 69.2 253.8 66.7 248.0 62.0 C242.2 57.3 232.2 46.2 230.0 40.0 Z" fill="#e5713f" stroke="#1a1a1a" stroke-width="9" /><path d="M240.0 46.0 C240.3 43.0 242.5 38.0 245.0 36.0 C247.5 34.0 252.3 33.0 255.0 34.0 C257.7 35.0 260.2 37.7 261.0 42.0 C261.8 46.3 261.0 56.3 260.0 60.0 C259.0 63.7 257.8 65.0 255.0 64.0 C252.2 63.0 245.5 57.0 243.0 54.0 C240.5 51.0 239.7 49.0 240.0 46.0 Z" fill="#fbfaf6" stroke="none" /><path d="M240.0 46.0 C240.8 44.3 242.5 38.0 245.0 36.0 C247.5 34.0 252.3 33.0 255.0 34.0 C257.7 35.0 260.2 37.7 261.0 42.0 C261.8 46.3 260.2 57.0 260.0 60.0" fill="none" stroke="#1a1a1a" stroke-width="7"/></g>
+<g id="foot-l"><path d="M144.0 350.0 C138.3 348.3 132.3 357.2 128.0 362.0 C123.7 366.8 120.2 373.2 118.0 379.0 C115.8 384.8 114.2 391.8 115.0 397.0 C115.8 402.2 119.3 407.8 123.0 410.0 C126.7 412.2 132.5 412.2 137.0 410.0 C141.5 407.8 145.8 403.3 150.0 397.0 C154.2 390.7 163.0 379.8 162.0 372.0 C161.0 364.2 149.7 351.7 144.0 350.0 Z" fill="#e5713f" stroke="#1a1a1a" stroke-width="9" /><path d="M120.0 400.0 C121.5 397.8 127.5 389.2 129.0 387.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M128.0 404.0 C129.5 401.5 135.5 391.5 137.0 389.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M136.0 404.0 C137.3 402.0 142.7 394.0 144.0 392.0" fill="none" stroke="#1a1a1a" stroke-width="5"/></g>
+<g id="foot-r"><path d="M254.0 362.0 C255.5 355.3 261.2 347.2 266.0 344.0 C270.8 340.8 278.5 341.0 283.0 343.0 C287.5 345.0 290.7 349.8 293.0 356.0 C295.3 362.2 298.0 373.7 297.0 380.0 C296.0 386.3 291.8 391.0 287.0 394.0 C282.2 397.0 273.0 399.7 268.0 398.0 C263.0 396.3 259.3 390.0 257.0 384.0 C254.7 378.0 252.5 368.7 254.0 362.0 Z" fill="#e5713f" stroke="#1a1a1a" stroke-width="9" /><path d="M270.0 373.0 C270.2 376.3 270.8 389.7 271.0 393.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M278.0 369.0 C278.3 373.0 279.7 389.0 280.0 393.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M286.0 370.0 C286.3 373.0 287.7 385.0 288.0 388.0" fill="none" stroke="#1a1a1a" stroke-width="5"/></g>
+<g id="body"><path d="M78.0 173.0 C75.7 155.2 78.0 145.7 80.0 133.0 C82.0 120.3 86.3 106.3 90.0 97.0 C93.7 87.7 97.0 83.2 102.0 77.0 C107.0 70.8 114.2 65.3 120.0 60.0 C125.8 54.7 129.5 49.8 137.0 45.0 C144.5 40.2 156.2 33.7 165.0 31.0 C173.8 28.3 182.5 28.8 190.0 29.0 C197.5 29.2 203.3 29.8 210.0 32.0 C216.7 34.2 224.2 38.8 230.0 42.0 C235.8 45.2 240.0 47.2 245.0 51.0 C250.0 54.8 255.8 60.7 260.0 65.0 C264.2 69.3 266.3 71.7 270.0 77.0 C273.7 82.3 278.7 89.8 282.0 97.0 C285.3 104.2 288.0 111.2 290.0 120.0 C292.0 128.8 293.2 136.7 294.0 150.0 C294.8 163.3 294.8 183.8 295.0 200.0 C295.2 216.2 295.8 233.7 295.0 247.0 C294.2 260.3 292.5 269.0 290.0 280.0 C287.5 291.0 283.8 302.5 280.0 313.0 C276.2 323.5 272.0 334.3 267.0 343.0 C262.0 351.7 255.7 359.2 250.0 365.0 C244.3 370.8 239.5 375.2 233.0 378.0 C226.5 380.8 218.7 382.0 211.0 382.0 C203.3 382.0 194.3 380.5 187.0 378.0 C179.7 375.5 173.2 371.7 167.0 367.0 C160.8 362.3 155.0 356.2 150.0 350.0 C145.0 343.8 141.5 337.2 137.0 330.0 C132.5 322.8 127.5 314.2 123.0 307.0 C118.5 299.8 113.8 293.5 110.0 287.0 C106.2 280.5 102.7 275.8 100.0 268.0 C97.3 260.2 97.7 255.8 94.0 240.0 C90.3 224.2 80.3 190.8 78.0 173.0 Z" fill="#e5713f" stroke="#1a1a1a" stroke-width="9" /></g>
+<g id="eye-l"><path d="M129.1 150.2 C127.8 153.8 123.3 157.4 119.5 158.9 C115.7 160.4 110.4 160.7 106.4 159.3 C102.5 158.0 97.5 154.5 95.8 151.0 C94.1 147.5 94.8 142.0 96.2 138.2 C97.6 134.5 100.6 130.2 104.2 128.5 C107.8 126.9 113.9 126.8 117.7 128.3 C121.5 129.8 125.2 133.9 127.1 137.5 C129.0 141.2 130.3 146.7 129.1 150.2 Z" fill="#1a1a1a" stroke="#1a1a1a" stroke-width="4" /><path d="M109.1 134.8 C109.3 135.7 108.4 137.1 107.4 137.9 C106.4 138.8 104.7 139.6 103.2 139.9 C101.7 140.2 99.5 140.2 98.3 139.7 C97.2 139.2 96.5 138.0 96.3 137.1 C96.2 136.1 96.5 134.8 97.4 134.0 C98.3 133.1 100.3 132.3 101.8 132.0 C103.3 131.8 105.2 132.1 106.4 132.5 C107.6 133.0 109.0 133.9 109.1 134.8 Z" fill="#fbfaf6" stroke="#1a1a1a" stroke-width="3" /></g>
+<g id="eye-r"><path d="M230.9 113.0 C231.7 117.3 229.8 123.4 227.6 127.0 C225.3 130.6 221.1 133.7 217.3 134.5 C213.4 135.3 207.7 134.4 204.5 131.8 C201.4 129.2 199.1 123.3 198.4 118.8 C197.6 114.2 197.9 108.2 199.9 104.6 C202.0 101.0 206.8 97.6 210.7 97.1 C214.5 96.5 219.5 98.6 222.8 101.3 C226.2 103.9 230.1 108.7 230.9 113.0 Z" fill="#1a1a1a" stroke="#1a1a1a" stroke-width="4" /><path d="M217.1 106.1 C217.3 106.9 216.6 108.1 215.8 108.8 C215.1 109.5 213.8 110.2 212.6 110.4 C211.4 110.6 209.7 110.6 208.8 110.2 C208.0 109.7 207.4 108.7 207.3 107.8 C207.1 107.0 207.3 105.9 208.0 105.1 C208.7 104.4 210.2 103.7 211.4 103.5 C212.5 103.3 214.0 103.6 214.9 104.1 C215.9 104.5 217.0 105.3 217.1 106.1 Z" fill="#fbfaf6" stroke="#1a1a1a" stroke-width="2.5" /><path d="M225.6 137.0 C225.6 137.7 225.2 138.6 224.7 139.1 C224.3 139.6 223.6 139.9 223.0 140.0 C222.4 140.0 221.6 139.7 221.2 139.2 C220.8 138.7 220.6 137.7 220.6 137.0 C220.6 136.3 220.8 135.3 221.2 134.8 C221.6 134.3 222.4 133.9 223.0 134.0 C223.6 134.0 224.3 134.4 224.7 135.0 C225.1 135.5 225.6 136.3 225.6 137.0 Z" fill="#1a1a1a" stroke="#1a1a1a" stroke-width="2" /></g>
+<g id="log"><path d="M55.0 184.0 C55.0 184.0 68.5 180.3 80.0 178.0 C91.5 175.7 105.0 174.5 124.0 170.0 C143.0 165.5 175.8 155.2 194.0 151.0 C212.2 146.8 216.5 146.8 233.0 145.0 C249.5 143.2 278.5 141.7 293.0 140.0 C307.5 138.3 312.5 135.0 320.0 135.0 C327.5 135.0 333.0 136.5 338.0 140.0 C343.0 143.5 347.2 150.2 350.0 156.0 C352.8 161.8 355.0 168.5 355.0 175.0 C355.0 181.5 352.5 189.2 350.0 195.0 C347.5 200.8 343.8 206.0 340.0 210.0 C336.2 214.0 333.7 217.5 327.0 219.0 C320.3 220.5 310.0 218.3 300.0 219.0 C290.0 219.7 281.5 220.7 267.0 223.0 C252.5 225.3 234.2 228.8 213.0 233.0 C191.8 237.2 158.8 244.2 140.0 248.0 C121.2 251.8 112.2 254.2 100.0 256.0 C87.8 257.8 67.0 259.0 67.0 259.0 C67.0 259.0 57.7 256.5 55.0 250.0 C52.3 243.5 51.5 229.2 51.0 220.0 C50.5 210.8 51.3 201.0 52.0 195.0 C52.7 189.0 55.0 184.0 55.0 184.0 Z" fill="#9a5a3b" stroke="#1a1a1a" stroke-width="9" /><path d="M59.0 187.0 C61.2 188.8 68.7 192.8 72.0 198.0 C75.3 203.2 77.8 210.5 79.0 218.0 C80.2 225.5 80.5 236.5 79.0 243.0 C77.5 249.5 71.5 254.7 70.0 257.0" fill="none" stroke="#1a1a1a" stroke-width="7"/></g>
+<g id="muzzle"><path d="M133.0 159.0 C133.2 155.2 137.7 150.0 141.0 147.0 C144.3 144.0 148.8 140.5 153.0 141.0 C157.2 141.5 161.5 152.3 166.0 150.0 C170.5 147.7 175.0 130.2 180.0 127.0 C185.0 123.8 193.5 125.8 196.0 131.0 C198.5 136.2 195.8 147.0 195.0 158.0 C194.2 169.0 195.8 189.5 191.0 197.0 C186.2 204.5 171.3 206.8 166.0 203.0 C160.7 199.2 161.7 178.5 159.0 174.0 C156.3 169.5 153.2 176.7 150.0 176.0 C146.8 175.3 142.8 172.8 140.0 170.0 C137.2 167.2 132.8 162.8 133.0 159.0 Z" fill="#fbfaf6" stroke="none" /><path d="M133.0 159.0 C134.2 160.8 137.2 167.2 140.0 170.0 C142.8 172.8 146.8 175.3 150.0 176.0 C153.2 176.7 157.5 174.3 159.0 174.0" fill="none" stroke="#1a1a1a" stroke-width="7"/><path d="M196.0 131.0 C195.8 135.5 196.0 153.3 195.0 158.0 C194.0 162.7 190.8 158.8 190.0 159.0" fill="none" stroke="#1a1a1a" stroke-width="7"/></g>
+<g id="teeth"><path d="M159.0 174.0 C159.0 174.0 173.0 156.0 173.0 156.0 C173.0 156.0 183.0 197.0 183.0 197.0 C183.0 197.0 166.0 203.0 166.0 203.0 C166.0 203.0 159.0 174.0 159.0 174.0 Z" fill="#fbfaf6" stroke="#1a1a1a" stroke-width="7" /><path d="M173.0 156.0 C173.0 156.0 190.0 159.0 190.0 159.0 C190.0 159.0 191.0 197.0 191.0 197.0 C191.0 197.0 183.0 197.0 183.0 197.0 C183.0 197.0 173.0 156.0 173.0 156.0 Z" fill="#fbfaf6" stroke="#1a1a1a" stroke-width="7" /></g>
+<g id="nose"><path d="M167.0 123.0 C170.7 122.8 175.5 123.8 178.0 126.0 C180.5 128.2 182.0 132.7 182.0 136.0 C182.0 139.3 180.3 143.7 178.0 146.0 C175.7 148.3 171.5 149.8 168.0 150.0 C164.5 150.2 159.7 149.2 157.0 147.0 C154.3 144.8 152.2 140.3 152.0 137.0 C151.8 133.7 153.5 129.3 156.0 127.0 C158.5 124.7 163.3 123.2 167.0 123.0 Z" fill="#fbfaf6" stroke="#1a1a1a" stroke-width="7" /></g>
+<g id="paw-l"><path d="M97.0 243.0 C95.2 239.0 97.2 231.0 99.0 226.0 C100.8 221.0 104.0 216.0 108.0 213.0 C112.0 210.0 118.2 207.5 123.0 208.0 C127.8 208.5 133.7 211.7 137.0 216.0 C140.3 220.3 142.7 228.7 143.0 234.0 C143.3 239.3 141.8 244.8 139.0 248.0 C136.2 251.2 130.8 252.7 126.0 253.0 C121.2 253.3 114.8 251.7 110.0 250.0 C105.2 248.3 98.8 247.0 97.0 243.0 Z" fill="#e5713f" stroke="#1a1a1a" stroke-width="9" /><path d="M112.0 216.0 C112.0 218.7 112.0 229.3 112.0 232.0" fill="none" stroke="#1a1a1a" stroke-width="5.5"/><path d="M120.0 214.0 C120.0 217.2 120.0 229.8 120.0 233.0" fill="none" stroke="#1a1a1a" stroke-width="5.5"/><path d="M128.0 215.0 C128.0 217.8 128.0 229.2 128.0 232.0" fill="none" stroke="#1a1a1a" stroke-width="5.5"/></g>
+<g id="paw-r"><path d="M218.0 240.0 C215.0 235.5 213.7 224.7 213.0 218.0 C212.3 211.3 211.7 204.7 214.0 200.0 C216.3 195.3 222.0 191.3 227.0 190.0 C232.0 188.7 239.2 189.2 244.0 192.0 C248.8 194.8 253.3 201.3 256.0 207.0 C258.7 212.7 261.3 220.2 260.0 226.0 C258.7 231.8 252.8 238.8 248.0 242.0 C243.2 245.2 236.0 245.3 231.0 245.0 C226.0 244.7 221.0 244.5 218.0 240.0 Z" fill="#e5713f" stroke="#1a1a1a" stroke-width="9" /><path d="M223.0 195.0 C222.8 198.0 222.2 210.0 222.0 213.0" fill="none" stroke="#1a1a1a" stroke-width="5.5"/><path d="M232.0 193.0 C232.0 196.3 232.0 209.7 232.0 213.0" fill="none" stroke="#1a1a1a" stroke-width="5.5"/><path d="M241.0 195.0 C241.0 198.0 241.0 210.0 241.0 213.0" fill="none" stroke="#1a1a1a" stroke-width="5.5"/></g>
+</g></g>
+  <g id="fx"></g>
+  <g id="chipfx"></g>
+  <text id="word" x="0" y="0" text-anchor="middle" font-family="Andika,'Avenir Next Rounded','Arial Rounded MT Bold',Verdana,sans-serif" font-weight="900" font-size="52" fill="#FFF1A8" stroke="#1a1a1a" stroke-width="9" stroke-linejoin="round" paint-order="stroke" opacity="0"></text>
+</g>
+</svg>
+<div class="tag" id="tag">Idle</div><div class="badge" id="badge">slow-mo</div>
+</div>
+<div class="bar" id="modes" role="group" aria-label="Animations"></div>
+<div class="bar">
+  <div class="seg" role="group" aria-label="Speed"><span>Speed</span><button data-speed="1" aria-pressed="true">1&times;</button><button data-speed=".5" aria-pressed="false">&frac12;&times;</button><button data-speed=".25" aria-pressed="false">&frac14;&times;</button></div>
+  <button id="replay"><kbd>R</kbd>Replay</button><button id="pause"><kbd>Space</kbd>Pause</button>
+</div>
+<p id="cap"></p>
+</main>
+<script>
+(()=>{
+"use strict";
+const $=s=>document.querySelector(s);
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const sm=t=>{t=clamp(t);return t*t*(3-2*t)};
+const eob=t=>{t=clamp(t);const c1=1.70158,c3=c1+1;return 1+c3*Math.pow(t-1,3)+c1*Math.pow(t-1,2)};
+const eoc=t=>1-Math.pow(1-clamp(t),3);
+const eic=t=>{t=clamp(t);return t*t*t};
+const TAU=Math.PI*2;
+const sin=Math.sin,cos=Math.cos,exp=Math.exp,PI=Math.PI;
+function keys(t,k){if(t<=k[0][0])return k[0][1];for(let i=0;i<k.length-1;i++)if(t<k[i+1][0]){const u=(t-k[i][0])/(k[i+1][0]-k[i][0]);return lerp(k[i][1],k[i+1][1],sm(u))}return k[k.length-1][1]}
+const wrap=(t,d)=>((t%d)+d)%d;
+function rng(seed){return()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const bump=(t,a,b,e=.2)=>sm((t-a)/e)*(1-sm((t-(b-e))/e));   // smooth pulse: 0 -> 1 on [a,a+e], 1 -> 0 on [b-e,b]
+const cl=(x,m)=>clamp(x,-m,m);
+
+/* ---------- stage constants ---------- */
+const SX=480,GY=540,BASE=.9,CX=185,CGY=410;        // stage centre, ground line, scale, rig pivot (character units: bottom-centre)
+const SVG='http://www.w3.org/2000/svg';
+const rig=$('#rig'),shadow=$('#shadow'),worldEl=$('#world'),fxG=$('#fx'),chipG=$('#chipfx'),word=$('#word'),fm=$('#fm'),gapG=$('#gapG');
+
+/* ---------- parts ---------- */
+const ids=['tail','ear-l','ear-r','foot-l','foot-r','body','eye-l','eye-r','log','muzzle','teeth','nose','paw-l','paw-r'];
+const FIX={tail:[125,322],'ear-l':[105,84],'ear-r':[251,63],'foot-l':[146,353],'foot-r':[272,346],muzzle:[165,160],teeth:[175,160],nose:[167,137],body:[185,380]};
+const P={};
+for(const id of ids){const el=rig.querySelector('#'+id);const bb=el.getBBox();
+  P[id]={el,piv:FIX[id]||[bb.x+bb.width/2,bb.y+bb.height/2],last:''}}
+const LP=P.log.piv;P['paw-l'].piv=LP;P['paw-r'].piv=LP;     // log and paws share a pivot so they turn as one held object
+const CC={},CS=[0,.62,.85,.8,1,1,.9,.95,.95,1,1];
+for(let n=1;n<=10;n++){const bb=document.getElementById('chipsrc-'+n).getBBox();CC[n]=[bb.x+bb.width/2,bb.y+bb.height/2]}
+
+let acc={};
+function add(id,o){const a=acc[id]||(acc[id]={x:0,y:0,r:0,sx:1,sy:1,k:0});
+  if(o.x)a.x+=o.x;if(o.y)a.y+=o.y;if(o.r)a.r+=o.r;if(o.k)a.k+=o.k;if(o.sx)a.sx*=o.sx;if(o.sy)a.sy*=o.sy}
+const f2=n=>Math.round(n*100)/100;
+function setT(id,s){const p=P[id];if(p.last!==s){p.last=s;if(s)p.el.setAttribute('transform',s);else p.el.removeAttribute('transform')}}
+const LG=(A,o)=>{A('log',o);A('paw-l',o);A('paw-r',o)};
+
+/* ---------- ground scribbles ---------- */
+(function(){
+  const g=$('#tufts'),far=$('#far');let h='';
+  for(let i=-1;i<6;i++){const x=i*240;
+    h+=`<path d="M${x+60} 580 l-6 -20 M${x+66} 580 l2 -26 M${x+72} 580 l8 -20" stroke="#1a1a1a" stroke-width="4" stroke-linecap="round" fill="none"/>`;
+    h+=`<path d="M${x+172} 584 v-22" stroke="#4aa24a" stroke-width="4" stroke-linecap="round"/><circle cx="${x+172}" cy="556" r="9" fill="#FFD23C" stroke="#1a1a1a" stroke-width="3.5"/><circle cx="${x+172}" cy="556" r="3" fill="#E5713F"/>`;
+    h+=`<ellipse cx="${x+120}" cy="590" rx="11" ry="6" fill="#d9cfb8" stroke="#1a1a1a" stroke-width="3"/>`}
+  g.innerHTML=`<g id="tuftsM">${h}</g>`;
+  let f='';
+  for(let i=-1;i<4;i++){const x=i*480;
+    f+=`<path d="M${x+120} 150 c-30 0 -34 -34 -6 -38 c4 -26 40 -28 50 -8 c24 -8 44 14 28 30 c8 14 -8 18 -22 16 Z" fill="#fff" stroke="#b7c2d3" stroke-width="3.5" stroke-linejoin="round" opacity=".85"/>`;
+    f+=`<path d="M${x+380} 96 c-20 0 -22 -22 -4 -26 c4 -16 28 -18 34 -4 c16 -4 28 10 18 20 Z" fill="#fff" stroke="#b7c2d3" stroke-width="3" stroke-linejoin="round" opacity=".8"/>`}
+  f+=`<g transform="translate(830 88)" opacity=".9"><circle r="30" fill="#FFE27A" stroke="#d4a82a" stroke-width="3.5"/><path d="M0 -44 v-14 M0 44 v14 M-44 0 h-14 M44 0 h14 M31 31 l10 10 M-31 -31 l-10 -10 M31 -31 l10 -10 M-31 31 l-10 10" stroke="#d4a82a" stroke-width="3.5" stroke-linecap="round"/></g>`;
+  far.innerHTML=`<g id="farM">${f}</g>`})();
+const tuftsM=$('#tuftsM'),farM=$('#farM');
+
+/* ---------- fx pools ---------- */
+const pool=[];for(let i=0;i<48;i++){const u=document.createElementNS(SVG,'use');u.setAttribute('stroke','#1a1a1a');u.setAttribute('stroke-width','2.5');u.style.display='none';fxG.appendChild(u);pool.push(u)}
+const cpool=[];for(let i=0;i<44;i++){const u=document.createElementNS(SVG,'use');u.style.display='none';chipG.appendChild(u);cpool.push(u)}
+let fxList=[],chipList=[];
+const fxAdd=o=>fxList.push(o);
+function drawFx(){
+  let i=0;
+  for(const o of fxList){if(i>=pool.length)break;const u=pool[i++];
+    u.style.display='';u.setAttribute('href','#s-'+o.k);u.setAttribute('fill',o.c);u.setAttribute('opacity',f2(o.a==null?1:o.a));
+    u.setAttribute('transform',`translate(${f2(o.x)} ${f2(o.y)}) rotate(${f2(o.r||0)}) scale(${f2(o.s)})`);u.setAttribute('stroke-width',f2(2.5/Math.max(o.s,.3)))}
+  for(;i<pool.length;i++)pool[i].style.display='none';
+  i=0;
+  for(const o of chipList){if(i>=cpool.length)break;const u=cpool[i++];const c=CC[o.n];
+    u.style.display='';u.setAttribute('href','#chipsrc-'+o.n);u.setAttribute('opacity',f2(o.a));
+    u.setAttribute('transform',`translate(${f2(o.x)} ${f2(o.y)}) rotate(${f2(o.r)}) scale(${f2(o.s)}) translate(${f2(-c[0])} ${f2(-c[1])})`)}
+  for(;i<cpool.length;i++)cpool[i].style.display='none';
+}
+const COL=['#E5713F','#FFD23C','#8a5a3b','#b4532e','#f06a8a','#7cc3e8','#fbfaf6'];
+function confetti(t,t0,ox,oy,n,seed,speed=520,life=1.6){const tau=t-t0;if(tau<0||tau>life)return;const R=rng(seed);
+  for(let i=0;i<n;i++){const a=-PI/2+(R()-.5)*2.3,v=speed*(.45+R()*.7),vx=cos(a)*v,vy=sin(a)*v;
+    fxAdd({k:i%3?'scrap':'star',x:ox+vx*tau,y:oy+vy*tau+.5*900*tau*tau,s:(i%3?1.1:.9)*(.8+R()*.6),r:R()*360+tau*(R()-.5)*900,c:COL[i%COL.length],a:1-sm((tau-life*.55)/(life*.45))})}}
+/* wood chips: the kid's own chip drawings, flung ballistically */
+function chips(t,t0,ox,oy,n,seed,o={}){const tau=t-t0,life=o.life||1;if(tau<0||tau>life)return;const R=rng(seed);
+  const dir=o.dir==null?-PI/2:o.dir,spread=o.spread==null?1.6:o.spread,sp=o.speed||420,G=o.g||900;
+  for(let i=0;i<n;i++){const a=dir+(R()-.5)*spread,v=sp*(.5+R()*.7);
+    const idx=R()<.12?(R()<.5?1:2):3+Math.floor(R()*8);const n2=Math.min(10,idx);
+    chipList.push({n:n2,x:ox+cos(a)*v*tau,y:oy+sin(a)*v*tau+.5*G*tau*tau,r:R()*360+tau*(R()-.5)*(o.spin||800),s:BASE*.5*CS[n2]*(o.size||1)*(.85+R()*.45),a:1-sm((tau-life*.6)/(life*.4))})}}
+function chipBeats(t,a,b,rate,seed,ox,oy,per,o){const life=o.life||1;let k0=Math.ceil(Math.max(a,t-life)*rate),k1=Math.floor(Math.min(b,t)*rate);
+  for(let k=k0;k<=k1;k++)chips(t,k/rate,ox,oy,per,seed+k*7,o)}
+function dust(t,t0,ox,oy,seed,col='#d9cfb8'){const tau=t-t0;if(tau<0||tau>.55)return;const R=rng(seed);
+  for(let i=0;i<4;i++){const v=40+R()*60;fxAdd({k:'dot',x:ox-(10+i*8)-v*tau,y:oy-8*R()-30*tau*(.5+R()),s:(1-tau/.55)*(.9+R()*.8),c:col,a:.8*(1-tau/.55)})}}
+function crumbs(t,t0,ox,oy,n,seed,speed=260,life=.7,col='#b4532e'){const tau=t-t0;if(tau<0||tau>life)return;const R=rng(seed);
+  for(let i=0;i<n;i++){const a=(i/n)*TAU+R()*.6,v=speed*(.5+R()*.6);fxAdd({k:'dot',x:ox+cos(a)*v*tau*(1-.4*tau),y:oy+sin(a)*v*tau+300*tau*tau,s:(1-tau/life)*(.5+R()*.5),c:i%2?col:'#E5713F',a:1})}}
+function wordPop(txt,x,y,t,t0,life,rot=-8){const tau=t-t0;if(tau<0||tau>life)return false;
+  const s=eob(tau/.14)*(1-sm((tau-life+.15)/.15)*.3);word.textContent=txt;word.setAttribute('opacity',f2(1-sm((tau-life+.12)/.12)));
+  word.setAttribute('transform',`translate(${f2(x)} ${f2(y)}) rotate(${rot}) scale(${f2(Math.max(s,.01))})`);return true}
+
+/* ---------- blink (global time) ---------- */
+const blinks=[];(function(){const R=rng(11);let t=1.1;for(let i=0;i<400;i++){blinks.push(t);const r=R();if(r<.18)blinks.push(t+.26);t+=1.3+R()*3.4+(r>.85?2.2:0)}})();
+function blinkAmt(T){let lo=0,hi=blinks.length-1;while(lo<hi){const m=(lo+hi+1)>>1;if(blinks[m]<=T)lo=m;else hi=m-1}
+  const d=T-blinks[lo];if(d<0||d>.2)return 0;return d<.07?d/.07:1-sm((d-.07)/.13)}
+
+/* ---------- rig matrix (character units -> stage px) ---------- */
+const K=BASE;
+const matFrom=b=>new DOMMatrix().translateSelf(SX,GY).scaleSelf(K,K).translateSelf(b.x,-b.y).translateSelf(0,-b.pv).rotateSelf(b.r).translateSelf(0,b.pv).scaleSelf(b.sx,b.sy).translateSelf(-CX,-CGY);
+let curB=null,curM=null;
+const S=(cx,cy)=>{const p=curM.transformPoint(new DOMPoint(cx,cy));return[p.x,p.y]};
+const toChar=(wx,wy)=>{const p=curM.inverse().transformPoint(new DOMPoint(wx,wy));return[p.x,p.y]};
+const Mo=(b,cx,cy)=>{const p=matFrom(b).transformPoint(new DOMPoint(cx,cy));return[p.x,p.y]};
+
+/* ---------- shared chew: the one move everything else is built from ---------- */
+function chewA(A,ph,amp){if(amp<=.001)return;
+  const s=sin(ph),s2=sin(ph*.5);
+  A('teeth',{y:amp*3.4*s,r:amp*1.3*s2,sy:1+amp*.04*s});
+  A('muzzle',{y:amp*1.4*sin(ph+.6),sx:1+amp*.03*s,sy:1-amp*.04*(.5+.5*s)});
+  A('nose',{y:amp*1.7*sin(ph+1.1),sy:1+amp*.05*s});
+  LG(A,{y:amp*2.4*sin(ph+.4),r:amp*1.5*sin(ph*.5+.5),x:amp*1.3*s2});
+  A('paw-l',{y:amp*1.0*sin(ph+1.4)});A('paw-r',{y:amp*1.0*sin(ph+2.2)});
+  A('eye-l',{sy:1-amp*.05*(.5+.5*s)});A('eye-r',{sy:1-amp*.05*(.5+.5*s)});
+  A('ear-l',{r:-amp*2.2*sin(ph*.5)});A('ear-r',{r:amp*2.2*sin(ph*.5+1.2)})}
+
+const B=o=>Object.assign({x:0,y:0,r:0,sx:1,sy:1,pv:0},o);
+const breath=t=>{const b=sin(TAU*t/3.2);return b+.25*sin(TAU*t/1.6)};
+const volume=sy=>1+(1-sy)*.65;
+const hop=(t,s,e,H)=>{const u=(t-s)/(e-s);return u>0&&u<1?H*4*u*(1-u):0};
+const M={};
+
+/* 1: idle */
+M.idle={name:'Idle',dur:6.4,
+ caption:'<b>Idle.</b> Breathing squash-and-stretch with the <b>ears</b>, <b>tail</b> and <b>face</b> drifting a beat behind. Every few seconds he gnaws the log a little, with a nose sniff, an ear twitch, a lazy tail flick, and one stray <b>wood chip</b> that falls away. His eyes look around and blink at irregular intervals.',
+ state(t){const sy=1+.022*breath(t);return{b:B({sy,sx:volume(sy),r:.9*sin(TAU*t/6.4)})}},
+ extra(t,st,T,A){
+  let env=0;for(const[a,b]of[[.7,2.3],[3.9,5.5]])env=Math.max(env,bump(t,a,b,.25));
+  chewA(A,TAU*3.3*t,.5*env);
+  const tf=t-2.9;if(tf>0&&tf<1)A('tail',{r:20*exp(-4.5*tf)*sin(15*tf)});
+  const tf2=t-5.9;if(tf2>0)A('tail',{r:14*exp(-4.5*tf2)*sin(15*tf2)});
+  const te=t-3.3;if(te>0&&te<.8)A('ear-r',{r:-16*exp(-8*te)*sin(28*te)});
+  const sn=bump(t,2.45,3.05,.1);A('nose',{y:1.5*sn*sin(TAU*9*t),sx:1+.12*sn*sin(TAU*9*t+1)});
+  [1.25,1.8,2.1,4.4,4.95,5.3].forEach((ts,i)=>{const[x,y]=S(72,240);chips(t,ts,x,y,1,40+i,{dir:PI*.62,spread:.8,speed:80,life:1.1,spin:300})});
+ }};
+
+/* 2: waddle */
+const WP=.8;
+M.walk={name:'Waddle',dur:4.8,
+ caption:'<b>Waddle.</b> A weight-shifting walk cycle: the body <b>rolls</b> over the planted foot, bobs and squashes at every footfall, each <b>foot</b> lifts and swings from its hip, the heavy <b>tail</b> bounces behind, the <b>log</b> and <b>ears</b> lag, and he keeps nibbling as he goes. Dust puffs at each step; ground and clouds scroll at different speeds.',
+ state(t){const ph=TAU*t/WP;const sy=1-.03*cos(2*ph);return{b:B({y:9*Math.abs(sin(ph)),r:6*sin(ph),sy,sx:volume(sy)})}},
+ extra(t,st,T,A){const ph=TAU*t/WP,sl=sin(ph),sr=-sl;
+  A('foot-l',{y:-17*Math.max(0,sl),r:22*sl});A('foot-r',{y:-17*Math.max(0,sr),r:22*sr});
+  A('tail',{r:-10*sin(2*ph+1)+4*sin(ph)});
+  LG(A,{y:-2.6*cos(2*ph),r:3*sin(ph+.6),x:2*sin(ph)});
+  chewA(A,TAU*3.75*t,.3);
+  A('ear-l',{r:5*sin(2*ph+.5)});A('ear-r',{r:-5*sin(2*ph)});
+  for(let k=0;k<=12;k++){const tk=.4*k;if(t-tk>=0&&t-tk<.55||t+M.walk.dur-tk<.55&&k>=11){const left=k%2===1;const[x,y]=S(left?138:276,408);dust(t>=tk?t:t+M.walk.dur,tk,x,y,50+k)}}
+ },
+ scroll(t){return t*200}};
+
+/* 3: signature power: chew a log into a bridge */
+const TT=3.15,TL=3.95,RT=5.05,RC=5.75;
+const PLANK=[785,505];
+M.power={name:'Power: Chew-a-Bridge',dur:6.2,
+ caption:'<b>Chew-a-Bridge</b> (his field power). He spots the gap, crouches, and <b>gnaws the log fast</b> with chips flying, then a final big bite pops it free: <b>the log tumbles across the pit and lands as a bridge</b> with a thud and dust. He does a little hop on empty paws, then calls the log back. (The log is the same drawing, just flying.)',
+ state(t){const br=breath(t);
+  const sy=keys(t,[[0,1],[.9,1],[1.45,.86],[1.6,.97],[3.0,.97],[3.12,.86],[3.24,1.14],[3.5,.98],[4.1,1],[4.2,.84],[4.3,1.12],[4.7,1.04],[4.85,.9],[4.95,1.02],[5.05,1],[5.7,1],[5.8,.9],[5.95,1.03],[6.2,1]])*(1+.012*br);
+  const fr=bump(t,1.6,3.05,.15);
+  const x=2.2*sin(TAU*17*t)*fr;
+  const y=hop(t,3.2,3.5,14)+hop(t,4.3,4.9,50);
+  const r=3*bump(t,.3,1.2,.25)+1.2*sin(TAU*9*t)*fr+7*bump(t,3.1,3.8,.18)-3.5*bump(t,5.65,6.1,.15);
+  return{b:B({x,y,r,sy,sx:volume(sy)})}},
+ extra(t,st,T,A,api){
+  const lk=bump(t,.2,1.1,.25);
+  A('eye-l',{x:4*lk});A('eye-r',{x:4*lk,sx:1+.08*lk,sy:1+.08*lk});A('ear-l',{r:-7*lk});A('ear-r',{r:7*lk});
+  const sn=bump(t,.5,1.0,.1);A('nose',{y:1.4*sn*sin(TAU*9*t)});
+  const cr=bump(t,.9,1.5,.2);A('eye-l',{sx:1+.1*cr,sy:1+.1*cr});A('eye-r',{sx:1+.1*cr,sy:1+.1*cr});
+  /* chew frenzy */
+  const amp=1.5*bump(t,1.6,3.1,.2);
+  chewA(A,TAU*9*t,amp);
+  const[mx,my]=S(180,188);
+  chipBeats(t,1.7,3.08,4.5,70,mx,my,2,{dir:-PI*.3,spread:1.3,speed:430,life:.9});
+  const tb=t-3.04;if(tb>0&&tb<.2){A('teeth',{y:5*sin(PI*tb/.2),sy:1.1});A('muzzle',{sy:1-.08*sin(PI*tb/.2)})}
+  api.word('CHOMP!',S(250,-25)[0],S(250,-25)[1],t,3.1,.6,-7);
+  if(t>=3.12&&t<3.3){const s=eob((t-3.12)/.1)*(1-sm((t-3.2)/.1));fxAdd({k:'spike',x:mx+10,y:my-4,s:1.5*s,r:t*50,c:'#FFD23C',a:1})}
+  /* the log's journey */
+  const b0=M.power.state(TT).b,p0=Mo(b0,LP[0],LP[1]);
+  const b1=M.power.state(RC).b,p2=Mo(b1,LP[0],LP[1]);
+  let lw=null; // world pose of the log while it is airborne / bridging
+  if(t>=TT&&t<TL){const u=(t-TT)/(TL-TT);lw={x:lerp(p0[0],PLANK[0],u),y:lerp(p0[1],PLANK[1],u)-190*4*u*(1-u),r:lerp(0,370,sm(u*1.02)),s:lerp(1,.88,u)}}
+  else if(t>=TL&&t<RT){const e=t-TL;const w=exp(-9*e)*cos(34*e);lw={x:PLANK[0],y:PLANK[1],r:10,s:.88,sq:w}}
+  else if(t>=RT&&t<RC){const u=(t-RT)/(RC-RT);lw={x:lerp(PLANK[0],p2[0],u),y:lerp(PLANK[1],p2[1],u)-170*4*u*(1-u),r:lerp(10,-350,sm(u)),s:lerp(.88,1,u)}}
+  if(lw){const c=toChar(lw.x,lw.y);const sq=lw.sq||0;
+    A('log',{x:c[0]-LP[0],y:c[1]-LP[1],r:lw.r-curB.r,sx:lw.s*(1+.1*sq),sy:lw.s*(1-.14*sq)});
+    /* empty paws: thrown up, then open "ta-da", then reaching for the log */
+    const th=bump(t,TT-.05,TT+.45,.1),ta=bump(t,TL,4.95,.2),rc=bump(t,RT+.2,RC+.05,.2);
+    A('paw-l',{y:-26*th-12*ta-14*rc,x:-6*th-12*ta-4*rc});A('paw-r',{y:-26*th-12*ta-14*rc,x:6*th+12*ta+8*rc});
+    A('teeth',{y:-1});
+  }else chewA(A,0,0);
+  /* landing + celebration */
+  const tl=t-TL;
+  const[gx,gy]=[PLANK[0],PLANK[1]+34];
+  crumbs(t,TL,gx-110,gy,7,31,260,.7,'#8a5a3b');crumbs(t,TL,gx+110,gy,7,32,260,.7,'#8a5a3b');
+  dust(t,TL,gx-120,gy+2,33,'#d9cfb8');dust(t,TL,gx+170,gy+2,34,'#d9cfb8');
+  api.word('BRIDGE!',PLANK[0],PLANK[1]-120,t,TL+.02,1.0,-5);
+  chips(t,TL,gx,gy-20,10,35,{dir:-PI/2,spread:2.2,speed:380,life:1.1});
+  const jp=bump(t,4.2,4.95,.12);
+  A('eye-l',{sy:1-.6*jp,sx:1+.08*jp});A('eye-r',{sy:1-.6*jp,sx:1+.08*jp});
+  A('tail',{r:20*jp*sin(TAU*5*t)});A('ear-l',{r:-10*jp*sin(TAU*4*t)});A('ear-r',{r:10*jp*sin(TAU*4*t+1)});
+  A('foot-l',{r:10*jp*sin(TAU*3*t)});A('foot-r',{r:-10*jp*sin(TAU*3*t)});
+  const cb=t-RC;if(cb>0&&cb<.2){A('teeth',{y:4*sin(PI*cb/.2)})}
+ }};
+
+/* 4: action: chew attack */
+M.attack={name:'Attack: Chipper',dur:3.4,
+ caption:'<b>Chipper.</b> A wind-up (he rocks back and winds the log in), a fast <b>lunge</b> forward, then a <b>chew frenzy</b> at 12 bites a second: the log and teeth rattle, the ears flap, the whole body vibrates and <b>wood chips spray</b> from his mouth and both ends of the log. A big final bite lands with a burst, then he recoils home.',
+ state(t){const fr=bump(t,.64,1.8,.06);
+  const x=keys(t,[[0,0],[.12,0],[.5,-18],[.6,62],[.72,72],[1.75,74],[1.9,90],[2.05,82],[2.6,-6],[2.95,3],[3.4,0]])+2.2*sin(TAU*24*t)*fr;
+  const r=keys(t,[[0,0],[.5,-7],[.62,9],[1.75,9],[1.9,13],[2.2,5],[2.7,-1],[3.4,0]]);
+  const sy=keys(t,[[0,1],[.3,1],[.5,.86],[.6,1.14],[.72,.98],[1.8,.98],[1.9,.86],[2.0,1.12],[2.25,.96],[2.7,1.02],[3.4,1]])*(1+.01*breath(t));
+  const y=hop(t,.52,.72,16)+hop(t,1.82,2.05,10);
+  return{b:B({x,y,r,sy,sx:volume(sy)})}},
+ extra(t,st,T,A,api){
+  const pre=bump(t,.15,.58,.2),fr=bump(t,.64,1.84,.06);
+  LG(A,{x:-6*pre});A('teeth',{y:-5*pre});
+  A('eye-l',{sx:1+.15*pre,sy:1+.15*pre});A('eye-r',{sx:1+.15*pre,sy:1+.15*pre});
+  A('ear-l',{r:8*pre});A('ear-r',{r:-8*pre});A('tail',{r:12*pre});
+  chewA(A,TAU*12*t,1.7*fr);
+  const fin=t-1.84;if(fin>0&&fin<.25){const s=sin(PI*fin/.25);A('teeth',{y:6*s,sy:1.1});A('muzzle',{sy:1-.1*s});LG(A,{x:-5*s})}
+  A('eye-l',{sy:1-.2*fr});A('eye-r',{sy:1-.2*fr});
+  const[mx,my]=S(180,190),[lx,ly]=S(64,228),[rx,ry]=S(350,185);
+  chipBeats(t,.66,1.82,6,80,mx,my,2,{dir:-PI*.18,spread:1.2,speed:560,life:.8,size:1.1});
+  chipBeats(t,.66,1.82,6,200,lx,ly,1,{dir:-PI*.85,spread:1.0,speed:330,life:.8});
+  chipBeats(t,.7,1.82,4,300,rx,ry,1,{dir:-PI*.3,spread:1.0,speed:330,life:.8});
+  chips(t,1.9,mx+8,my,14,90,{dir:-PI*.2,spread:2.0,speed:700,life:1.0,size:1.15});
+  if(t>=1.9&&t<2.2){const s=eob((t-1.9)/.1)*(1-sm((t-2.0)/.2));fxAdd({k:'spike',x:rx+20,y:ry-10,s:2.1*s,r:t*40,c:'#FFD23C',a:1})}
+  dust(t,.52,S(140,408)[0],S(140,408)[1],5);dust(t,.58,S(276,400)[0],S(276,400)[1],6);dust(t,1.84,S(140,408)[0],S(140,408)[1],7);
+  api.word('CHIP-CHIP!',S(200,-30)[0]+40,S(200,-30)[1],t,.72,.62,-6);
+  api.word('CHIPPER!',S(200,-30)[0]+70,S(200,-30)[1]-10,t,1.86,.9,5);
+ }};
+
+/* 5: hurt */
+const HT=.45;
+function flashAt(h){if(h<0)return null;if(h<.06)return{a:.8,c:[1,1,1]};if(h<.12)return{a:0,c:[1,1,1]};if(h<.2)return{a:.7,c:[1,1,1]};
+  if(h<.8)return{a:.55*exp(-5*(h-.2)),c:[1,.35,.32]};return null}
+M.hurt={name:'Ouch! (hurt)',dur:3.6,
+ caption:'<b>Ouch.</b> A white then pink hit flash, <b>knockback</b> with a squash-then-stretch and a decaying wobble. The <b>eyes</b> bulge then squeeze shut, the <b>ears</b> flatten, the <b>tail</b> whips, the <b>log</b> jumps and the <b>teeth</b> chatter while loose <b>wood chips</b> fly off. Dizzy stars circle his head, then he slides home.',
+ state(t){const h=t-HT;let x=0,y=0,r=0,sx=1,sy=1;
+  if(h>0){x=-90*eoc(h/.4);if(h>1.25)x=-90*(1-sm((h-1.25)/.8));
+    y=30*sin(PI*clamp(h/.42))+(h>1.25&&h<2.05?9*sin(PI*(h-1.25)/.8):0);
+    r=-16*exp(-4.2*h)*cos(12*h)+(h>1.25&&h<2.1?4*sin(PI*(h-1.25)/.85):0);
+    sx=1-.24*exp(-9*h)*cos(24*h);sy=1+.28*exp(-9*h)*cos(24*h)}
+  else{sy=1+.026*breath(t);sx=volume(sy)}
+  return{b:B({x,y,r,sx,sy}),flash:flashAt(h)}},
+ extra(t,st,T,A,api){const h=t-HT;
+  if(h<=0)return;
+  const w=exp(-3*h),ew=exp(-1.4*h),bul=1+.4*exp(-1.5*h);
+  const shut=bump(h,.16,1.0,.08);
+  A('eye-l',{sx:bul,sy:bul*(1-.85*shut)});A('eye-r',{sx:bul,sy:bul*(1-.85*shut)});
+  A('ear-l',{r:-40*ew-6*w*sin(18*h)});A('ear-r',{r:40*ew+6*w*sin(18*h+.5)});
+  A('tail',{r:34*w*sin(16*h)});A('foot-l',{r:14*w*sin(14*h)});A('foot-r',{r:-14*w*sin(14*h+.4)});
+  LG(A,{y:-24*sin(PI*clamp(h/.4)),r:11*exp(-5*h)*sin(18*h)});
+  A('paw-l',{y:-8*exp(-3*h)*sin(16*h)});A('paw-r',{y:8*exp(-3*h)*sin(16*h+1)});
+  A('teeth',{y:3.5*w*sin(40*h),r:3*w*sin(30*h)});A('muzzle',{sy:1-.08*exp(-6*h)});A('nose',{y:2*w*sin(26*h)});
+  const[hx,hy]=S(185,30),[bx,by]=S(300,170);
+  chips(t,HT+.03,S(200,170)[0],S(200,170)[1],9,61,{dir:-PI/2,spread:2.8,speed:340,life:1.2});
+  if(h<.3){const s=eob(h/.1)*(1-sm((h-.18)/.12));fxAdd({k:'spike',x:bx+40,y:by-20,s:2.1*s,r:h*60,c:'#FFD23C',a:1})}
+  api.word('OUCH!',hx-60,S(185,-40)[1],t,HT+.04,.8,-10);
+  if(h>.35&&h<1.9){const a=1-sm((h-1.5)/.4);
+    for(let i=0;i<3;i++){const an=h*5+i*TAU/3;fxAdd({k:'star',x:hx+cos(an)*70,y:hy+sin(an)*18-sm((h-.35)/.15)*8,s:.9+.2*sin(an+1),r:an*40,c:i==1?'#f06a8a':'#FFD23C',a})}}
+ }};
+
+/* 6: happy */
+M.happy={name:'Yay! (happy)',dur:3.2,
+ caption:'<b>Celebrate.</b> A squat, then a springy hop with the <b>log hoisted</b>, <b>eyes squeezed into happy slits</b>, the <b>tail wagging</b> and <b>ears</b> flapping, a bigger jump ending in a <b>full spin</b>, and a burst of confetti mixed with his own wood chips.',
+ state(t){let y=0,r=0,pv=0,sy=1+.02*breath(t);
+  y=hop(t,.55,1.15,82)+hop(t,1.95,2.7,108);
+  sy*=keys(t,[[0,1],[.2,.8],[.28,.82],[.36,1.2],[.9,1.08],[1.15,1.1],[1.22,.74],[1.34,1.08],[1.45,1],[1.7,1],[1.85,.76],[1.95,.8],[2.02,1.22],[2.55,1.08],[2.7,1.12],[2.78,.72],[2.92,1.08],[3.05,.99],[3.2,1]]);
+  if(t>2.0&&t<2.72){r=360*sm((t-2.0)/.7);pv=150}
+  if(t>.55&&t<1.15)r=6*sin(PI*(t-.55)/.6);
+  return{b:B({y,r,pv,sy,sx:volume(sy)})}},
+ extra(t,st,T,A,api){
+  const up=keys(t,[[0,0],[.25,-.5],[.45,0],[.55,1],[1.15,1],[1.4,.2],[1.7,0],[1.85,-.5],[1.95,-.3],[2.02,1],[2.7,1],[2.95,.1],[3.2,0]]);
+  const sq=keys(t,[[0,0],[.3,.6],[.5,1],[1.2,1],[1.5,0],[1.8,.4],[2,1],[2.8,1],[3.0,0]]);
+  const fl=sin(TAU*3.2*t);
+  LG(A,{y:-24*up+(up<0?0:0),r:Math.max(up,0)*7*sin(TAU*3.2*t+.6)});
+  A('paw-l',{y:-4*Math.max(up,0)*sin(TAU*3.2*t+1)});A('paw-r',{y:-4*Math.max(up,0)*sin(TAU*3.2*t+2)});
+  A('eye-l',{sy:1-.65*sq,sx:1+.12*sq});A('eye-r',{sy:1-.65*sq,sx:1+.12*sq});
+  A('teeth',{sy:1+.1*sq,y:2*sq});A('muzzle',{sy:1+.04*sq});
+  A('tail',{r:22*sq*sin(TAU*5*t)});A('ear-l',{r:-12*sq*sin(TAU*4*t)});A('ear-r',{r:12*sq*sin(TAU*4*t+1.2)});
+  A('foot-l',{r:sq*8*sin(TAU*3.2*t)});A('foot-r',{r:-sq*8*sin(TAU*3.2*t)});
+  const[cx,cy]=S(185,170);
+  confetti(t,.95,cx,cy-90,14,5,560,1.7);confetti(t,2.45,cx,cy-60,20,8,700,1.9);
+  chips(t,.95,cx,cy-90,8,15,{dir:-PI/2,spread:2.2,speed:540,life:1.7});
+  chips(t,2.45,cx,cy-60,12,18,{dir:-PI/2,spread:2.6,speed:620,life:1.9});
+  api.word('YAY!',SX+130,150,t,.62,.9,8);
+  api.word('WHEE!',SX-130,150,t,2.1,.9,-8);
+ }};
+const ORDER=['idle','walk','power','attack','hurt','happy'];
+const LABEL={idle:'Idle',walk:'Waddle',power:'Power',attack:'Attack',hurt:'Ouch',happy:'Yay'};
+let wordShown=false;
+const api={word:(txt,x,y,t,t0,life,rot)=>{if(wordPop(txt,x,y,t,t0,life,rot))wordShown=true}};
+
+/* ---------- render ---------- */
+let cur='idle',t0=0,speed=1,paused=false,T=0;
+function render(T){
+  const m=M[cur];const t=wrap(T-t0,m.dur);
+  const st=m.state(t);const b=st.b;curB=b;curM=matFrom(b);acc={};fxList=[];chipList=[];wordShown=false;
+  const lag=d=>m.state(wrap(t-d,m.dur)).b;
+  const vel=d=>{const a=lag(d),c=lag(d+.04);return{x:(a.x-c.x)/.04,y:(a.y-c.y)/.04,r:(a.r-c.r)/.04,sy:(a.sy-c.sy)/.04}};
+  const A=add;
+  /* shared secondary motion (overlapping action) */
+  const v2=vel(.09),v3=vel(.13);
+  A('ear-l',{r:-cl(v2.y*.02,16)-cl(v2.x*.03,12)+cl(v2.r*.1,8)+1.6*sin(1.9*T)});
+  A('ear-r',{r:cl(v2.y*.02,16)-cl(v2.x*.03,12)+cl(v2.r*.1,8)+1.6*sin(2.1*T+1)});
+  A('tail',{r:-cl(v3.y*.025,16)+cl(v3.x*.02,10)+cl(v3.r*.1,10)+3*sin(1.3*T)});
+  A('foot-l',{r:cl(v2.y*.01,6)+1.2*sin(1.1*T)});A('foot-r',{r:-cl(v2.y*.01,6)-1.2*sin(1.1*T+.8)});
+  const L=lag(.07),fy=cl((b.y-L.y)*.12,6),fs=1+cl((L.sy-b.sy)*.7,.05);
+  for(const id of['eye-l','eye-r','muzzle','nose','teeth'])A(id,{y:fy});
+  const L2=lag(.12);LG(A,{y:cl((b.y-L2.y)*.18,10),x:cl(-v2.x*.02,8)});
+  /* eyes: wander + blink */
+  const lx=2.6*sin(.6*T)+1.3*sin(1.7*T+1),ly=1.1*sin(.9*T+2),bl=blinkAmt(T);
+  A('eye-l',{x:lx,y:ly,sy:1-.92*bl});A('eye-r',{x:lx,y:ly,sy:1-.92*bl});
+  m.extra(t,st,T,A,api);
+  /* rig transform */
+  rig.setAttribute('transform',curM.toString().replace('matrix(','matrix('));
+  /* apply part transforms */
+  for(const id of ids){const a=acc[id];if(!a){setT(id,'');continue}
+    const pv=P[id].piv;setT(id,`translate(${f2(pv[0]+a.x)} ${f2(pv[1]+a.y)}) rotate(${f2(a.r)}) skewX(${f2(a.k)}) scale(${f2(a.sx)} ${f2(a.sy)}) translate(${-pv[0]} ${-pv[1]})`)}
+  /* shadow */
+  const hgt=Math.max(b.y,0);const sc=1/(1+hgt/230);const rx=112*K*sc*(1+(1-b.sy)*.5);
+  shadow.setAttribute('cx',f2(SX+(8+b.x)*K));shadow.setAttribute('cy',GY+3);shadow.setAttribute('rx',f2(rx));shadow.setAttribute('ry',f2(rx*.15));shadow.setAttribute('opacity',f2(.95*(.4+.6*sc)));
+  /* world */
+  let sc2=0;if(cur==='walk')sc2=m.scroll(t);
+  tuftsM.setAttribute('transform',`translate(${f2(-(sc2%240))} 0)`);farM.setAttribute('transform',`translate(${f2(-((sc2*.5)%480))} 0)`);
+  gapG.setAttribute('display',cur==='power'?'':'none');
+  let shk=0;
+  if(cur==='power'){const e=t-TL;if(e>0&&e<.5)shk=exp(-9*e)*sin(60*e)*7;const f=t-3.12;if(f>0&&f<.4)shk+=exp(-9*f)*sin(60*f)*4}
+  if(cur==='attack'){const e=t-1.9;if(e>0&&e<.4)shk=exp(-9*e)*sin(60*e)*7}
+  if(cur==='hurt'&&t>HT&&t<HT+.4)shk=exp(-9*(t-HT))*sin(70*(t-HT))*7;
+  worldEl.setAttribute('transform',shk?`translate(${f2(shk)} ${f2(shk*.4)})`:'');
+  if(!wordShown)word.setAttribute('opacity',0);
+  const fl=st.flash;
+  if(fl&&fl.a>.01){const a=fl.a,c=fl.c;fm.setAttribute('values',`${1-a} 0 0 0 ${a*c[0]} 0 ${1-a} 0 0 ${a*c[1]} 0 0 ${1-a} 0 ${a*c[2]} 0 0 0 1 0`);rig.setAttribute('filter','url(#flash)')}else rig.removeAttribute('filter');
+  drawFx();
+}
+/* rig transform as an explicit matrix string */
+DOMMatrix.prototype.toString=function(){return`matrix(${this.a} ${this.b} ${this.c} ${this.d} ${this.e} ${this.f})`};
+
+/* ---------- UI ---------- */
+const modesBar=$('#modes');
+ORDER.forEach((k,i)=>{const b=document.createElement('button');b.dataset.mode=k;b.innerHTML=`<kbd>${i+1}</kbd>${LABEL[k]}`;b.setAttribute('aria-pressed',k===cur);b.onclick=()=>setMode(k);modesBar.appendChild(b)});
+function setMode(k){cur=k;t0=T;[...modesBar.children].forEach(b=>b.setAttribute('aria-pressed',b.dataset.mode===k));$('#tag').textContent=M[k].name;$('#cap').innerHTML=M[k].caption}
+function setSpeed(s){speed=s;document.querySelectorAll('[data-speed]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.speed===s));$('#badge').classList.toggle('on',s<1);$('#badge').textContent=s+'× slow-mo'}
+document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>setSpeed(+b.dataset.speed));
+$('#replay').onclick=()=>{t0=T};
+function setPause(p){paused=p;$('#pause').innerHTML=`<kbd>Space</kbd>${p?'Play':'Pause'}`}
+$('#pause').onclick=()=>setPause(!paused);
+addEventListener('keydown',e=>{if(e.metaKey||e.ctrlKey||e.altKey)return;const k=e.key;
+  if(k>='1'&&k<='6'){setMode(ORDER[+k-1])}else if(k===' '){e.preventDefault();setPause(!paused)}
+  else if(k==='r'||k==='R')t0=T;else if(k==='s'||k==='S')setSpeed(speed===1?.5:speed===.5?.25:1)});
+setMode('idle');
+let last=performance.now();
+function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;if(!paused)T+=dt*speed;render(T);requestAnimationFrame(loop)}
+requestAnimationFrame(t=>{last=t;loop(t)});
+window.__chip={seek(mode,t){setMode(mode);paused=true;T=t;t0=0;render(T)},setSpeed,setPause};
+})();
+
+</script>
+</body></html>

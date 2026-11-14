@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Zigzag: character animation demo</title>
+<style>
+*{box-sizing:border-box}
+:root{--ink:#1a1a1a;--paper:#efe9dc;--sheet:#FBF8F0;--orange:#E8921C;--yellow:#FFF1A8;--mute:#5b554b}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font-family:Andika,"Avenir Next Rounded","Arial Rounded MT Bold",Verdana,"DejaVu Sans",sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center}
+header{width:100%;max-width:1100px;padding:14px 20px 0;display:flex;align-items:center;gap:14px}
+.chip{width:46px;height:46px;border-radius:12px;border:3px solid var(--ink);background:var(--orange);color:#fff;display:grid;place-items:center;font-size:26px;font-weight:900;text-shadow:0 2px 0 var(--ink);flex:none}
+h1{margin:0;font-size:22px;line-height:1.1}
+h1 small{display:block;font-size:13px;font-weight:400;color:var(--mute);margin-top:3px}
+main{width:100%;max-width:1100px;padding:10px 20px 20px;display:flex;flex-direction:column;align-items:center;gap:10px}
+.stage{position:relative;width:min(100%,calc((100vh - 230px)*1.6));aspect-ratio:960/600;border:3px solid var(--ink);border-radius:14px;overflow:hidden;
+  background:
+   radial-gradient(120% 90% at 18% 8%,rgba(255,236,170,.65),rgba(255,236,170,0) 60%),
+   repeating-linear-gradient(0deg,rgba(120,150,190,.13) 0 1.5px,transparent 1.5px 34px),
+   var(--sheet);
+  box-shadow:0 3px 0 rgba(0,0,0,.18),0 12px 24px -12px rgba(80,60,20,.35)}
+.stage::after{content:"";position:absolute;inset:0;pointer-events:none;mix-blend-mode:multiply;opacity:.55;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' seed='4'/><feColorMatrix values='0 0 0 0 .55  0 0 0 0 .47  0 0 0 0 .33  0 0 0 .22 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
+#stage{position:absolute;inset:0;width:100%;height:100%;display:block}
+.tag{position:absolute;left:12px;top:10px;font-weight:800;font-size:15px;background:var(--yellow);border:3px solid var(--ink);border-radius:10px;padding:3px 10px;transform:rotate(-1.5deg);z-index:2}
+.badge{position:absolute;right:12px;top:10px;font-weight:800;font-size:14px;background:#fff;border:3px solid var(--ink);border-radius:10px;padding:3px 10px;transform:rotate(1.5deg);z-index:2;display:none}
+.badge.on{display:block}
+.bar{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+button{font:800 15px inherit;font-family:inherit;color:var(--ink);padding:8px 14px;border-radius:12px;border:3px solid var(--ink);background:#fff;cursor:pointer;box-shadow:0 3px 0 var(--ink);transition:transform .06s,box-shadow .06s}
+button:active{transform:translateY(2px);box-shadow:0 1px 0 var(--ink)}
+button[aria-pressed=true]{background:var(--yellow)}
+button kbd{font:inherit;font-size:12px;opacity:.55;margin-right:5px}
+.seg{display:flex;gap:6px;align-items:center}
+.seg span{font-size:13px;color:var(--mute);font-weight:700}
+.seg button{padding:5px 10px;font-size:13px;box-shadow:0 2px 0 var(--ink)}
+.thumb{width:26px;height:18px;vertical-align:-4px;margin-right:4px}
+#cap{max-width:900px;font-size:14px;line-height:1.45;color:#3d382f;text-align:center;margin:2px 0 0}
+#cap b{color:var(--ink)}
+@media (max-height:520px){
+  header{display:none}
+  main{padding:6px 10px;gap:6px}
+  .stage{width:min(100%,calc((100vh - 104px)*1.6))}
+  #cap{display:none}
+  button{padding:5px 9px;font-size:12px;box-shadow:0 2px 0 var(--ink)}
+  .seg button{padding:3px 7px;font-size:11px}
+  .tag{font-size:12px}
+}
+@media (max-width:640px) and (min-height:521px){ .stage{width:100%} h1{font-size:18px} }
+.chip{background:#3a3a3a}
+</style></head>
+<body>
+<header><span class="chip">Z</span><h1>Zigzag the bat, animated part by part<small>Each wing bends at a joint; legs, feet, brows and tongue are their own pieces. Number keys 1&ndash;6 pick an animation.</small></h1></header>
+<main>
+<div class="stage">
+<svg id="stage" viewBox="0 0 960 600" preserveAspectRatio="xMidYMid meet" aria-label="Zigzag the bat with zigzag wings, animated">
+<defs>
+  <radialGradient id="shadowG"><stop offset="0" stop-color="#3a2a10" stop-opacity=".5"/><stop offset=".6" stop-color="#3a2a10" stop-opacity=".22"/><stop offset="1" stop-color="#3a2a10" stop-opacity="0"/></radialGradient>
+  <radialGradient id="glowG"><stop offset="0" stop-color="#fff6c0" stop-opacity=".95"/><stop offset=".5" stop-color="#ffe27a" stop-opacity=".45"/><stop offset="1" stop-color="#ffe27a" stop-opacity="0"/></radialGradient>
+  <filter id="flash" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB"><feColorMatrix id="fm" type="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 1 0"/></filter>
+  <symbol id="s-star" overflow="visible"><polygon points="0,-10 3,-3.5 10,-3 4.6,1.6 6.2,8.6 0,4.8 -6.2,8.6 -4.6,1.6 -10,-3 -3,-3.5" stroke-linejoin="round"/></symbol>
+  <symbol id="s-dot" overflow="visible"><circle r="5"/></symbol>
+  <symbol id="s-scrap" overflow="visible"><rect x="-6" y="-3.5" width="12" height="7" rx="1"/></symbol>
+  <symbol id="s-line" overflow="visible"><rect x="-26" y="-1.6" width="52" height="3.2" rx="1.6" stroke="none"/></symbol>
+  <symbol id="s-spike" overflow="visible"><polygon points="0,-30 7,-12 26,-20 15,-4 34,2 14,8 22,28 6,16 0,34 -6,16 -22,28 -14,8 -34,2 -15,-4 -26,-20 -7,-12" stroke-linejoin="round"/></symbol>
+  <symbol id="s-bat1" overflow="visible"><g transform="translate(-405 -380)"><path d="M303.0 348.0 C303.0 348.0 342.0 316.0 342.0 316.0 C342.0 316.0 366.0 343.0 366.0 343.0 C366.0 343.0 396.0 309.0 396.0 309.0 C396.0 309.0 405.0 347.0 405.0 347.0 C405.0 347.0 435.0 311.0 435.0 311.0 C435.0 311.0 446.0 345.0 446.0 345.0 C446.0 345.0 492.0 318.0 492.0 318.0 C492.0 318.0 508.0 373.0 508.0 373.0 C508.0 373.0 470.0 366.0 470.0 366.0 C470.0 366.0 478.0 416.0 478.0 416.0 C478.0 416.0 437.0 389.0 437.0 389.0 C437.0 389.0 383.0 450.0 383.0 450.0 C383.0 450.0 378.0 364.0 378.0 364.0 C378.0 364.0 317.0 405.0 317.0 405.0 C317.0 405.0 346.0 360.0 346.0 360.0 C346.0 360.0 303.0 348.0 303.0 348.0 Z" stroke="#1a1a1a" stroke-width="7"/></g></symbol>
+  <symbol id="s-bat2" overflow="visible"><g transform="translate(-398 -580)"><path d="M287.0 548.0 C287.0 548.0 324.0 484.0 324.0 484.0 C324.0 484.0 360.0 543.0 360.0 543.0 C360.0 543.0 392.0 500.0 392.0 500.0 C392.0 500.0 394.0 550.0 394.0 550.0 C394.0 550.0 419.0 507.0 419.0 507.0 C419.0 507.0 426.0 559.0 426.0 559.0 C426.0 559.0 496.0 532.0 496.0 532.0 C496.0 532.0 510.0 602.0 510.0 602.0 C510.0 602.0 489.0 572.0 489.0 572.0 C489.0 572.0 485.0 636.0 485.0 636.0 C485.0 636.0 458.0 590.0 458.0 590.0 C458.0 590.0 426.0 582.0 426.0 582.0 C426.0 582.0 394.0 677.0 394.0 677.0 C394.0 677.0 340.0 610.0 340.0 610.0 C340.0 610.0 287.0 548.0 287.0 548.0 Z" stroke="#1a1a1a" stroke-width="7"/></g></symbol>
+  <clipPath id="c-wl-in"><rect x="50" y="-60" width="90" height="300"/></clipPath>
+  <clipPath id="c-wl-out"><rect x="-40" y="-60" width="98" height="300"/></clipPath>
+  <clipPath id="c-wr-in"><rect x="120" y="-60" width="88" height="300"/></clipPath>
+  <clipPath id="c-wr-out"><rect x="198" y="-60" width="120" height="300"/></clipPath>
+</defs>
+<g id="world">
+  <g id="far"></g>
+  <g id="groundBack">
+    <path d="M-20 548 C 120 540, 240 552, 380 543 S 640 551, 780 542 S 920 550, 990 545 L990 620 L-20 620Z" fill="#eadfc4" opacity=".7"/>
+    <path d="M-20 543 C 120 536, 240 548, 380 539 S 640 547, 780 538 S 920 546, 990 541" fill="none" stroke="#1a1a1a" stroke-width="4" stroke-linecap="round"/>
+    <path d="M30 560 L170 559 M260 574 L420 572 M520 560 L690 561 M770 576 L930 574" stroke="#a8b4c4" stroke-width="2.5" stroke-linecap="round" fill="none" opacity=".7"/>
+  </g>
+  <g id="tufts"></g>
+  <g id="glow"><circle id="glowC" r="1" fill="url(#glowG)" opacity="0"/></g>
+  <ellipse id="shadow" cx="480" cy="543" rx="120" ry="18" fill="url(#shadowG)"/>
+  <g id="ghostG"></g>
+  <polyline id="trail" points="" fill="none" stroke="#1a1a1a" stroke-width="4" stroke-dasharray="3 11" stroke-linecap="round" opacity="0"/>
+  <path id="thread" d="" fill="none" stroke="#1a1a1a" stroke-width="3.4" stroke-linecap="round" opacity="0"/>
+  <g id="rig"><g id="rigInner">
+<g stroke-linecap="round" stroke-linejoin="round">
+<g id="wing-l"><path clip-path="url(#c-wl-in)" d="M8.3 46.0 C8.3 46.0 27.6 30.4 27.6 30.4 C27.6 30.4 46.0 18.4 46.0 18.4 C46.0 18.4 35.0 40.5 35.0 40.5 C35.0 40.5 57.0 29.4 57.0 29.4 C57.0 29.4 51.5 53.4 51.5 53.4 C51.5 53.4 58.6 51.2 62.6 49.7 C66.5 48.1 71.1 43.7 75.4 44.2 C79.7 44.6 85.3 47.8 88.3 52.4 C91.4 57.0 93.8 71.8 93.8 71.8 C93.8 71.8 103.0 79.1 103.0 79.1 C103.0 79.1 87.6 72.5 79.1 69.0 C70.7 65.5 64.2 61.8 52.4 58.0 C40.6 54.1 8.3 46.0 8.3 46.0 Z" fill="#fbfaf6" stroke="#1a1a1a" stroke-width="7" /><g id="wing-l2"><path clip-path="url(#c-wl-out)" d="M8.3 46.0 C8.3 46.0 27.6 30.4 27.6 30.4 C27.6 30.4 46.0 18.4 46.0 18.4 C46.0 18.4 35.0 40.5 35.0 40.5 C35.0 40.5 57.0 29.4 57.0 29.4 C57.0 29.4 51.5 53.4 51.5 53.4 C51.5 53.4 58.6 51.2 62.6 49.7 C66.5 48.1 71.1 43.7 75.4 44.2 C79.7 44.6 85.3 47.8 88.3 52.4 C91.4 57.0 93.8 71.8 93.8 71.8 C93.8 71.8 103.0 79.1 103.0 79.1 C103.0 79.1 87.6 72.5 79.1 69.0 C70.7 65.5 64.2 61.8 52.4 58.0 C40.6 54.1 8.3 46.0 8.3 46.0 Z" fill="#fbfaf6" stroke="#1a1a1a" stroke-width="7" /></g></g>
+<g id="wing-r"><path clip-path="url(#c-wr-in)" d="M138.0 88.3 C138.0 88.3 150.6 78.4 156.4 75.4 C162.2 72.5 167.7 70.8 173.0 70.8 C178.2 70.8 183.8 72.7 187.7 75.4 C191.5 78.2 193.8 81.1 196.0 87.4 C198.1 93.7 200.6 113.2 200.6 113.2 C200.6 113.2 225.4 80.0 225.4 80.0 C225.4 80.0 235.5 125.1 235.5 125.1 C235.5 125.1 250.2 73.6 250.2 73.6 C250.2 73.6 257.6 84.6 257.6 84.6 C257.6 84.6 258.5 135.2 258.5 135.2 C258.5 135.2 246.3 133.7 236.4 131.6 C226.6 129.4 210.4 125.6 199.6 122.4 C188.9 119.1 182.3 117.9 172.0 112.2 C161.8 106.6 138.0 88.3 138.0 88.3 Z" fill="#fbfaf6" stroke="#1a1a1a" stroke-width="7" /><g id="wing-r2"><path clip-path="url(#c-wr-out)" d="M138.0 88.3 C138.0 88.3 150.6 78.4 156.4 75.4 C162.2 72.5 167.7 70.8 173.0 70.8 C178.2 70.8 183.8 72.7 187.7 75.4 C191.5 78.2 193.8 81.1 196.0 87.4 C198.1 93.7 200.6 113.2 200.6 113.2 C200.6 113.2 225.4 80.0 225.4 80.0 C225.4 80.0 235.5 125.1 235.5 125.1 C235.5 125.1 250.2 73.6 250.2 73.6 C250.2 73.6 257.6 84.6 257.6 84.6 C257.6 84.6 258.5 135.2 258.5 135.2 C258.5 135.2 246.3 133.7 236.4 131.6 C226.6 129.4 210.4 125.6 199.6 122.4 C188.9 119.1 182.3 117.9 172.0 112.2 C161.8 106.6 138.0 88.3 138.0 88.3 Z" fill="#fbfaf6" stroke="#1a1a1a" stroke-width="7" /></g></g>
+<g id="leg-l"><path d="M108.6 104.9 C106.0 106.6 98.0 111.5 92.9 115.0 C87.9 118.5 80.7 124.2 78.2 126.0" fill="none" stroke="#1a1a1a" stroke-width="7"/><g id="foot-l"><path d="M78.2 126.0 C74.8 127.4 61.3 132.9 58.0 134.3" fill="none" stroke="#1a1a1a" stroke-width="7"/><path d="M77.3 127.9 C74.7 130.6 64.2 141.7 61.6 144.4" fill="none" stroke="#1a1a1a" stroke-width="7"/><path d="M79.1 128.8 C79.9 132.8 83.0 148.7 83.7 152.7" fill="none" stroke="#1a1a1a" stroke-width="7"/></g></g>
+<g id="leg-r"><path d="M128.8 113.2 C130.6 118.1 136.0 134.9 139.8 142.6 C143.7 150.3 149.8 156.4 151.8 159.2" fill="none" stroke="#1a1a1a" stroke-width="7"/><g id="foot-r"><path d="M151.8 159.2 C153.6 161.5 161.0 170.7 162.8 173.0" fill="none" stroke="#1a1a1a" stroke-width="7"/><path d="M150.9 160.1 C148.6 163.0 139.4 174.6 137.1 177.6" fill="none" stroke="#1a1a1a" stroke-width="7"/><path d="M150.9 161.0 C150.7 164.5 150.1 178.6 150.0 182.2" fill="none" stroke="#1a1a1a" stroke-width="7"/></g></g>
+<g id="head"><path d="M144.4 80.0 C145.6 85.8 144.0 94.1 141.2 99.1 C138.5 104.0 132.8 108.5 127.7 109.7 C122.6 110.9 115.1 109.5 110.7 106.1 C106.3 102.6 102.4 95.2 101.2 89.1 C99.9 83.1 100.5 74.9 103.1 69.9 C105.7 65.0 111.9 60.3 117.0 59.3 C122.1 58.3 129.1 60.5 133.6 63.9 C138.2 67.4 143.1 74.1 144.4 80.0 Z" fill="#fbfaf6" stroke="#1a1a1a" stroke-width="7" /><path d="M116.8 58.0 C117.6 60.4 120.7 70.2 121.4 72.7" fill="none" stroke="#1a1a1a" stroke-width="6"/><g id="eye-a"><path d="M117.9 73.5 C118.0 74.0 117.6 74.7 117.1 75.2 C116.6 75.6 115.7 76.1 114.9 76.2 C114.2 76.4 113.1 76.3 112.5 76.0 C111.9 75.8 111.4 75.1 111.3 74.6 C111.3 74.1 111.5 73.4 111.9 72.9 C112.4 72.5 113.4 72.0 114.2 71.9 C114.9 71.7 115.9 71.9 116.5 72.1 C117.2 72.4 117.8 73.0 117.9 73.5 Z" fill="#1a1a1a" stroke="none" /></g><g id="eye-b"><path d="M138.6 81.9 C138.6 82.7 138.1 83.7 137.6 84.3 C137.0 84.9 136.0 85.3 135.2 85.4 C134.5 85.4 133.4 85.0 132.9 84.4 C132.3 83.8 132.0 82.7 132.0 81.9 C132.0 81.0 132.3 80.0 132.9 79.4 C133.4 78.8 134.5 78.4 135.2 78.4 C136.0 78.4 137.0 78.9 137.5 79.5 C138.1 80.0 138.6 81.1 138.6 81.9 Z" fill="#1a1a1a" stroke="none" /></g>
+<path id="brow-a" d="M105 68 L121 68" fill="none" stroke="#1a1a1a" stroke-width="5" opacity="0"/><path id="brow-b" d="M127 75 L144 75" fill="none" stroke="#1a1a1a" stroke-width="5" opacity="0"/>
+<g id="smile"><path d="M110.4 84.6 C111.0 86.5 112.2 92.9 114.1 95.7 C115.9 98.4 118.7 101.2 121.4 101.2 C124.2 101.2 129.1 96.6 130.6 95.7" fill="none" stroke="#1a1a1a" stroke-width="6"/></g>
+<g id="mouth" opacity="0"><path d="M107 89 C109 111 134 111 136 91 Z" fill="#1a1a1a" stroke="#1a1a1a" stroke-width="3"/><path d="M112 91 L117 101 L121 91 Z M124 91 L129 100 L132.500 91 Z" fill="#fbfaf6"/><g id="tongue" opacity="0"><path d="M113 97 C111 116 131 116 129 97 Z" fill="#f06a8a" stroke="#1a1a1a" stroke-width="3.500"/><path d="M121 99 L121 108" stroke="#1a1a1a" stroke-width="2.500" fill="none"/></g></g>
+</g>
+</g>
+  </g></g>
+  <g id="fx"></g>
+  <text id="word" x="0" y="0" text-anchor="middle" font-family="Andika,'Avenir Next Rounded','Arial Rounded MT Bold',Verdana,sans-serif" font-weight="900" font-size="52" fill="#FFF1A8" stroke="#1a1a1a" stroke-width="9" stroke-linejoin="round" paint-order="stroke" opacity="0"></text>
+</g>
+</svg>
+<div class="tag" id="tag">Idle</div><div class="badge" id="badge">slow-mo</div>
+</div>
+<div class="bar" id="modes" role="group" aria-label="Animations"></div>
+<div class="bar">
+  <div class="seg" role="group" aria-label="Speed"><span>Speed</span><button data-speed="1" aria-pressed="true">1&times;</button><button data-speed=".5" aria-pressed="false">&frac12;&times;</button><button data-speed=".25" aria-pressed="false">&frac14;&times;</button></div>
+  <button id="replay"><kbd>R</kbd>Replay</button><button id="pause"><kbd>Space</kbd>Pause</button>
+</div>
+<p id="cap"></p>
+</main>
+<script>
+(()=>{
+"use strict";
+const $=s=>document.querySelector(s);
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const sm=t=>{t=clamp(t);return t*t*(3-2*t)};
+const eob=t=>{t=clamp(t);const c1=1.70158,c3=c1+1;return 1+c3*Math.pow(t-1,3)+c1*Math.pow(t-1,2)};
+const eoc=t=>1-Math.pow(1-clamp(t),3);
+const eic=t=>{t=clamp(t);return t*t*t};
+const TAU=Math.PI*2;
+const sin=Math.sin,cos=Math.cos,exp=Math.exp,PI=Math.PI,abs=Math.abs,atan2=Math.atan2,sqrt=Math.sqrt;
+function keys(t,k){if(t<=k[0][0])return k[0][1];for(let i=0;i<k.length-1;i++)if(t<k[i+1][0]){const u=(t-k[i][0])/(k[i+1][0]-k[i][0]);return lerp(k[i][1],k[i+1][1],sm(u))}return k[k.length-1][1]}
+const wrap=(t,d)=>((t%d)+d)%d;
+const cl=(x,m)=>clamp(x,-m,m);
+function rng(seed){return()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const SX=480,GY=540;
+const SVG='http://www.w3.org/2000/svg';
+const rig=$('#rig'),rigInner=$('#rigInner'),shadow=$('#shadow'),worldEl=$('#world'),fxG=$('#fx'),word=$('#word'),glowC=$('#glowC'),fm=$('#fm'),trailEl=$('#trail');
+const P={};let acc={};
+function add(id,o){const a=acc[id]||(acc[id]={x:0,y:0,r:0,sx:1,sy:1,k:0});
+  if(o.x)a.x+=o.x;if(o.y)a.y+=o.y;if(o.r)a.r+=o.r;if(o.k)a.k+=o.k;if(o.sx)a.sx*=o.sx;if(o.sy)a.sy*=o.sy}
+const f2=n=>Math.round(n*100)/100;
+function setT(id,s){const p=P[id];if(p.last!==s){p.last=s;if(s)p.el.setAttribute('transform',s);else p.el.removeAttribute('transform')}}
+/* ---------- ground scribbles ---------- */
+(function(){
+  const g=$('#tufts'),far=$('#far');const R=rng(7);
+  let h='';
+  for(let i=-1;i<6;i++){const x=i*240;
+    h+=`<path d="M${x+60} 580 l-6 -20 M${x+66} 580 l2 -26 M${x+72} 580 l8 -20" stroke="#1a1a1a" stroke-width="4" stroke-linecap="round" fill="none"/>`;
+    h+=`<path d="M${x+172} 584 v-22" stroke="#4aa24a" stroke-width="4" stroke-linecap="round"/><circle cx="${x+172}" cy="556" r="9" fill="#FFD23C" stroke="#1a1a1a" stroke-width="3.5"/><circle cx="${x+172}" cy="556" r="3" fill="#E8921C"/>`;
+    h+=`<ellipse cx="${x+120}" cy="590" rx="11" ry="6" fill="#d9cfb8" stroke="#1a1a1a" stroke-width="3"/>`;
+  }
+  g.innerHTML=`<g id="tuftsM">${h}</g>`;
+  let f='';
+  for(let i=-1;i<4;i++){const x=i*480;
+    f+=`<path d="M${x+120} 150 c-30 0 -34 -34 -6 -38 c4 -26 40 -28 50 -8 c24 -8 44 14 28 30 c8 14 -8 18 -22 16 Z" fill="#fff" stroke="#b7c2d3" stroke-width="3.5" stroke-linejoin="round" opacity=".85"/>`;
+    f+=`<path d="M${x+380} 96 c-20 0 -22 -22 -4 -26 c4 -16 28 -18 34 -4 c16 -4 28 10 18 20 Z" fill="#fff" stroke="#b7c2d3" stroke-width="3" stroke-linejoin="round" opacity=".8"/>`;
+  }
+  f+=`<g transform="translate(830 88)" opacity=".9"><circle r="30" fill="#FFE27A" stroke="#d4a82a" stroke-width="3.5"/><path d="M0 -44 v-14 M0 44 v14 M-44 0 h-14 M44 0 h14 M31 31 l10 10 M-31 -31 l-10 -10 M31 -31 l10 -10 M-31 31 l-10 10" stroke="#d4a82a" stroke-width="3.5" stroke-linecap="round"/></g>`;
+  far.innerHTML=`<g id="farM">${f}</g>`;
+})();
+const tuftsM=$('#tuftsM'),farM=$('#farM');
+/* ---------- fx pool ---------- */
+const pool=[];for(let i=0;i<64;i++){const u=document.createElementNS(SVG,'use');u.setAttribute('stroke','#1a1a1a');u.setAttribute('stroke-width','2.5');u.style.display='none';fxG.appendChild(u);pool.push(u)}
+let fxList=[];
+const fxAdd=o=>fxList.push(o);
+function drawFx(){
+  let i=0;
+  for(const o of fxList){if(i>=pool.length)break;const u=pool[i++];
+    u.style.display='';u.setAttribute('href','#s-'+o.k);u.setAttribute('fill',o.c);u.setAttribute('opacity',f2(o.a==null?1:o.a));
+    u.setAttribute('transform',`translate(${f2(o.x)} ${f2(o.y)}) rotate(${f2(o.r||0)}) scale(${f2(o.sx||o.s)} ${f2(o.s)})`);u.setAttribute('stroke-width',f2(2.5/Math.max(o.s,.3)))}
+  for(;i<pool.length;i++)pool[i].style.display='none';
+}
+const COL=['#E8921C','#FFD23C','#202c5e','#ef6d27','#f06a8a','#7cc3e8','#fbfaf6'];
+let CONF=COL,CR2='#ef6d27';
+function confetti(t,t0,ox,oy,n,seed,speed=520,life=1.6){const tau=t-t0;if(tau<0||tau>life)return;const R=rng(seed);
+  for(let i=0;i<n;i++){const a=-PI/2+(R()-.5)*2.3,v=speed*(.45+R()*.7),vx=cos(a)*v,vy=sin(a)*v;
+    fxAdd({k:i%3?'scrap':'star',x:ox+vx*tau,y:oy+vy*tau+.5*900*tau*tau,s:(i%3?1.1:.9)*(.8+R()*.6),r:R()*360+tau*(R()-.5)*900,c:CONF[i%CONF.length],a:1-sm((tau-life*.55)/(life*.45))})}}
+function crumbs(t,t0,ox,oy,n,seed,speed=260,life=.7,col='#FFD23C'){const tau=t-t0;if(tau<0||tau>life)return;const R=rng(seed);
+  for(let i=0;i<n;i++){const a=(i/n)*TAU+R()*.6,v=speed*(.5+R()*.6);fxAdd({k:'dot',x:ox+cos(a)*v*tau*(1-.4*tau),y:oy+sin(a)*v*tau+300*tau*tau,s:(1-tau/life)*(.5+R()*.5),c:i%2?col:CR2,a:1})}}
+/* little black bats (the kid's own fx drawings) flying out; they flap by swapping the two drawings */
+function batSwarm(t,t0,ox,oy,n,seed,life=2){const tau=t-t0;if(tau<0||tau>life)return;const R=rng(seed);
+  for(let i=0;i<n;i++){const a=-PI/2+(R()-.5)*3.0,v=170+R()*260,ph=R()*TAU,sc=.17+R()*.12;
+    const fl=Math.floor(tau*9+i*.37)%2;
+    fxAdd({k:fl?'bat1':'bat2',x:ox+cos(a)*v*tau+18*sin(tau*6+ph),y:oy+sin(a)*v*tau*.8-70*tau*tau+14*sin(tau*8+ph),s:sc,r:cl(cos(a)*30,25),c:'#3a3a3a',a:1-sm((tau-life*.6)/(life*.4))})}}
+function wordPop(txt,x,y,t,t0,life,rot=-8){const tau=t-t0;if(tau<0||tau>life){return false}
+  const s=eob(tau/.14)*(1-sm((tau-life+.15)/.15)*.3);word.textContent=txt;word.setAttribute('opacity',f2(1-sm((tau-life+.12)/.12)));
+  word.setAttribute('transform',`translate(${f2(x)} ${f2(y)}) rotate(${rot}) scale(${f2(Math.max(s,.01))})`);return true}
+/* blinks */
+const blinks=[];(function(){const R=rng(11);let t=1.1;for(let i=0;i<400;i++){blinks.push(t);const r=R();if(r<.18){blinks.push(t+.26)}t+=1.3+R()*3.4+(r>.85?2.2:0)}})();
+function blinkAmt(T){let lo=0,hi=blinks.length-1;while(lo<hi){const m=(lo+hi+1)>>1;if(blinks[m]<=T)lo=m;else hi=m-1}
+  const d=T-blinks[lo];if(d<0||d>.2)return 0;return d<.07?d/.07:1-sm((d-.07)/.13)}
+const B=o=>Object.assign({x:0,y:0,r:0,sx:1,sy:1},o);
+function flashAt(h){if(h<0)return null;if(h<.06)return{a:.8,c:[1,1,1]};if(h<.12)return{a:.0,c:[1,1,1]};if(h<.2)return{a:.7,c:[1,1,1]};
+  if(h<.8)return{a:.55*exp(-5*(h-.2)),c:[1,.35,.32]};return null}
+
+/* ================= Zigzag: rig ================= */
+const CH={PX:122,PY:98,K0:1.7,CY:325,FEET:182,SHW:78,
+ ids:['wing-l','wing-l2','wing-r','wing-r2','leg-l','foot-l','leg-r','foot-r','head','eye-a','eye-b','brow-a','brow-b','smile','mouth','tongue'],
+ PIV:{'wing-l':[101,80],'wing-l2':[58,50],'wing-r':[141,93],'wing-r2':[198,100],'leg-l':[108.6,104.9],'foot-l':[78.2,126],'leg-r':[128.8,113.2],'foot-r':[151.8,159.2],
+  'head':[122,106],'eye-a':[114.6,74],'eye-b':[135.2,81.9],'brow-a':[113,68],'brow-b':[135.5,75],'smile':[120.5,90],'mouth':[121.5,90],'tongue':[121.5,96]}};
+for(const id of CH.ids)P[id]={el:rigInner.querySelector('#'+id),piv:CH.PIV[id],last:''};
+CR2='#3a3a3a';CONF=['#3a3a3a','#fbfaf6','#7cc3e8','#f06a8a','#FFD23C','#3a3a3a'];
+const FACE=o=>Object.assign({mouth:0,tongue:0,brow:0,bro2:0,eye:1,squint:0,grin:0,look:0,hr:0},o);
+const stg=(x,y)=>[SX+x,CH.CY-y];                 // stage point of the body centre at offset (x,y)
+const wvs=(ph)=>sin(ph);
+CH.common=function(A,T,st,vel,t){
+  const fl=st.fl,f=st.face;
+  const up=fl.bias+fl.amp*sin(fl.ph);
+  const tip=fl.bend+fl.amp*.85*(sin(fl.ph-1.15)-sin(fl.ph));
+  const shr=1-clamp(up,0,90)*.0017;
+  A('wing-l',{r:up,sx:shr});A('wing-l2',{r:tip});
+  A('wing-r',{r:-up,sx:shr});A('wing-r2',{r:-tip});
+  const v=vel(.07),v2=vel(.12);
+  const lg=cl(v.x*.012,16)+3*sin(1.4*T)+(st.legs||0);
+  A('leg-l',{r:lg+cl(-v2.y*.012,12)});A('leg-r',{r:lg*.8+3*sin(1.3*T+1)-cl(v2.y*.009,9)});
+  A('foot-l',{r:-lg*.7+5*sin(2.1*T+.7)+cl(v2.y*.01,10)});A('foot-r',{r:-lg*.7+5*sin(1.9*T+2)+cl(v2.y*.01,10)});
+  const vh=vel(.09);
+  A('head',{r:f.hr+cl(-vh.x*.01,8)+cl(vh.r*.08,8),y:cl(-vh.y*.004,3)});
+  const lx=f.look*4+1.4*sin(.7*T),ly=1.1*sin(.9*T+2);const bl=Math.max(blinkAmt(T),f.squint);
+  const s=f.eye;
+  A('eye-a',{x:lx,y:ly,sx:s,sy:s*(1-.9*bl)});A('eye-b',{x:lx,y:ly,sx:s,sy:s*(1-.9*bl)});
+  A('brow-a',{r:f.brow*22-f.bro2*20,y:-f.bro2*7});A('brow-b',{r:-f.brow*22+f.bro2*8});
+  A('smile',{sx:1+.25*f.grin,sy:1+.4*f.grin});
+  A('mouth',{sy:Math.max(f.mouth,.02)});A('tongue',{sy:Math.max(f.tongue,.02)});
+};
+CH.post=function(st){const f=st.face;
+  P.mouth.el.setAttribute('opacity',f.mouth>.05?1:0);P.smile.el.setAttribute('opacity',f.mouth>.12?0:1);
+  P.tongue.el.setAttribute('opacity',f.tongue>.05?1:0);
+  const bo=f2(clamp(Math.max(abs(f.brow),abs(f.bro2))*5));P['brow-a'].el.setAttribute('opacity',bo);P['brow-b'].el.setAttribute('opacity',bo)};
+const flapP=(ph,amp,bias,bend=-5)=>({ph,amp,bias,bend});
+const M={};
+/* 1: idle */
+M.idle={name:'Idle',dur:5,
+ caption:'<b>Idle.</b> Hovering on a steady <b>wing beat</b>: the wings bend at a joint so the tips trail the wing roots, the body rises on each downstroke, and his stick <b>legs and feet</b> dangle a beat behind. He glances left and right with his head, then grins; <b>eyes</b> blink at irregular intervals.',
+ state(t){const ph=TAU*2.2*t;
+  const lk=keys(t,[[0,0],[1.8,0],[2.2,-1],[3.1,-1],[3.5,1],[4.3,1],[4.7,0],[5,0]]);
+  const g=t>3.7&&t<4.5?sin(PI*(t-3.7)/.8):0;
+  return{b:B({x:4*sin(TAU*t/5),y:7*sin(TAU*t/2.5)-3.5*cos(ph),r:3.5*sin(TAU*t/5+1)}),fl:flapP(ph,26,16),face:FACE({look:lk,hr:lk*5,grin:.15+.6*g})}},
+ extra(){}};
+/* 2: fly */
+M.fly={name:'Flutter flight',dur:3.2,
+ caption:'<b>Flutter flight.</b> A faster wing beat, a forward lean, a rolling bob that rides on top of the flap, and the ground and clouds scrolling past at two speeds. His legs trail behind him; the speed streaks flick by.',
+ state(t){const ph=TAU*3.75*t;
+  return{b:B({x:18*sin(TAU*t/3.2),y:14*sin(TAU*t/1.6)-5*cos(ph),r:9+3*sin(TAU*t/1.6+1)}),fl:flapP(ph,32,10,-4),face:FACE({look:1,hr:3,eye:1}),legs:6}},
+ scroll:t=>t*300,
+ extra(t){const ys=[150,236,300,400,470,350,190];
+  for(let i=0;i<ys.length;i++){const m=(t*440+i*100.5)%704;fxAdd({k:'line',x:960-m*1.38,y:ys[i],s:1.1,c:'#1a1a1a',a:.3*sm(Math.min(m,704-m)/90)})}}};
+/* 3: zig-zag dash (signature) */
+const W=[[-220,0],[-110,105],[-15,-50],[75,108],[150,-50],[200,45]];
+const DS=.7,SEG=.34,FLT=.24,DEND=DS+5*SEG;
+function dpos(t){
+  if(t<DS)return W[0];
+  for(let i=0;i<5;i++){const s=DS+i*SEG;if(t<s+SEG){const e=eoc((t-s)/FLT);return[lerp(W[i][0],W[i+1][0],e),lerp(W[i][1],W[i+1][1],e)]}}
+  if(t<DEND+.1)return W[5];
+  const u=sm((t-DEND-.1)/.95);return[lerp(W[5][0],W[0][0],u),lerp(W[5][1],W[0][1],u)]}
+M.dash={name:'Zig-Zag Dash',dur:3.6,
+ caption:'<b>Zig-Zag Dash (his power).</b> He squashes down and trembles with his wings folded, then <b>darts in five sharp corners</b>: each leg of the zig-zag launches fast and brakes hard, with a squash at every turn, a tilt into the direction of travel, afterimages behind him and a dotted trail marking the route. Then he flaps lazily back to the start.',
+ state(t){
+  const p=dpos(t),p1=dpos(t+.012),p0=dpos(t-.012);const vx=(p1[0]-p0[0])/.024,vy=(p1[1]-p0[1])/.024,sp=sqrt(vx*vx+vy*vy);
+  const c=sm(t/.45)*(1-sm((t-.58)/.1)),sh=sm((t-.2)/.4)*(1-sm((t-.62)/.08));
+  let x=p[0]+3*sh*sin(TAU*14*t),y=p[1]-8*c;
+  let r=cl(vx*.02,28)-cl(vy*.012,14),sy=(1-.14*c)*(1+clamp(sp/9000,0,.16)),sx=(1+.1*c)/Math.pow(sy,.5);
+  for(let i=0;i<5;i++){const tau=t-(DS+i*SEG+FLT);if(tau>0&&tau<.2){const q=exp(-14*tau)*cos(46*tau);sy*=1-.16*q;sx*=1+.12*q}}
+  const bias=keys(t,[[0,16],[.3,62],[.62,62],[.8,10],[2.4,10],[2.9,16]]);
+  const amp=keys(t,[[0,26],[.3,6],[.62,6],[.8,36],[2.4,36],[2.9,26]]);
+  const dash=t>DS-.1&&t<DEND+.05?1:0;
+  const pts=[];for(let i=0;i<=5;i++){if(i==0||t>=DS+(i-1)*SEG+FLT)pts.push(stg(W[i][0],W[i][1]))}
+  if(t>=DS&&t<DEND&&((t-DS)%SEG)<FLT)pts.push(stg(p[0],p[1]));
+  const ta=t<DEND?.55:.55*(1-sm((t-DEND)/.8));
+  return{b:B({x,y,r,sx,sy}),fl:flapP(TAU*5*t,amp,bias,keys(t,[[0,-5],[.3,-30],[.62,-30],[.8,-4]])),
+   face:FACE({brow:sm((t-.3)/.3)*(1-sm((t-2.5)/.4))*.8,squint:dash?.3:0,look:1,grin:dash?.8:0,hr:0}),
+   ghost:dash?sm((sp-250)/500):0,trail:{pts,a:ta},legs:dash?10:0}},
+ extra(t,st,T,A,api){
+  for(let i=0;i<5;i++){const a=DS+i*SEG+FLT,q=W[i+1],[cx,cy]=stg(q[0],q[1]);
+   crumbs(t,a,cx,cy,9,30+i,230,.5,'#7cc3e8');
+   const tau=t-a;if(tau>0&&tau<.25){fxAdd({k:'star',x:cx+(i%2?-1:1)*50,y:cy-30,s:1.6*(1-tau/.25),r:tau*200,c:'#FFD23C',a:1})}
+   api.word(['ZIG!','ZAG!','ZIG!','ZAG!','ZIG!'][i],cx+(i%2?55:-55),Math.max(cy-120,70),t,a,.34,i%2?9:-9)}
+  const tau=t-DS;if(tau>0&&tau<.3)fxAdd({k:'spike',x:stg(W[0][0],W[0][1])[0]-30,y:stg(0,W[0][1])[1]+10,s:1.2*(1-tau/.3),r:tau*80,c:'#7cc3e8',a:1})}};
+/* 4: bite */
+const BC=[1.55,1.77,1.99];
+M.bite={name:'Bite',dur:3.2,
+ caption:'<b>Bite.</b> Hover, then a wind-up: he backs up and rears with <b>wings raised</b>, <b>angry brows</b>, a trembling open mouth and fangs. A fast dive, then <b>three snapping chomps</b> with a squash, an impact burst and a screen shake each time, before he recoils and flaps back to his spot.',
+ state(t){
+  const x=keys(t,[[0,0],[.7,0],[1.1,-110],[1.35,-110],[1.55,175],[2.3,175],[2.95,0],[3.2,0]]);
+  let y=keys(t,[[0,0],[.7,0],[1.1,60],[1.35,60],[1.55,-50],[2.3,-50],[2.95,0],[3.2,0]]);
+  const hv=t<.7||t>2.95?1:0;y+=hv*(6*sin(TAU*t/1.6));
+  let r=keys(t,[[0,0],[.7,0],[1.1,-16],[1.35,-16],[1.5,28],[2.3,24],[2.95,0],[3.2,0]]);
+  let sy=keys(t,[[0,1],[.7,1],[1.1,1.07],[1.35,1.07],[1.5,1.16],[1.55,1],[3.2,1]]),sx=keys(t,[[0,1],[1.35,1],[1.5,.9],[1.55,1]]);
+  for(const e of BC){const tau=t-e;if(tau>0&&tau<.4){const q=exp(-12*tau)*cos(30*tau);sy*=1-.18*q;sx*=1+.12*q;y+=-5*exp(-10*tau)}}
+  const sh=t>.9&&t<1.35?sin(TAU*16*t)*2.5*sm((t-.9)/.3):0;
+  const mouth=keys(t,[[0,0],[.75,0],[1.0,1],[1.5,1],[1.56,0],[1.66,.75],[1.77,.75],[1.82,0],[1.9,.75],[1.99,.75],[2.04,0],[2.4,0]])+(t>.95&&t<1.45?.05*sin(TAU*14*t):0);
+  const br=keys(t,[[0,0],[.9,0],[1.1,1],[2.3,1],[2.9,0]]);
+  const bias=keys(t,[[0,16],[.7,16],[1.1,64],[1.35,64],[1.5,72],[2.3,72],[2.8,20],[3.2,16]]);
+  const amp=keys(t,[[0,26],[.7,26],[1.1,10],[2.3,8],[2.7,30],[3.2,26]]);
+  return{b:B({x:x+sh,y,r,sx,sy}),fl:flapP(TAU*2.5*t,amp,bias,keys(t,[[0,-5],[1.1,-40],[2.3,-40],[2.8,-5]])),
+   face:FACE({mouth:clamp(mouth),brow:br,squint:keys(t,[[0,0],[.95,0],[1.1,.55],[2.3,.55],[2.7,0]]),look:1,hr:0,grin:0}),legs:keys(t,[[1.3,0],[1.55,-16],[2.3,-16],[2.9,0]])}},
+ shake(t){let s=0;for(const e of BC){const tau=t-e;if(tau>0&&tau<.3)s+=exp(-14*tau)*sin(70*tau)*4}return s},
+ extra(t,st,T,A,api){
+  const [ix,iy]=stg(175+60,-50-40);
+  BC.forEach((e,i)=>{crumbs(t,e+.01,ix,iy,i==2?14:9,40+i,300,.7,i%2?'#f06a8a':'#FFD23C');
+   const tau=t-e;if(tau>0&&tau<.18)fxAdd({k:'spike',x:ix,y:iy,s:1.25*eob(tau/.06)*(1-sm((tau-.08)/.1)),r:tau*90+i*20,c:'#FFD23C',a:1});
+   api.word(['CHOMP!','CHOMP!','CHOMP!!'][i],ix-30+(i-1)*30,Math.max(iy-130-i*8,80),t,e+.01,i==2?.45:.21,[-8,7,-4][i])})}};
+/* 5: ouch */
+const HT=.4;
+M.ouch={name:'Ouch! (hurt)',dur:3.2,
+ caption:'<b>Ouch.</b> A white then pink hit flash and a screen shake, then <b>knockback</b> with a squash-then-stretch on a decaying spring and a wobbling tilt. The wings <b>crumple up</b> and the bat sags toward the ground with bulging eyes, a round yelp and worried brows, dizzy stars circling his head, then wobbles back to a weak flap and recovers.',
+ state(t){const h=t-HT;
+  const x=keys(t,[[0,0],[.4,0],[.46,-12],[.7,-135],[1.45,-135],[2.5,0],[3.2,0]]);
+  let y=keys(t,[[0,0],[.4,0],[.55,40],[.9,-60],[1.6,-60],[2.2,10],[2.7,-4],[3.2,0]]);
+  if(t<.4||t>2.8)y+=6*sin(TAU*t/1.6);
+  let r=0,sx=1,sy=1;
+  if(h>0){r=-30*exp(-3.2*h)*cos(9*h);sx=1-.22*exp(-9*h)*cos(22*h);sy=1+.26*exp(-9*h)*cos(22*h)}
+  const bias=keys(t,[[0,16],[.4,16],[.5,70],[1.4,70],[2.0,30],[2.5,16]]),amp=keys(t,[[0,26],[.4,26],[.5,5],[1.4,5],[1.8,22],[2.5,26]]);
+  const bend=keys(t,[[.4,-5],[.5,-55],[1.4,-55],[1.9,-5]]);
+  const hit=h>0?1:0;
+  return{b:B({x,y,r,sx,sy}),fl:flapP(TAU*2.5*t,amp,bias,bend),
+   face:FACE({eye:1+.7*hit*exp(-1.2*Math.max(h,0)),mouth:h>0?.9*sm(h/.08)*(1-sm((h-1.2)/.3)):0,brow:-hit*sm(h/.1)*(1-sm((h-1.3)/.8)),look:-1,hr:hit*-8*exp(-2*h)}),
+   legs:hit*20*exp(-2*Math.max(h,0)),flash:flashAt(h)}},
+ shake(t){const h=t-HT;return h>0&&h<.4?exp(-9*h)*sin(70*h)*7:0},
+ extra(t,st,T,A,api){const h=t-HT;
+  if(h>0){const [hx,hy]=api.S(122,80);
+   if(h<.3){const s=eob(h/.1)*(1-sm((h-.18)/.12));fxAdd({k:'spike',x:hx+90,y:hy-10,s:2.1*s,r:h*60,c:'#FFD23C',a:1})}
+   api.word('OUCH!',hx-30,Math.max(hy-135,75),t,HT+.04,.8,-10);
+   if(h>.35&&h<1.9){const a=1-sm((h-1.5)/.4);
+    for(let i=0;i<3;i++){const an=h*5+i*TAU/3;fxAdd({k:'star',x:hx+cos(an)*75,y:hy-48+sin(an)*16,s:.9+.2*sin(an+1),r:an*40,c:i==1?'#f06a8a':'#FFD23C',a})}}}}};
+/* 6: yay (taunt) */
+M.yay={name:'Yay! (taunt)',dur:3.6,
+ caption:'<b>Taunt.</b> A crouch, then a showy <b>loop-the-loop</b> with the body rolling over. He lands wobbling and sticks his <b>tongue out</b>, wagging his head with one <b>cocky raised brow</b>, hooting NYAH NYAH while a flock of the kid’s little black bats flaps off.',
+ state(t){
+  const c=sm((t-.15)/.2)*(1-sm((t-.45)/.1));
+  let x=0,y=-10*c,r=0,sy=1-.14*c,sx=1+.1*c;
+  if(t>.55&&t<1.35){const u=(t-.55)/.8,th=TAU*sm(u);x=75*sin(th);y=60*(1-cos(th));r=th*180/PI;sy=1+.08*sin(PI*u);sx=1/Math.sqrt(sy)}
+  if(t>=1.35&&t<2.1){const s=t-1.35;y=14*exp(-6*s)*sin(18*s);const q=exp(-9*s)*cos(24*s);sy=1-.12*q;sx=1+.1*q}
+  const w=sm((t-1.7)/.2)*(1-sm((t-3.2)/.3));
+  x+=20*w*sin(TAU*t/1.2);y+=w*8*sin(TAU*t/.8);
+  const hr=14*w*sin(TAU*3.3*(t-1.7));
+  const mouth=keys(t,[[0,0],[1.3,0],[1.5,1],[3.2,1],[3.5,0]])*(1-.12*w*(sin(TAU*3.3*t)*.5+.5)),tongue=keys(t,[[0,0],[1.5,0],[1.7,1],[3.2,1],[3.4,0]]);
+  const bias=keys(t,[[0,16],[.15,16],[.3,62],[.55,62],[.6,20],[3.5,16]]),amp=keys(t,[[0,26],[.15,26],[.3,6],[.55,6],[.65,36],[1.35,30],[1.7,26]]);
+  return{b:B({x,y,r,sx,sy}),fl:flapP(TAU*2.5*t,amp,bias,-5),
+   face:FACE({mouth:clamp(mouth),tongue,hr,bro2:w,squint:.45*w,look:sin(TAU*t/1.2)*w,grin:.6*w,brow:0}),legs:t>.55&&t<1.4?-8:0}},
+ extra(t,st,T,A,api){const [cx,cy]=api.S(122,90);
+  api.word('NYAH!',SX-150,150,t,1.5,.8,-8);api.word('NYAH NYAH!',SX+150,140,t,2.4,.95,7);
+  batSwarm(t,1.4,cx,cy,9,3,1.9);batSwarm(t,2.6,cx,cy,6,7,1.6);
+  confetti(t,1.35,cx,cy-30,14,5,520,1.5)}};
+const ORDER=['idle','fly','dash','bite','ouch','yay'];
+const LABEL={idle:'Idle',fly:'Flutter',dash:'Zig-Zag',bite:'Bite',ouch:'Ouch',yay:'Taunt'};
+
+/* ---------- render ---------- */
+const threadEl=$('#thread');
+let K=CH.K0,curB=null,wordShown=false,glowOn=0;
+const api={S:(cx,cy)=>{const b=curB,dx=(cx-CH.PX)*b.sx,dy=(cy-CH.PY)*b.sy,c=cos(b.r*PI/180),s=sin(b.r*PI/180);return[SX+b.x+(dx*c-dy*s)*K,CH.CY-b.y+(dx*s+dy*c)*K]},
+  word:(txt,x,y,t,t0,life,rot)=>{if(wordPop(txt,x,y,t,t0,life,rot))wordShown=true},
+  glow:()=>{}};
+const rigT=(b,k)=>`translate(${f2(SX+b.x)} ${f2(CH.CY-b.y)}) scale(${f2(k)}) rotate(${f2(b.r)}) scale(${f2(b.sx)} ${f2(b.sy)}) translate(${-CH.PX} ${-CH.PY})`;
+const ghosts=[];for(let i=0;i<3;i++){const u=document.createElementNS(SVG,'use');u.setAttribute('href','#rigInner');u.setAttribute('visibility','hidden');$('#ghostG').appendChild(u);ghosts.push(u)}
+let cur='idle',t0=0,speed=1,paused=false,T=0;
+function render(T){
+  const m=M[cur];const t=wrap(T-t0,m.dur);
+  const st=m.state(t);const b=st.b;curB=b;K=CH.K0*(st.zoom||1);acc={};fxList=[];wordShown=false;
+  const lag=d=>m.state(wrap(t-d,m.dur));
+  const vel=d=>{const a=lag(d).b,c=lag(d+.04).b;return{x:(a.x-c.x)/.04,y:(a.y-c.y)/.04,r:(a.r-c.r)/.04,sy:(a.sy-c.sy)/.04}};
+  CH.common(add,T,st,vel,t);
+  m.extra(t,st,T,add,api);
+  rig.setAttribute('transform',rigT(b,K));
+  for(const id of CH.ids){const a=acc[id];
+    if(!a){setT(id,'');continue}
+    const pv=P[id].piv;
+    setT(id,`translate(${f2(pv[0]+a.x)} ${f2(pv[1]+a.y)}) rotate(${f2(a.r)}) skewX(${f2(a.k)}) scale(${f2(a.sx)} ${f2(a.sy)}) translate(${-pv[0]} ${-pv[1]})`)}
+  CH.post&&CH.post(st,t,T,api);
+  /* silk thread */
+  if(st.thread){const th=st.thread;const sw=th.sway||0;const mx=(th.ax+th.tx)/2+sw,my=(th.ay+th.ty)/2;
+    threadEl.setAttribute('d',`M${f2(th.ax)} ${f2(th.ay)} Q${f2(mx)} ${f2(my)} ${f2(th.tx)} ${f2(th.ty)}`);threadEl.setAttribute('opacity',1)}else threadEl.setAttribute('opacity',0);
+  /* afterimages */
+  ghosts.forEach((u,i)=>{const g=st.ghost||0;const al=g*[.34,.2,.1][i];
+    if(al>.02){const lb=lag(.055*(i+1)).b;u.removeAttribute('visibility');u.setAttribute('transform',rigT(lb,K));u.setAttribute('opacity',f2(al))}else u.setAttribute('visibility','hidden')});
+  /* trail polyline */
+  if(st.trail&&st.trail.pts.length>1){trailEl.setAttribute('points',st.trail.pts.map(p=>f2(p[0])+','+f2(p[1])).join(' '));trailEl.setAttribute('opacity',f2(st.trail.a))}else trailEl.setAttribute('opacity',0);
+  /* shadow */
+  const feetY=CH.CY+(CH.FEET-CH.PY)*K-b.y,hgt=Math.max(0,GY-feetY);const sc=1/(1+hgt/260);
+  const rx=CH.SHW*K*sc*(st.shw||1);
+  shadow.setAttribute('cx',f2(SX+b.x));shadow.setAttribute('cy',GY+3);shadow.setAttribute('rx',f2(rx));shadow.setAttribute('ry',f2(rx*.15));shadow.setAttribute('opacity',f2(.95*(.35+.65*sc)));
+  /* world */
+  const sc2=m.scroll?m.scroll(t):0;
+  tuftsM.setAttribute('transform',`translate(${f2(-(sc2%240))} 0)`);farM.setAttribute('transform',`translate(${f2(-((sc2*.5)%480))} 0)`);
+  const shk=m.shake?m.shake(t):0;
+  worldEl.setAttribute('transform',shk?`translate(${f2(shk)} ${f2(shk*.4)})`:'');
+  if(!wordShown)word.setAttribute('opacity',0);
+  const fl=st.flash;
+  if(fl&&fl.a>.01){const a=fl.a,c=fl.c;fm.setAttribute('values',`${1-a} 0 0 0 ${a*c[0]} 0 ${1-a} 0 0 ${a*c[1]} 0 0 ${1-a} 0 ${a*c[2]} 0 0 0 1 0`);rig.setAttribute('filter','url(#flash)')}else rig.removeAttribute('filter');
+  drawFx();
+}
+/* ---------- UI ---------- */
+const modesBar=$('#modes');
+ORDER.forEach((k,i)=>{const b=document.createElement('button');b.dataset.mode=k;b.innerHTML=`<kbd>${i+1}</kbd>${LABEL[k]}`;b.setAttribute('aria-pressed',k===cur);b.onclick=()=>setMode(k);modesBar.appendChild(b)});
+function setMode(k){cur=k;t0=T;[...modesBar.children].forEach(b=>b.setAttribute('aria-pressed',b.dataset.mode===k));$('#tag').textContent=M[k].name;$('#cap').innerHTML=M[k].caption}
+function setSpeed(s){speed=s;document.querySelectorAll('[data-speed]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.speed===s));$('#badge').classList.toggle('on',s<1);$('#badge').textContent=s+'× slow-mo'}
+document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>setSpeed(+b.dataset.speed));
+$('#replay').onclick=()=>{t0=T};
+function setPause(p){paused=p;$('#pause').innerHTML=`<kbd>Space</kbd>${p?'Play':'Pause'}`}
+$('#pause').onclick=()=>setPause(!paused);
+addEventListener('keydown',e=>{if(e.metaKey||e.ctrlKey||e.altKey)return;const k=e.key;
+  if(k>='1'&&k<='6'){setMode(ORDER[+k-1])}else if(k===' '){e.preventDefault();setPause(!paused)}
+  else if(k==='r'||k==='R')t0=T;else if(k==='s'||k==='S')setSpeed(speed===1?.5:speed===.5?.25:1)});
+setMode('idle');
+let last=performance.now();
+function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;if(!paused)T+=dt*speed;render(T);requestAnimationFrame(loop)}
+requestAnimationFrame(t=>{last=t;loop(t)});
+window.__demo={seek(mode,t){setMode(mode);paused=true;T=t;t0=0;render(T)},setSpeed,setPause};
+})();
+
+</script>
+</body></html>

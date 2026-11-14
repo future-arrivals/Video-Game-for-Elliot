@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sip: character animation demo</title>
+<style>
+*{box-sizing:border-box}
+:root{--ink:#1a1a1a;--paper:#efe9dc;--sheet:#FBF8F0;--orange:#8fb52e;--yellow:#FFF1A8;--mute:#5b554b}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font-family:Andika,"Avenir Next Rounded","Arial Rounded MT Bold",Verdana,"DejaVu Sans",sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center}
+header{width:100%;max-width:1100px;padding:14px 20px 0;display:flex;align-items:center;gap:14px}
+.chip{width:46px;height:46px;border-radius:12px;border:3px solid var(--ink);background:var(--orange);color:#fff;display:grid;place-items:center;font-size:26px;font-weight:900;text-shadow:0 2px 0 var(--ink);flex:none}
+h1{margin:0;font-size:22px;line-height:1.1}
+h1 small{display:block;font-size:13px;font-weight:400;color:var(--mute);margin-top:3px}
+main{width:100%;max-width:1100px;padding:10px 20px 20px;display:flex;flex-direction:column;align-items:center;gap:10px}
+.stage{position:relative;width:min(100%,calc((100vh - 230px)*1.6));aspect-ratio:960/600;border:3px solid var(--ink);border-radius:14px;overflow:hidden;
+  background:
+   radial-gradient(120% 90% at 18% 8%,rgba(255,236,170,.65),rgba(255,236,170,0) 60%),
+   repeating-linear-gradient(0deg,rgba(120,150,190,.13) 0 1.5px,transparent 1.5px 34px),
+   var(--sheet);
+  box-shadow:0 3px 0 rgba(0,0,0,.18),0 12px 24px -12px rgba(80,60,20,.35)}
+.stage::after{content:"";position:absolute;inset:0;pointer-events:none;mix-blend-mode:multiply;opacity:.55;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' seed='4'/><feColorMatrix values='0 0 0 0 .55  0 0 0 0 .47  0 0 0 0 .33  0 0 0 .22 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
+#stage{position:absolute;inset:0;width:100%;height:100%;display:block}
+.tag{position:absolute;left:12px;top:10px;font-weight:800;font-size:15px;background:var(--yellow);border:3px solid var(--ink);border-radius:10px;padding:3px 10px;transform:rotate(-1.5deg);z-index:2}
+.badge{position:absolute;right:12px;top:10px;font-weight:800;font-size:14px;background:#fff;border:3px solid var(--ink);border-radius:10px;padding:3px 10px;transform:rotate(1.5deg);z-index:2;display:none}
+.badge.on{display:block}
+.bar{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+button{font:800 15px inherit;font-family:inherit;color:var(--ink);padding:8px 14px;border-radius:12px;border:3px solid var(--ink);background:#fff;cursor:pointer;box-shadow:0 3px 0 var(--ink);transition:transform .06s,box-shadow .06s}
+button:active{transform:translateY(2px);box-shadow:0 1px 0 var(--ink)}
+button[aria-pressed=true]{background:var(--yellow)}
+button kbd{font:inherit;font-size:12px;opacity:.55;margin-right:5px}
+.seg{display:flex;gap:6px;align-items:center}
+.seg span{font-size:13px;color:var(--mute);font-weight:700}
+.seg button{padding:5px 10px;font-size:13px;box-shadow:0 2px 0 var(--ink)}
+#cap{max-width:900px;font-size:14px;line-height:1.45;color:#3d382f;text-align:center;margin:2px 0 0}
+#cap b{color:var(--ink)}
+@media (max-height:520px){
+  header{display:none}
+  main{padding:6px 10px;gap:6px}
+  .stage{width:min(100%,calc((100vh - 104px)*1.6))}
+  #cap{display:none}
+  button{padding:5px 9px;font-size:12px;box-shadow:0 2px 0 var(--ink)}
+  .seg button{padding:3px 7px;font-size:11px}
+  .tag{font-size:12px}
+}
+@media (max-width:640px) and (min-height:521px){ .stage{width:100%} h1{font-size:18px} }
+</style>
+</head>
+<body>
+<header><span class="chip">S</span><h1>Sip, animated part by part<small>The straw, lid, apple, leaf, eyes and face are each their own piece of the kid's drawing. Number keys 1&ndash;6 pick an animation.</small></h1></header>
+<main>
+<div class="stage">
+<svg id="stage" viewBox="0 0 960 600" preserveAspectRatio="xMidYMid meet" aria-label="Sip the apple juice box, animated">
+<defs>
+  <radialGradient id="shadowG"><stop offset="0" stop-color="#3a2a10" stop-opacity=".5"/><stop offset=".6" stop-color="#3a2a10" stop-opacity=".22"/><stop offset="1" stop-color="#3a2a10" stop-opacity="0"/></radialGradient>
+  <filter id="flash" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB"><feColorMatrix id="fm" type="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 1 0"/></filter>
+  <symbol id="s-star" overflow="visible"><polygon points="0,-10 3,-3.5 10,-3 4.6,1.6 6.2,8.6 0,4.8 -6.2,8.6 -4.6,1.6 -10,-3 -3,-3.5" stroke-linejoin="round"/></symbol>
+  <symbol id="s-dot" overflow="visible"><circle r="5"/></symbol>
+  <symbol id="s-scrap" overflow="visible"><rect x="-6" y="-3.5" width="12" height="7" rx="1"/></symbol>
+  <symbol id="s-drop" overflow="visible"><path d="M0 -15 C4 -7 9 -2 9 4 A9 9 0 1 1 -9 4 C-9 -2 -4 -7 0 -15Z" stroke-linejoin="round"/></symbol>
+  <symbol id="s-spike" overflow="visible"><polygon points="0,-30 7,-12 26,-20 15,-4 34,2 14,8 22,28 6,16 0,34 -6,16 -22,28 -14,8 -34,2 -15,-4 -26,-20 -7,-12" stroke-linejoin="round"/></symbol>
+</defs>
+<g id="world">
+  <g id="far"></g>
+  <g id="groundBack">
+    <path d="M-20 548 C 120 540, 240 552, 380 543 S 640 551, 780 542 S 920 550, 990 545 L990 620 L-20 620Z" fill="#eadfc4" opacity=".7"/>
+    <path d="M-20 543 C 120 536, 240 548, 380 539 S 640 547, 780 538 S 920 546, 990 541" fill="none" stroke="#1a1a1a" stroke-width="4" stroke-linecap="round"/>
+    <path d="M30 560 L170 559 M260 574 L420 572 M520 560 L690 561 M770 576 L930 574" stroke="#a8b4c4" stroke-width="2.5" stroke-linecap="round" fill="none" opacity=".7"/>
+  </g>
+  <g id="tufts"></g>
+  <ellipse id="puddle" cx="0" cy="0" rx="1" ry="1" fill="#f0b030" stroke="#1a1a1a" stroke-width="3.5" opacity="0"/>
+  <ellipse id="puddleH" cx="0" cy="0" rx="1" ry="1" fill="#fff3b8" opacity="0"/>
+  <ellipse id="shadow" cx="480" cy="543" rx="120" ry="18" fill="url(#shadowG)"/>
+  <g id="rig"><g stroke-linecap="round" stroke-linejoin="round">
+<g id="part-straw"><path d="M75.0 128.0 C75.0 128.0 73.8 94.8 73.0 83.0 C72.2 71.2 71.5 62.3 70.0 57.0 C68.5 51.7 67.3 51.0 64.0 51.0 C60.7 51.0 54.3 53.5 50.0 57.0 C45.7 60.5 40.8 67.0 38.0 72.0 C35.2 77.0 34.0 82.3 33.0 87.0 C32.0 91.7 32.0 100.0 32.0 100.0 C32.0 100.0 15.5 96.5 13.0 92.0 C10.5 87.5 17.0 73.0 17.0 73.0 C17.0 73.0 27.5 66.3 33.0 62.0 C38.5 57.7 44.3 52.8 50.0 47.0 C55.7 41.2 62.0 32.0 67.0 27.0 C72.0 22.0 75.0 19.5 80.0 17.0 C85.0 14.5 97.0 12.0 97.0 12.0 C97.0 12.0 101.2 42.0 102.0 60.0 C102.8 78.0 102.3 108.5 102.0 120.0 C101.7 131.5 100.0 129.0 100.0 129.0 C100.0 129.0 75.0 128.0 75.0 128.0 Z" fill="#2448a8" stroke="#1a1a1a" stroke-width="9" /><path d="M31.3 93.3 C30.8 96.9 28.5 101.5 26.6 103.9 C24.7 106.2 21.9 107.9 19.8 107.7 C17.7 107.5 14.9 105.5 13.8 102.7 C12.8 99.9 12.9 94.6 13.4 90.8 C14.0 87.0 15.4 82.1 17.2 79.7 C19.0 77.2 22.2 75.6 24.3 76.0 C26.3 76.4 28.4 79.2 29.6 82.0 C30.8 84.9 31.8 89.7 31.3 93.3 Z" fill="#2448a8" stroke="#1a1a1a" stroke-width="7" /><path d="M74.0 22.0 C75.5 24.0 81.0 29.7 83.0 34.0 C85.0 38.3 85.5 45.7 86.0 48.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M84.0 18.0 C85.0 20.0 88.7 25.5 90.0 30.0 C91.3 34.5 91.7 42.5 92.0 45.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M75.0 127.0 C79.0 126.0 96.2 126.8 100.0 128.0 C103.8 129.2 102.0 133.0 98.0 134.0 C94.0 135.0 79.8 135.2 76.0 134.0 C72.2 132.8 71.0 128.0 75.0 127.0 Z" fill="#1a1a1a" stroke="#1a1a1a" stroke-width="4" /></g>
+<g id="part-body"><path d="M33.0 132.0 C33.0 132.0 46.3 119.7 53.0 114.0 C59.7 108.3 73.0 98.0 73.0 98.0 C73.0 98.0 93.0 96.5 103.0 97.0 C113.0 97.5 124.7 101.0 133.0 101.0 C141.3 101.0 145.7 98.3 153.0 97.0 C160.3 95.7 169.2 93.0 177.0 93.0 C184.8 93.0 194.5 95.8 200.0 97.0 C205.5 98.2 210.0 100.0 210.0 100.0 C210.0 100.0 182.0 132.0 182.0 132.0 C182.0 132.0 153.7 136.8 140.0 137.0 C126.3 137.2 112.2 133.0 100.0 133.0 C87.8 133.0 78.2 137.2 67.0 137.0 C55.8 136.8 33.0 132.0 33.0 132.0 Z" fill="#8fb52e" stroke="#1a1a1a" stroke-width="9" /><path d="M33.0 132.0 C33.0 132.0 55.8 136.8 67.0 137.0 C78.2 137.2 87.8 133.0 100.0 133.0 C112.2 133.0 126.3 137.2 140.0 137.0 C153.7 136.8 182.0 132.0 182.0 132.0 C182.0 132.0 185.2 158.7 187.0 180.0 C188.8 201.3 191.2 235.0 193.0 260.0 C194.8 285.0 196.7 307.7 198.0 330.0 C199.3 352.3 201.0 394.0 201.0 394.0 C201.0 394.0 166.8 395.7 150.0 397.0 C133.2 398.3 116.7 401.2 100.0 402.0 C83.3 402.8 63.3 403.5 50.0 402.0 C36.7 400.5 20.0 393.0 20.0 393.0 C20.0 393.0 22.8 363.8 25.0 350.0 C27.2 336.2 30.5 323.8 33.0 310.0 C35.5 296.2 39.0 285.3 40.0 267.0 C41.0 248.7 40.2 222.5 39.0 200.0 C37.8 177.5 33.0 132.0 33.0 132.0 Z" fill="#7fa422" stroke="#1a1a1a" stroke-width="9" /><path d="M182.0 132.0 C182.0 132.0 210.0 100.0 210.0 100.0 C210.0 100.0 218.2 116.7 222.0 125.0 C225.8 133.3 228.8 137.5 233.0 150.0 C237.2 162.5 243.0 183.3 247.0 200.0 C251.0 216.7 253.7 234.5 257.0 250.0 C260.3 265.5 264.3 279.2 267.0 293.0 C269.7 306.8 272.0 324.0 273.0 333.0 C274.0 342.0 273.0 347.0 273.0 347.0 C273.0 347.0 251.3 363.2 240.0 372.0 C228.7 380.8 205.0 400.0 205.0 400.0 C205.0 400.0 202.2 405.7 201.0 394.0 C199.8 382.3 199.3 352.3 198.0 330.0 C196.7 307.7 194.8 285.0 193.0 260.0 C191.2 235.0 188.8 201.3 187.0 180.0 C185.2 158.7 182.0 132.0 182.0 132.0 Z" fill="#2f8f55" stroke="#1a1a1a" stroke-width="9" /><path d="M187.0 140.0 C188.8 142.3 194.3 159.3 198.0 154.0 C201.7 148.7 207.2 115.7 209.0 108.0" fill="none" stroke="#1a1a1a" stroke-width="7"/><path d="M208.0 393.0 C211.2 382.2 217.0 338.8 227.0 328.0 C237.0 317.2 261.2 328.0 268.0 328.0" fill="none" stroke="#1a1a1a" stroke-width="7"/><path d="M108.0 187.0 C108.0 187.0 114.5 178.5 119.0 176.0 C123.5 173.5 130.0 172.2 135.0 172.0 C140.0 171.8 145.2 172.5 149.0 175.0 C152.8 177.5 156.3 182.7 158.0 187.0 C159.7 191.3 159.8 196.0 159.0 201.0 C158.2 206.0 156.3 212.0 153.0 217.0 C149.7 222.0 144.3 226.7 139.0 231.0 C133.7 235.3 127.2 239.7 121.0 243.0 C114.8 246.3 102.0 251.0 102.0 251.0 C102.0 251.0 86.5 240.0 81.0 235.0 C75.5 230.0 71.8 225.7 69.0 221.0 C66.2 216.3 64.8 211.3 64.0 207.0 C63.2 202.7 63.2 199.0 64.0 195.0 C64.8 191.0 66.2 186.3 69.0 183.0 C71.8 179.7 76.7 176.5 81.0 175.0 C85.3 173.5 90.5 172.0 95.0 174.0 C99.5 176.0 108.0 187.0 108.0 187.0 Z" fill="#d12c37" stroke="#1a1a1a" stroke-width="9" /><path d="M100.0 143.0 C101.8 142.3 104.0 145.7 105.0 149.0 C106.0 152.3 106.5 158.7 106.0 163.0 C105.5 167.3 103.7 174.2 102.0 175.0 C100.3 175.8 97.3 171.7 96.0 168.0 C94.7 164.3 93.3 157.2 94.0 153.0 C94.7 148.8 98.2 143.7 100.0 143.0 Z" fill="#3f9060" stroke="#1a1a1a" stroke-width="6" /><path d="M106.0 186.0 C106.0 186.0 115.0 165.2 116.0 160.0 C117.0 154.8 112.0 155.0 112.0 155.0 C112.0 155.0 112.2 150.7 115.0 151.0 C117.8 151.3 129.0 157.0 129.0 157.0 C129.0 157.0 127.2 161.3 126.0 162.0 C124.8 162.7 124.3 156.8 122.0 161.0 C119.7 165.2 112.0 187.0 112.0 187.0 C112.0 187.0 106.0 186.0 106.0 186.0 Z" fill="#7d4535" stroke="#1a1a1a" stroke-width="5" /><path d="M103.2 361.9 C101.7 371.1 92.6 381.9 84.9 387.4 C77.2 392.9 65.9 396.1 57.0 394.8 C48.0 393.6 35.9 387.6 31.1 379.9 C26.4 372.2 26.6 358.5 28.4 348.7 C30.2 338.9 34.9 326.7 42.0 321.0 C49.2 315.2 62.5 312.2 71.2 314.1 C79.9 315.9 88.8 324.2 94.1 332.2 C99.5 340.1 104.8 352.7 103.2 361.9 Z" fill="#1a1a1a" stroke="#1a1a1a" stroke-width="4" /><path d="M99.8 337.6 C100.2 340.8 99.2 345.2 97.9 347.7 C96.6 350.2 94.1 352.3 91.9 352.7 C89.7 353.1 86.4 352.2 84.5 350.1 C82.7 348.0 81.4 343.6 81.0 340.3 C80.5 336.9 80.6 332.5 81.8 330.0 C83.0 327.4 85.8 325.2 88.0 325.0 C90.2 324.8 93.1 326.5 95.1 328.6 C97.0 330.7 99.3 334.5 99.8 337.6 Z" fill="#fbfaf6" stroke="none" /><path d="M201.4 338.1 C202.4 348.3 197.6 362.1 192.7 370.0 C187.8 377.9 179.4 384.2 171.9 385.2 C164.3 386.3 153.1 383.1 147.4 376.1 C141.7 369.2 138.5 354.6 137.7 343.7 C136.8 332.7 137.7 318.6 142.1 310.5 C146.5 302.5 156.6 295.9 164.0 295.6 C171.5 295.3 180.7 301.7 186.9 308.8 C193.1 315.9 200.5 327.9 201.4 338.1 Z" fill="#1a1a1a" stroke="#1a1a1a" stroke-width="4" /><path d="M158.1 322.5 C157.6 325.0 155.7 327.9 154.2 329.5 C152.6 331.0 150.4 331.9 148.7 331.6 C147.1 331.4 145.0 329.8 144.3 327.8 C143.6 325.8 143.9 322.2 144.4 319.6 C145.0 317.0 146.2 313.8 147.7 312.2 C149.2 310.6 151.7 309.7 153.3 310.1 C154.9 310.5 156.4 312.6 157.2 314.6 C158.0 316.7 158.6 320.0 158.1 322.5 Z" fill="#fbfaf6" stroke="none" /><path d="M108.0 323.0 C108.8 325.5 110.8 333.2 113.0 338.0 C115.2 342.8 119.7 349.7 121.0 352.0" fill="none" stroke="#1a1a1a" stroke-width="6"/><path d="M125.0 372.7 C124.1 376.2 121.2 380.4 118.8 382.5 C116.5 384.6 113.2 385.8 110.9 385.3 C108.6 384.8 105.8 382.4 104.9 379.4 C104.0 376.5 104.7 371.2 105.7 367.5 C106.7 363.8 108.8 359.2 111.0 357.0 C113.3 354.8 117.0 353.7 119.2 354.4 C121.4 355.1 123.4 358.2 124.4 361.2 C125.4 364.3 126.0 369.1 125.0 372.7 Z" fill="#6b4226" stroke="#1a1a1a" stroke-width="6" /></g>
+</g></g>
+  <g id="fx"></g>
+  <text id="word" x="0" y="0" text-anchor="middle" font-family="Andika,'Avenir Next Rounded','Arial Rounded MT Bold',Verdana,sans-serif" font-weight="900" font-size="52" fill="#FFF1A8" stroke="#1a1a1a" stroke-width="9" stroke-linejoin="round" paint-order="stroke" opacity="0"></text>
+</g>
+</svg>
+<div class="tag" id="tag">Idle</div><div class="badge" id="badge">slow-mo</div>
+</div>
+<div class="bar" id="modes" role="group" aria-label="Animations"></div>
+<div class="bar">
+  <div class="seg" role="group" aria-label="Speed"><span>Speed</span><button data-speed="1" aria-pressed="true">1&times;</button><button data-speed=".5" aria-pressed="false">&frac12;&times;</button><button data-speed=".25" aria-pressed="false">&frac14;&times;</button></div>
+  <button id="replay"><kbd>R</kbd>Replay</button><button id="pause"><kbd>Space</kbd>Pause</button>
+</div>
+<p id="cap"></p>
+</main>
+<script>
+(()=>{
+"use strict";
+const $=s=>document.querySelector(s);
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const sm=t=>{t=clamp(t);return t*t*(3-2*t)};
+const eob=t=>{t=clamp(t);const c1=1.70158,c3=c1+1;return 1+c3*Math.pow(t-1,3)+c1*Math.pow(t-1,2)};
+const eoc=t=>1-Math.pow(1-clamp(t),3);
+const eic=t=>{t=clamp(t);return t*t*t};
+const TAU=Math.PI*2;
+const sin=Math.sin,cos=Math.cos,exp=Math.exp,PI=Math.PI;
+function keys(t,k){if(t<=k[0][0])return k[0][1];for(let i=0;i<k.length-1;i++)if(t<k[i+1][0]){const u=(t-k[i][0])/(k[i+1][0]-k[i][0]);return lerp(k[i][1],k[i+1][1],sm(u))}return k[k.length-1][1]}
+const wrap=(t,d)=>((t%d)+d)%d;
+function rng(seed){return()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const cl=(x,m)=>clamp(x,-m,m);
+
+/* ---------- stage constants ---------- */
+const SX=480,GY=540,K=.96,CX=110,CGY=402;   // stage centre, ground line, scale, rig pivot (bottom centre of the carton)
+const SVG='http://www.w3.org/2000/svg';
+const rig=$('#rig'),shadow=$('#shadow'),worldEl=$('#world'),fxG=$('#fx'),word=$('#word'),fm=$('#fm'),puddle=$('#puddle'),puddleH=$('#puddleH');
+const JUICE='#f0b030';
+
+/* ---------- tag the parts ---------- */
+const strawEl=rig.querySelector('#part-straw'),bodyEl=rig.querySelector('#part-body');
+const bp=[...bodyEl.children];
+function wrapG(a,b,id){const g=document.createElementNS(SVG,'g');g.id=id;bp[a].before(g);for(let i=a;i<=b;i++)g.appendChild(bp[i]);return g}
+bp[0].id='lid';bp[1].id='front';
+wrapG(2,4,'side');wrapG(5,7,'apple');bp[6].id='leaf';bp[7].id='stem';
+wrapG(8,9,'eyeL');bp[9].id='hlL';wrapG(10,11,'eyeR');bp[11].id='hlR';wrapG(12,13,'face');
+/* bulge wrapper (cheek puff) + blush ovals */
+const bulge=document.createElementNS(SVG,'g');bulge.id='bulge';bodyEl.before(bulge);bulge.appendChild(bodyEl);
+for(const [id,cx,cy] of [['blushL',68,280],['blushR',165,272]]){const e=document.createElementNS(SVG,'ellipse');e.id=id;e.setAttribute('cx',cx);e.setAttribute('cy',cy);e.setAttribute('rx',24);e.setAttribute('ry',12);e.setAttribute('fill','#ff6f8c');e.setAttribute('opacity',0);bulge.appendChild(e)}
+/* juice-in-the-straw overlay (inserted under the straw's shine lines) */
+const JP='M22 94 C24 78 30 68 40 58 C52 46 64 33 78 32 C90 32 88 60 88 82 L88 124';
+const juice=document.createElementNS(SVG,'path');juice.setAttribute('d',JP);juice.setAttribute('fill','none');juice.setAttribute('stroke',JUICE);juice.setAttribute('stroke-width',11);juice.setAttribute('stroke-linecap','butt');juice.setAttribute('opacity',0);
+strawEl.children[1].after(juice);const JL=juice.getTotalLength();
+const PIV={straw:[88,128],lid:[110,118],side:[190,250],apple:[100,205],leaf:[103,172],stem:[109,186],eyeL:[66,352],eyeR:[170,336],hlL:[90,339],hlR:[151,319],face:[115,365],blushL:[68,280],blushR:[165,272]};
+const P={};for(const k in PIV){P[k]={el:k==='straw'?strawEl:rig.querySelector('#'+k),piv:PIV[k],last:''}}
+P.straw.el.id='part-straw';
+const inner=Object.keys(P);
+
+let acc={};
+function A(id,o){const a=acc[id]||(acc[id]={x:0,y:0,r:0,sx:1,sy:1,k:0});
+  if(o.x)a.x+=o.x;if(o.y)a.y+=o.y;if(o.r)a.r+=o.r;if(o.k)a.k+=o.k;if(o.sx)a.sx*=o.sx;if(o.sy)a.sy*=o.sy}
+const f2=n=>Math.round(n*100)/100;
+function setT(id,s){const p=P[id];if(p.last!==s){p.last=s;if(s)p.el.setAttribute('transform',s);else p.el.removeAttribute('transform')}}
+
+/* ---------- ground scribbles ---------- */
+(function(){
+  const g=$('#tufts'),far=$('#far');const R=rng(7);
+  let h='';
+  for(let i=-1;i<6;i++){const x=i*240;
+    h+=`<path d="M${x+60} 580 l-6 -20 M${x+66} 580 l2 -26 M${x+72} 580 l8 -20" stroke="#1a1a1a" stroke-width="4" stroke-linecap="round" fill="none"/>`;
+    h+=`<path d="M${x+172} 584 v-22" stroke="#4aa24a" stroke-width="4" stroke-linecap="round"/><circle cx="${x+172}" cy="556" r="9" fill="#FFD23C" stroke="#1a1a1a" stroke-width="3.5"/><circle cx="${x+172}" cy="556" r="3" fill="#E8921C"/>`;
+    h+=`<ellipse cx="${x+120}" cy="590" rx="11" ry="6" fill="#d9cfb8" stroke="#1a1a1a" stroke-width="3"/>`;
+  }
+  g.innerHTML=`<g id="tuftsM">${h}</g>`;
+  let f='';
+  for(let i=-1;i<4;i++){const x=i*480;
+    f+=`<path d="M${x+120} 150 c-30 0 -34 -34 -6 -38 c4 -26 40 -28 50 -8 c24 -8 44 14 28 30 c8 14 -8 18 -22 16 Z" fill="#fff" stroke="#b7c2d3" stroke-width="3.5" stroke-linejoin="round" opacity=".85"/>`;
+    f+=`<path d="M${x+380} 96 c-20 0 -22 -22 -4 -26 c4 -16 28 -18 34 -4 c16 -4 28 10 18 20 Z" fill="#fff" stroke="#b7c2d3" stroke-width="3" stroke-linejoin="round" opacity=".8"/>`;
+  }
+  f+=`<g transform="translate(830 88)" opacity=".9"><circle r="30" fill="#FFE27A" stroke="#d4a82a" stroke-width="3.5"/><path d="M0 -44 v-14 M0 44 v14 M-44 0 h-14 M44 0 h14 M31 31 l10 10 M-31 -31 l-10 -10 M31 -31 l10 -10 M-31 31 l-10 10" stroke="#d4a82a" stroke-width="3.5" stroke-linecap="round"/></g>`;
+  far.innerHTML=`<g id="farM">${f}</g>`;
+})();
+const tuftsM=$('#tuftsM'),farM=$('#farM');
+
+/* ---------- fx pool ---------- */
+const pool=[];for(let i=0;i<96;i++){const u=document.createElementNS(SVG,'use');u.setAttribute('stroke','#1a1a1a');u.setAttribute('stroke-width','2.5');u.style.display='none';fxG.appendChild(u);pool.push(u)}
+let fxList=[];
+const fxAdd=o=>fxList.push(o);
+function drawFx(){
+  let i=0;
+  for(const o of fxList){if(i>=pool.length)break;const u=pool[i++];
+    u.style.display='';u.setAttribute('href','#s-'+o.k);u.setAttribute('fill',o.c);u.setAttribute('opacity',f2(o.a==null?1:o.a));
+    u.setAttribute('transform',`translate(${f2(o.x)} ${f2(o.y)}) rotate(${f2(o.r||0)}) scale(${f2(o.sx==null?o.s:o.sx)} ${f2(o.s)})`);u.setAttribute('stroke-width',f2(2.5/Math.max(o.s,.3)))}
+  for(;i<pool.length;i++)pool[i].style.display='none';
+}
+const COL=['#8fb52e','#d12c37','#2448a8','#FFD23C','#2f8f55','#fbfaf6','#f06a8a'];
+function confetti(t,t0,ox,oy,n,seed,speed=520,life=1.6){const tau=t-t0;if(tau<0||tau>life)return;const R=rng(seed);
+  for(let i=0;i<n;i++){const a=-PI/2+(R()-.5)*2.3,v=speed*(.45+R()*.7),vx=cos(a)*v,vy=sin(a)*v;
+    fxAdd({k:i%3?'scrap':'star',x:ox+vx*tau,y:oy+vy*tau+.5*900*tau*tau,s:(i%3?1.1:.9)*(.8+R()*.6),r:R()*360+tau*(R()-.5)*900,c:COL[i%COL.length],a:1-sm((tau-life*.55)/(life*.45))})}}
+function crumbs(t,t0,ox,oy,n,seed,speed=260,life=.7,col=JUICE){const tau=t-t0;if(tau<0||tau>life)return;const R=rng(seed);
+  for(let i=0;i<n;i++){const a=-PI/2+(R()-.5)*2.6,v=speed*(.5+R()*.6);fxAdd({k:'dot',x:ox+cos(a)*v*tau,y:oy+sin(a)*v*tau+700*tau*tau,s:(1-tau/life)*(.5+R()*.5),c:i%2?col:'#ffe08a',a:1})}}
+function wordPop(txt,x,y,t,t0,life,rot=-8){const tau=t-t0;if(tau<0||tau>life){return false}
+  const s=eob(tau/.14)*(1-sm((tau-life+.15)/.15)*.3);word.textContent=txt;word.setAttribute('opacity',f2(1-sm((tau-life+.12)/.12)));
+  word.setAttribute('transform',`translate(${f2(x)} ${f2(y)}) rotate(${rot}) scale(${f2(Math.max(s,.01))})`);return true}
+
+/* ---------- blink (global time) ---------- */
+const blinks=[];(function(){const R=rng(11);let t=1.1;for(let i=0;i<400;i++){blinks.push(t);const r=R();if(r<.18){blinks.push(t+.26)}t+=1.3+R()*3.4+(r>.85?2.2:0)}})();
+function blinkAmt(T){let lo=0,hi=blinks.length-1;while(lo<hi){const m=(lo+hi+1)>>1;if(blinks[m]<=T)lo=m;else hi=m-1}
+  const d=T-blinks[lo];if(d<0||d>.2)return 0;return d<.07?d/.07:1-sm((d-.07)/.13)}
+
+/* ---------- geometry: character point -> stage point (used for jets, words) ---------- */
+function toStage(px,py,sr,b){
+  const c=cos(sr*PI/180),s=sin(sr*PI/180);let dx=px-88,dy=py-128;
+  let x=88+dx*c-dy*s,y=128+dx*s+dy*c;x-=CX;y-=CGY;x*=b.sx;y*=b.sy;x+=y*Math.tan((b.k||0)*PI/180);
+  const rc=cos(b.r*PI/180),rs=sin(b.r*PI/180);const X=x*rc-y*rs,Y=x*rs+y*rc;
+  return [SX+(X+b.x)*K,GY+(Y-b.y)*K]}
+const TIP=[22,95];
+const tipAt=(m,t)=>toStage(TIP[0],TIP[1],m.strawR?m.strawR(t):0,m.state(t).b);
+
+/* ---------- ballistic juice drops, precomputed from the tip pose at spawn time ---------- */
+const GRAV=1100;
+function buildDrops(m,specs,seed){const R=rng(seed);return specs.map(s=>{
+  const [x0,y0]=tipAt(m,s.ts);const ang=(s.ang+(R()-.5)*(s.spread==null?10:s.spread))*PI/180;const v=s.v*(.85+R()*.3);
+  const vx=-cos(ang)*v,vy=-sin(ang)*v;const tl=(-vy+Math.sqrt(vy*vy+2*GRAV*Math.max(GY-4-y0,1)))/GRAV;
+  return{ts:s.ts,x0,y0,vx,vy,tl,s:s.s*(.8+R()*.4),lx:x0+vx*tl}})}
+function drawDrops(list,t,seed){list.forEach((d,i)=>{const tau=t-d.ts;if(tau<0)return;
+  if(tau<d.tl){const vx=d.vx,vy=d.vy+GRAV*tau;const sp=Math.hypot(vx,vy);
+    fxAdd({k:'drop',x:d.x0+d.vx*tau,y:d.y0+d.vy*tau+.5*GRAV*tau*tau,s:d.s*(1+Math.min(sp/1400,.5)),sx:d.s*(1-Math.min(sp/2600,.25)),r:Math.atan2(-vx,vy)*180/PI,c:JUICE,a:1})}
+  else crumbs(t,d.ts+d.tl,d.lx,GY-4,4,seed+i,110,.35)})}
+
+/* ---------- modes ---------- */
+const B=o=>Object.assign({x:0,y:0,r:0,sx:1,sy:1,k:0},o);
+const breath=t=>{const b=sin(TAU*t/3.2);return b+.25*sin(TAU*t/1.6)}
+const volume=(sy)=>1+(1-sy)*.65;
+const M={};
+/* 1: idle */
+M.idle={name:'Idle',dur:6.4,
+ caption:'<b>Idle.</b> A carton breathing: soft squash-and-stretch with the width trading against the height, a slow lean, the <b>straw</b> swaying a beat behind the body, the <b>apple</b> and its leaf bobbing, eyes that wander and blink at irregular intervals, and one little straw flick.',
+ strawR(t){const u=t-3.6;return u>0&&u<1.4?-20*exp(-4*u)*sin(17*u):0},
+ state(t){const br=breath(t);const sy=1+.026*br;return{b:B({sy,sx:volume(sy),r:1.2*sin(TAU*t/6.4),k:1.3*sin(TAU*t/3.2+1)})}},
+ extra(t,st,T,Ac){Ac('apple',{sy:1+.03*sin(TAU*t/3.2+.6),sx:1-.015*sin(TAU*t/3.2+.6)})}};
+/* 2: hop */
+const HOP=1.2;
+function hopU(t){const idx=Math.floor(t/HOP);return{u:(t-idx*HOP)/HOP,s:idx%2?-1:1,idx}}
+M.hop={name:'Hop / shuffle',dur:2.4,
+ caption:'<b>Carton hop.</b> Anticipation squat, a stretchy launch, a forward-leaning arc, then a landing squash and wobbling recovery. Each hop tips onto a different corner, the <b>lid</b> flexes, and the <b>straw</b> whips behind. Ground and clouds scroll for parallax; dust puffs on each landing.',
+ state(t){const{u,s}=hopU(t);
+  const y=u>.27&&u<.72?72*(1-Math.pow((u-.27)/.225-1,2)):0;
+  const sy=keys(u,[[0,1],[.2,.76],[.27,1.22],[.5,1.07],[.72,1.14],[.78,.7],[.86,1.08],[.93,.98],[1,1]]);
+  const r=keys(u,[[0,0],[.2,-3],[.5,7],[.78,3],[.9,-1.5],[1,0]])+s*2.5*sin(PI*u);
+  const k=s*keys(u,[[0,0],[.2,-3],[.5,5],[.78,-4],[.9,2],[1,0]]);
+  return{b:B({y,sy,sx:volume(sy),r,k})}},
+ extra(t,st,T,Ac,api){const{u}=hopU(t);const air=u>.27&&u<.76?sin(PI*(u-.27)/.49):0;
+  const land=u>.76?exp(-9*(u-.76))*sin(26*(u-.76)):0;
+  Ac('lid',{sy:1-.1*land,k:-4*air+6*land});
+  Ac('eyeL',{x:5});Ac('eyeR',{x:5});Ac('hlL',{x:2});Ac('hlR',{x:2});
+  const idx=Math.floor(t/HOP);api.dust(t,idx*HOP+.76,idx);},
+ scroll(t){const idx=Math.floor(t/HOP),{u}=hopU(t);return idx*120+120*sm((u-.27)/.5)}};
+/* 3: squirt (signature power) */
+const REL=1.5;
+M.squirt={name:'Squirt (power)',dur:5.2,
+ caption:'<b>Squirt.</b> His juice-raising power. He sucks in and inflates, trembling, eyes screwed shut, then <b>squeezes flat like a carton</b> and shoots a jet from the straw. The body recoils away, the straw aims, drops arc to the ground and splash, and a puddle spreads (the juice level goes up). After a few sputters he springs tall with relief.',
+ strawR(t){const c=sm((t-.55)/.9);const u=t-REL;
+  if(t<REL)return 11*c+3.5*c*sin(48*t);
+  return -16*(u<.9?eoc(u/.1):exp(-6*(u-.9)))+(u<.9?2.5*sin(55*u):0)},
+ state(t){const br=breath(t);let sy=1+.026*br,x=0,y=0,r=0,k=0,puff=0;
+  const c=sm((t-.55)/.9);const u=t-REL;
+  if(t<REL){puff=c;sy*=1+.06*c;sy*=1-.1*sm((t-1.3)/.2);x=3*c*sin(TAU*12*t)*sm((t-.8)/.3);r=-1.2*c*sin(TAU*9*t)}
+  else{
+   sy=keys(u,[[0,.97],[.1,.66],[.35,.74],[.8,.86],[1.0,.9],[1.25,1.17],[1.5,.97],[1.75,1.04],[2.1,1]])+(u<.9?.025*sin(45*u):0);
+   sy*=lerp(1,1+.02*br,sm((u-2)/.5));
+   x=u<.9?30*eoc(u/.18):30*(1-sm((u-.9)/.9));
+   r=-6*exp(-6*u)*cos(9*u)+(u>1.1?2.5*exp(-5*(u-1.1))*sin(14*(u-1.1)):0);k=7*exp(-6*u)*cos(12*u);
+   puff=exp(-12*u)}
+  return{b:B({x,y,r,k,sy,sx:volume(sy)}),puff}},
+ extra(t,st,T,Ac,api){const u=t-REL;
+  const sq=sm((t-.7)/.3)*(1-sm((u-.3)/.2));
+  Ac('eyeL',{sy:1-.85*sq,sx:1+.1*sq});Ac('eyeR',{sy:1-.85*sq,sx:1+.1*sq});
+  const w=sm((u-.9)/.1)*(1-sm((u-2.2)/.3));Ac('eyeL',{sy:1+.15*w,sx:1+.15*w});Ac('eyeR',{sy:1+.15*w,sx:1+.15*w}); /* wide-eyed relief */
+  Ac('apple',{y:-6*st.puff,sx:1+.08*st.puff,sy:1+.08*st.puff});
+  if(!M.squirt.drops){const sp=[];const n=26;for(let i=0;i<n;i++)sp.push({ts:REL+.02+i*.8/n,v:330,ang:12,s:.78-(i%3)*.08});
+    for(const [ts,k] of [[2.5,1],[2.75,.8],[2.95,.6]])for(let j=0;j<3;j++)sp.push({ts:ts+j*.05,v:190*k,ang:30,s:.6,spread:24});
+    M.squirt.drops=buildDrops(M.squirt,sp,40)}
+  drawDrops(M.squirt.drops,t,200);
+  api.word('SQUIRT!',tipAt(M.squirt,REL+.1)[0]-30,tipAt(M.squirt,REL+.1)[1]-80,t,REL+.05,.85,-9);
+  const pr=sm((t-2.2)/.8)*(1-sm((t-4.3)/.6));
+  if(pr>.01){const dr=M.squirt.drops;let lx=0;for(let i=0;i<26;i++)lx+=dr[i].lx;lx/=26;
+    api.puddle(lx+10,GY+8,125*pr,pr,t)}
+  confetti(t,REL+1.25,toStage(110,120,0,st.b)[0],toStage(110,120,0,st.b)[1],8,3,300,1.1);
+ }};
+/* 4: slurp (action) */
+const DROP=[255,332];
+M.slurp={name:'Slurp / drink',dur:5.4,
+ caption:'<b>Slurp.</b> He spots a floating apple-juice drop, rocks back, then <b>leans in</b> and reaches the straw tip toward it. The drop stretches into the straw and a line of juice runs down the tube, the straw buzzing. When it arrives his <b>cheeks puff</b> and the carton swells, a gulp, then a deflating <b>AHH</b> with a happy bounce.',
+ strawR(t){const buzz=sm((t-1.2)/.15)*(1-sm((t-2.9)/.3));
+  return keys(t,[[0,0],[.7,0],[1.0,-8],[1.2,-8],[2.4,-5],[3.2,0]])+2.2*buzz*sin(75*t)},
+ state(t){const br=breath(t);let sy=1+.026*br,x=0,r=0,k=0;
+  r=keys(t,[[0,0],[.5,0],[.8,3.5],[1.15,-9],[2.7,-9],[3.3,-1.5],[3.8,0]]);
+  const reach=sm((t-.9)/.3)*(1-sm((t-2.9)/.5));sy*=1+.055*reach;
+  let puff=sm((t-2.55)/.6)*(t<3.75?1:0);
+  if(t>=2.9&&t<3.75){puff*=1+.12*sin(TAU*(t-2.9)*2.2)}
+  if(t>=3.75){const u=t-3.75;puff=exp(-8*u)*cos(14*u);sy*=1+.07*exp(-7*u)*cos(17*u)}
+  sy*=1-.05*sm((t-3.0)/.3)*(1-sm((t-3.7)/.1));
+  const bb=B({x,r,k,sy,sx:volume(sy)});return{b:bb,puff}},
+ extra(t,st,T,Ac,api){const m=M.slurp;
+  const drift=[DROP[0]+4*sin(2.3*t),DROP[1]+9*sin(2.9*t)];
+  const tip=toStage(TIP[0],TIP[1],m.strawR(t),st.b);
+  const appear=eob((t-.3)/.35),vanish=1-sm((t-1.95)/.1);
+  /* eyes follow the drop, then screw shut while sucking */
+  const look=sm((t-.4)/.3)*(1-sm((t-1.9)/.3));Ac('eyeL',{x:-4*look,y:2*look});Ac('eyeR',{x:-4*look,y:2*look});Ac('hlL',{x:-2*look});Ac('hlR',{x:-2*look});
+  const sq=sm((t-1.5)/.25)*(1-sm((t-3.75)/.15));Ac('eyeL',{sy:1-.8*sq,sx:1+.1*sq});Ac('eyeR',{sy:1-.8*sq,sx:1+.1*sq});
+  const wide=sm((t-.4)/.2)*(1-sm((t-1.4)/.2));Ac('eyeL',{sx:1+.12*wide,sy:1+.12*wide});Ac('eyeR',{sx:1+.12*wide,sy:1+.12*wide});
+  const hp=sm((t-3.75)/.1)*(1-sm((t-4.6)/.3));Ac('eyeL',{sy:1-.6*hp});Ac('eyeR',{sy:1-.6*hp});
+  /* the drop */
+  if(t>.3&&t<2.05){const u=clamp((t-1.2)/.8);const e=u*u*(3-2*u);
+    const px=lerp(drift[0],tip[0],e),py=lerp(drift[1],tip[1],e);
+    const ang=Math.atan2(tip[1]-drift[1],tip[0]-drift[0]);
+    const sz=appear*(1-.8*e)*vanish*3.1;
+    fxAdd({k:'drop',x:px,y:py,s:sz*(1+1.1*Math.sin(PI*u)),sx:sz*(1-.2*Math.sin(PI*u)),r:(ang*180/PI-90)*Math.min(1,e*2.5),c:JUICE,a:1});
+    if(u>0&&u<1){for(let j=1;j<=5;j++){const q=j/6,ee=Math.max(e-q*.28,0);if(ee<=0)continue;
+      fxAdd({k:'dot',x:lerp(drift[0],tip[0],ee)+3*sin(30*t+j),y:lerp(drift[1],tip[1],ee)+3*cos(27*t+j),s:(1-q)*.7*vanish,c:JUICE,a:.9})}}
+    if(t<1.2)fxAdd({k:'star',x:drift[0]+26,y:drift[1]-30+3*sin(7*t),s:.6*appear*(.8+.3*sin(11*t)),r:20*t,c:'#fff7c4',a:.9});
+  }
+  /* juice running down the straw (path runs tip -> base) */
+  const e=JL*sm((t-1.95)/.85),s=JL*sm((t-2.3)/.8);
+  if(e-s>1&&t>1.9){juice.setAttribute('stroke-dasharray',`${f2(e-s)} ${JL*2}`);juice.setAttribute('stroke-dashoffset',f2(-s));juice.setAttribute('opacity',1)}else juice.setAttribute('opacity',0);
+  const suck=sm((t-1.3)/.15)*(1-sm((t-2.9)/.3));Ac('straw',{sy:1-.025*suck});
+  Ac('apple',{y:-5*Math.max(st.puff,0),sx:1+.08*st.puff,sy:1+.08*st.puff});
+  api.word('SLURP!',tip[0]-20,tip[1]-70,t,1.3,.95,-9);
+  api.word('GULP',toStage(110,150,0,st.b)[0]+30,toStage(110,100,0,st.b)[1],t,3.1,.55,6);
+  api.word('AHH!',toStage(110,120,0,st.b)[0]+70,toStage(110,60,0,st.b)[1],t,3.8,.85,-7);
+  if(t>3.78&&t<4.5){const tau=t-3.78,c=toStage(110,300,0,st.b);for(let i=0;i<5;i++){const a=-PI/2+(i-2)*.55;fxAdd({k:'star',x:c[0]+cos(a)*(90+170*tau)*1.0,y:c[1]+sin(a)*(60+170*tau),s:.7*(1-tau/.75),r:i*40+tau*200,c:i%2?'#fff7c4':JUICE,a:1-sm(tau/.75)})}}
+ }};
+/* 5: hurt */
+const HT=.45;
+M.hurt={name:'Ouch! (hurt)',dur:3.6,
+ caption:'<b>Ouch.</b> White then pink hit flash, the carton <b>caves in sideways</b> and rebounds tall on a decaying spring, knockback with a skewed lean, eyes bulging, the apple jolting, the straw whipping back and forth and <b>leaking juice drops</b>, dizzy stars circling the top, then a slide home.',
+ strawR(t){const h=t-HT;return h>0?34*exp(-2.6*h)*sin(15*h):0},
+ state(t){const h=t-HT;let x=0,y=0,r=0,sx=1,sy=1,k=0;
+  if(h>0){x=96*eoc(h/.4);if(h>1.25)x=96*(1-sm((h-1.25)/.8));
+   y=30*sin(PI*clamp(h/.42))+(h>1.25&&h<2.05?9*sin(PI*(h-1.25)/.8):0);
+   r=15*exp(-4.2*h)*cos(12*h)+(h>1.25&&h<2.1?-3.5*sin(PI*(h-1.25)/.85):0);
+   sx=1-.3*exp(-8*h)*cos(24*h);sy=1+.3*exp(-8*h)*cos(24*h);k=-16*exp(-6*h)*cos(15*h)}
+  else{sy=1+.028*breath(t);sx=volume(sy)}
+  return{b:B({x,y,r,sx,sy,k}),flash:flashAt(h)}},
+ extra(t,st,T,Ac,api){const h=t-HT;
+  if(h>0){const w=exp(-3*h);
+   Ac('eyeL',{sx:1+.4*exp(-1.5*h),sy:1+.4*exp(-1.5*h)});Ac('eyeR',{sx:1+.4*exp(-1.5*h),sy:1+.4*exp(-1.5*h)});
+   Ac('apple',{y:-14*exp(-6*h)*Math.abs(cos(12*h)),r:12*w*sin(16*h)});Ac('leaf',{r:34*w*sin(18*h)});Ac('stem',{r:-20*w*sin(16*h)});
+   Ac('lid',{k:12*w*sin(15*h),sy:1+.06*w*cos(24*h)});Ac('face',{x:4*w*sin(19*h)});
+   if(!M.hurt.drops){const sp=[];for(let i=0;i<12;i++)sp.push({ts:HT+.1+i*.08,v:150+30*(i%3),ang:40+(i%4)*10,s:.55,spread:30});M.hurt.drops=buildDrops(M.hurt,sp,77)}
+   drawDrops(M.hurt.drops,t,300);
+   const tp=toStage(TIP[0],TIP[1],M.hurt.strawR(t),st.b);
+   if(h<.3){const s=eob(h/.1)*(1-sm((h-.18)/.12));fxAdd({k:'spike',x:toStage(40,330,0,st.b)[0],y:toStage(40,330,0,st.b)[1],s:2.1*s,r:h*60,c:'#FFD23C',a:1})}
+   api.word('OUCH!',toStage(110,0,0,st.b)[0]+40,toStage(110,-10,0,st.b)[1]-20,t,HT+.04,.8,-10);
+   if(h>.35&&h<1.9){const a=1-sm((h-1.5)/.4),[hx,hy]=toStage(110,60,0,st.b);
+     for(let i=0;i<3;i++){const an=h*5+i*TAU/3;fxAdd({k:'star',x:hx+cos(an)*80,y:hy+sin(an)*18,s:.9+.2*sin(an+1),r:an*40,c:i==1?'#f06a8a':'#FFD23C',a})}}
+  }}};
+function flashAt(h){if(h<0)return null;if(h<.06)return{a:.8,c:[1,1,1]};if(h<.12)return{a:.0,c:[1,1,1]};if(h<.2)return{a:.7,c:[1,1,1]};
+  if(h<.8)return{a:.55*exp(-5*(h-.2)),c:[1,.35,.32]};return null}
+/* 6: happy */
+M.happy={name:'Yay! (happy)',dur:3.2,
+ caption:'<b>Celebrate.</b> Two jumps: a squat and springy hop with eyes squeezed into happy slits and <b>blush cheeks</b>, then a bigger jump into a full <b>spin on his vertical axis</b> (the carton turns edge-on and shows his other face) and a confetti burst. The straw wiggles, the apple bounces, the lid flexes.',
+ strawR(t){const sq=keys(t,[[0,0],[.5,1],[1.2,1],[1.5,0],[2,1],[2.8,1],[3.0,0]]);return 14*sq*sin(TAU*3.2*t)},
+ state(t){let y=0,sy=1+.02*breath(t),r=0,sx0=1,k=0;
+  const hop=(s,e,H)=>{const u=(t-s)/(e-s);return u>0&&u<1?H*4*u*(1-u):0};
+  y=hop(.55,1.15,70)+hop(1.95,2.7,88);
+  sy*=keys(t,[[0,1],[.2,.8],[.28,.82],[.36,1.2],[.9,1.08],[1.15,1.1],[1.22,.74],[1.34,1.08],[1.45,1],[1.7,1],[1.85,.76],[1.95,.8],[2.02,1.22],[2.55,1.08],[2.7,1.12],[2.78,.72],[2.92,1.08],[3.05,.99],[3.2,1]]);
+  if(t>.55&&t<1.15)r=6*sin(PI*(t-.55)/.6);
+  if(t>2.0&&t<2.72){const c=cos(TAU*sm((t-2.0)/.7));sx0=Math.abs(c)<.07?.07*Math.sign(c||1):c}
+  return{b:B({y,r,sy,k,sx:volume(sy)*sx0})}},
+ extra(t,st,T,Ac,api){
+  const sq=keys(t,[[0,0],[.3,.6],[.5,1],[1.2,1],[1.5,0],[1.8,.4],[2,1],[2.8,1],[3.0,0]]);
+  Ac('eyeL',{sy:1-.65*sq,sx:1+.12*sq});Ac('eyeR',{sy:1-.65*sq,sx:1+.12*sq});
+  Ac('apple',{sx:1+.1*sin(TAU*3.2*t),sy:1-.1*sin(TAU*3.2*t)+.0,y:-5*sq*Math.abs(sin(TAU*1.6*t))});
+  Ac('lid',{k:5*sq*sin(TAU*1.6*t)});
+  st.blush=.85*sq;
+  const [cx,cy]=toStage(110,120,0,st.b);
+  confetti(t,.95,cx,cy-60,20,5,560,1.7);confetti(t,2.45,cx,cy-40,30,8,700,1.9);
+  api.word('YAY!',SX+130,toStage(110,0,0,st.b)[1]-10,t,.62,.9,8);
+  api.word('WHEE!',SX-140,toStage(110,0,0,st.b)[1]-10,t,2.1,.9,-8);
+ }};
+const ORDER=['idle','hop','squirt','slurp','hurt','happy'];
+const LABEL={idle:'Idle',hop:'Hop',squirt:'Squirt',slurp:'Slurp',hurt:'Ouch',happy:'Yay'};
+
+/* ---------- api ---------- */
+let wordShown=false,curB=null,dustAt={};
+const api={word:(txt,x,y,t,t0,life,rot)=>{if(wordPop(txt,x,y,t,t0,life,rot))wordShown=true},
+  puddle:(cx,cy,rx,a,t)=>{puddle.setAttribute('cx',f2(cx));puddle.setAttribute('cy',f2(cy));puddle.setAttribute('rx',f2(rx));puddle.setAttribute('ry',f2(rx*.16));puddle.setAttribute('opacity',f2(.9*clamp(a*2)));
+    puddleH.setAttribute('cx',f2(cx-rx*.3));puddleH.setAttribute('cy',f2(cy-rx*.04));puddleH.setAttribute('rx',f2(rx*.28));puddleH.setAttribute('ry',f2(rx*.03));puddleH.setAttribute('opacity',f2(.8*clamp(a*2)));puddleOn=true},
+  dust:(t,t0,idx)=>{const tau=t-t0;if(tau<0||tau>.5)return;const R=rng(60+idx);for(let i=0;i<6;i++){const dir=i<3?-1:1,v=(60+R()*90);fxAdd({k:'dot',x:SX+dir*(60+v*tau*1.2),y:GY-4-(18+R()*14)*Math.sin(PI*tau/.5)*.6,s:(1-tau/.5)*(.9+R()*.6),c:'#e6dcc2',a:.9})}}};
+let puddleOn=false;
+
+/* ---------- render ---------- */
+let cur='idle',t0=0,speed=1,paused=false,T=0;
+function render(T){
+  const m=M[cur];const t=wrap(T-t0,m.dur);
+  const st=m.state(t);const b=st.b;curB=b;acc={};fxList=[];wordShown=false;puddleOn=false;juice.setAttribute('opacity',0);
+  const lag=d=>m.state(wrap(t-d,m.dur)).b;
+  const vel=d=>{const a=lag(d),c=lag(d+.04);return{x:(a.x-c.x)/.04,y:(a.y-c.y)/.04,r:(a.r-c.r)/.04,sy:(a.sy-c.sy)/.04}};
+  /* ---- shared secondary motion (overlapping action) ---- */
+  const v1=vel(.05),v2=vel(.1),v3=vel(.15);
+  A('part-straw'==='x'?'':'straw',{r:(m.strawR?m.strawR(t):0)-cl(v2.x*.03,24)+cl(v2.r*.3,14)+3.2*sin(1.5*T)+cl(-v2.y*.01,8),sy:1-cl(v2.y*.00028,.14),k:cl(-v3.x*.012,8)+1.5*sin(2.1*T+1)});
+  A('lid',{k:cl(-v1.x*.01,5),sy:1+cl(v2.y*.00012,.04)});
+  A('leaf',{r:cl(-v2.x*.05,28)+cl(v2.y*.012,16)+6*sin(2.2*T+.4)});A('stem',{r:cl(-v2.x*.03,14)+3*sin(2.6*T)});
+  A('apple',{y:cl(-v2.y*.01,7),sy:1+cl(v2.y*.00018,.06)});
+  A('face',{x:cl(-v2.x*.01,4),y:cl(-v2.y*.008,3)});
+  A('side',{k:cl(-v2.x*.008,4),sx:1-cl(v2.y*.00008,.04)});
+  /* eyes: wander + blink */
+  const lx=2.8*sin(.6*T)+1.4*sin(1.7*T+1),ly=1.2*sin(.9*T+2);const bl=blinkAmt(T);
+  A('eyeL',{x:lx,y:ly,sy:1-.92*bl});A('eyeR',{x:lx,y:ly,sy:1-.92*bl});A('hlL',{x:lx*.8,y:ly*.8});A('hlR',{x:lx*.8,y:ly*.8});
+  /* puff: eyes squeezed outward */
+  const pf=st.puff||0;A('eyeL',{x:-5*pf});A('eyeR',{x:5*pf});
+  m.extra(t,st,T,A,api);
+  /* ---- rig ---- */
+  rig.setAttribute('transform',`translate(${SX} ${GY}) scale(${K}) translate(${f2(b.x)} ${f2(-b.y)}) rotate(${f2(b.r)}) skewX(${f2(b.k)}) scale(${f2(b.sx)} ${f2(b.sy)}) translate(${-CX} ${-CGY})`);
+  const bx=1+.22*pf,by=1-.06*pf;
+  bulge.setAttribute('transform',pf?`translate(110 380) scale(${f2(bx)} ${f2(by)}) translate(-110 -380)`:'');
+  /* ---- parts ---- */
+  const blush=Math.max(clamp(pf),st.blush||0);
+  for(const id of inner){const a=acc[id];const p=P[id];
+    if(!a){setT(id,'');continue}
+    let s=`translate(${f2(p.piv[0]+a.x)} ${f2(p.piv[1]+a.y)}) rotate(${f2(a.r)}) skewX(${f2(a.k)}) scale(${f2(a.sx)} ${f2(a.sy)}) translate(${-p.piv[0]} ${-p.piv[1]})`;
+    if(id==='blushL'||id==='blushR'){const z=1+.5*clamp(pf);s=`translate(${p.piv[0]} ${p.piv[1]}) scale(${f2(z)}) translate(${-p.piv[0]} ${-p.piv[1]})`}
+    setT(id,s)}
+  P.blushL.el.setAttribute('opacity',f2(blush*.8));P.blushR.el.setAttribute('opacity',f2(blush*.8));
+  /* ---- shadow ---- */
+  const hgt=Math.max(b.y,0);const sc=1/(1+hgt/230);
+  const rx=118*K*sc*Math.min(Math.abs(b.sx),1.4)*(1.05)+Math.abs(b.sx)*0;
+  shadow.setAttribute('cx',f2(SX+b.x*K+15));shadow.setAttribute('cy',GY+3);shadow.setAttribute('rx',f2(Math.max(rx,20)));shadow.setAttribute('ry',f2(Math.max(rx,20)*.15));shadow.setAttribute('opacity',f2(.95*(.4+.6*sc)));
+  if(!puddleOn){puddle.setAttribute('opacity',0);puddleH.setAttribute('opacity',0)}
+  /* ---- world ---- */
+  let sc2=0;if(cur==='hop'&&m.scroll)sc2=m.scroll(t);
+  tuftsM.setAttribute('transform',`translate(${f2(-(sc2%240))} 0)`);farM.setAttribute('transform',`translate(${f2(-((sc2*.3)%480))} 0)`);
+  let shk=0;if(cur==='squirt'&&t>REL&&t<REL+.5)shk=exp(-9*(t-REL))*sin(65*(t-REL))*5;
+  if(cur==='hurt'&&t>HT&&t<HT+.4)shk=exp(-9*(t-HT))*sin(70*(t-HT))*7;
+  worldEl.setAttribute('transform',shk?`translate(${f2(shk)} ${f2(shk*.4)})`:'');
+  if(!wordShown)word.setAttribute('opacity',0);
+  const fl=st.flash;
+  if(fl&&fl.a>.01){const a=fl.a,c=fl.c;fm.setAttribute('values',`${1-a} 0 0 0 ${a*c[0]} 0 ${1-a} 0 0 ${a*c[1]} 0 0 ${1-a} 0 ${a*c[2]} 0 0 0 1 0`);rig.setAttribute('filter','url(#flash)')}else rig.removeAttribute('filter');
+  drawFx();
+}
+
+/* ---------- UI ---------- */
+const modesBar=$('#modes');
+ORDER.forEach((k,i)=>{const b=document.createElement('button');b.dataset.mode=k;b.innerHTML=`<kbd>${i+1}</kbd>${LABEL[k]}`;b.setAttribute('aria-pressed',k===cur);b.onclick=()=>setMode(k);modesBar.appendChild(b)});
+function setMode(k){cur=k;t0=T;[...modesBar.children].forEach(b=>b.setAttribute('aria-pressed',b.dataset.mode===k));$('#tag').textContent=M[k].name;$('#cap').innerHTML=M[k].caption}
+function setSpeed(s){speed=s;document.querySelectorAll('[data-speed]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.speed===s));$('#badge').classList.toggle('on',s<1);$('#badge').textContent=s+'× slow-mo'}
+document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>setSpeed(+b.dataset.speed));
+$('#replay').onclick=()=>{t0=T};
+function setPause(p){paused=p;$('#pause').innerHTML=`<kbd>Space</kbd>${p?'Play':'Pause'}`}
+$('#pause').onclick=()=>setPause(!paused);
+addEventListener('keydown',e=>{if(e.metaKey||e.ctrlKey||e.altKey)return;const k=e.key;
+  if(k>='1'&&k<='6'){setMode(ORDER[+k-1])}else if(k===' '){e.preventDefault();setPause(!paused)}
+  else if(k==='r'||k==='R')t0=T;else if(k==='s'||k==='S')setSpeed(speed===1?.5:speed===.5?.25:1)});
+setMode('idle');
+let last=performance.now();
+function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;if(!paused)T+=dt*speed;render(T);requestAnimationFrame(loop)}
+requestAnimationFrame(t=>{last=t;loop(t)});
+window.__sip={seek(mode,t){setMode(mode);paused=true;T=t;t0=0;render(T)},setSpeed,setPause};
+})();
+
+</script>
+</body></html>

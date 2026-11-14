@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Character Animation Demos</title>
+<style>
+:root{--ink:#1a1a1a;--paper:#efe9dc;--sheet:#FBF8F0;--orange:#E8921C;--yellow:#FFF1A8;--mute:#5b554b;--rule:#e4ddcc}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:Andika,"Avenir Next Rounded","Arial Rounded MT Bold",Verdana,"DejaVu Sans",sans-serif}
+main{max-width:1100px;margin:0 auto;padding:28px 16px 48px}
+h1{font-size:clamp(26px,4vw,40px);margin:0 0 6px;font-weight:900}
+.lede{color:var(--mute);margin:0 0 28px;max-width:60ch;line-height:1.45}
+h2{font-size:20px;margin:32px 0 12px;display:flex;align-items:baseline;gap:10px}
+h2 small{font-size:14px;font-weight:600;color:var(--mute)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:16px}
+a.card{display:flex;flex-direction:column;text-decoration:none;color:inherit;background:var(--sheet);border:3px solid var(--ink);border-radius:16px;box-shadow:0 4px 0 var(--ink);overflow:hidden;transition:transform .08s,box-shadow .08s}
+a.card:hover{transform:translateY(-3px);box-shadow:0 7px 0 var(--ink)}
+a.card:active{transform:translateY(3px);box-shadow:0 1px 0 var(--ink)}
+a.card:focus-visible{outline:4px solid var(--orange);outline-offset:3px}
+.pic{position:relative;aspect-ratio:1/1;background:repeating-linear-gradient(var(--sheet) 0 27px,var(--rule) 27px 28px);border-bottom:3px solid var(--ink)}
+.pic img{position:absolute;inset:12px;width:calc(100% - 24px);height:calc(100% - 24px);object-fit:contain;transition:opacity .2s,transform .25s cubic-bezier(.34,1.56,.64,1)}
+.pic img.open{opacity:0;transform:scale(.85)}
+a.card:hover .pic img.open,a.card:focus-visible .pic img.open{opacity:1;transform:scale(1)}
+a.card:hover .pic img.shut.has-open,a.card:focus-visible .pic img.shut.has-open{opacity:0;transform:scale(1.1)}
+a.card:hover .pic img.shut:not(.has-open){transform:scale(1.06) rotate(-3deg)}
+.txt{padding:10px 12px 12px}
+.name{font-weight:900;font-size:18px}
+.move{font-size:13.5px;color:var(--mute);margin-top:3px;line-height:1.35}
+.tag{position:absolute;top:8px;right:8px;background:var(--yellow);border:2px solid var(--ink);border-radius:8px;font-size:11px;font-weight:800;padding:1px 6px}
+footer{margin-top:36px;color:var(--mute);font-size:14px;line-height:1.5}
+kbd{font-family:inherit;font-weight:800;background:#fff;border:2px solid var(--ink);border-radius:6px;padding:0 5px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Character animation demos</h1>
+  <p class="lede">Every character from Elliot's drawings, animated part by part. Click a card to open its demo. On a folding character, hover the card to see it open.</p>
+
+  <h2>The team <small>folding characters</small></h2>
+  <div class="grid" id="fold"></div>
+
+  <h2>The team <small>non-folding characters</small></h2>
+  <div class="grid" id="flat"></div>
+
+  <h2>Creatures <small>enemies and the boss</small></h2>
+  <div class="grid" id="foes"></div>
+
+  <footer>
+    Inside each demo: <kbd>1</kbd>–<kbd>6</kbd> pick an animation, <kbd>S</kbd> slow motion, <kbd>Space</kbd> pause, <kbd>R</kbd> replay, <kbd>F</kbd> folded/unfolded (folding characters only).<br>
+    These are showcase pages, not game code. Powers marked "new" were invented by the animators; Elliot can overrule them.
+  </footer>
+</main>
+<script>
+const P = '../Characters/png/';
+const groups = {
+  fold: [
+    ['Munch','munch','monster_folded','monster_unfolded','Unfold: food pops out of his tummy; Chomp'],
+    ['Heartfin','heartfin','fish_folded','fish_unfolded','Unfold reveals "Mommy… Elliot… I ♡ U"; Heal'],
+    ['Scoops','scoops','icecream_folded','icecream_unfolded','Flips open into five scoops; Dumbbell lift'],
+    ['Punkin','punkin','pumpkin_folded','pumpkin_unfolded','Six ghosts swirl out; Ghost dive'],
+    ['Sprout','sprout','flowerpot_folded','flowerpot_unfolded','Plant shoots up and blooms; Vine whip'],
+    ['Bolts','bolts','frankenstein_folded','frankenstein_unfolded','Stretches between bolt-posts; Zap'],
+    ['Roly','roly','ball_folded','ball_unfolded','Friends pop out; Haul'],
+  ],
+  flat: [
+    ['Toasty','toasty','firecat',null,'Toast! flare-up; Warm Glow (new)'],
+    ['Chip','chip','beaver',null,'Chew-a-Bridge; Chipper frenzy'],
+    ['Zest','zest','orangeowl',null,'Seer; Slice toss boomerang'],
+    ['Sip','sip','juicebox',null,'Squirt; Slurp'],
+    ['Sheriff Pinch','sheriffpinch','crab',null,'Pinch the rope; Claw snap'],
+  ],
+  foes: [
+    ['Zigzag','zigzag','bat',null,'Zig-Zag Dash; Bite'],
+    ['Webster','webster','spider',null,'Web Drop; Web Shot'],
+    ['Spook','spook','ghost_2',null,'Fade; Boo!'],
+    ['Old Howler','oldhowler','ghost_big',null,'Howl; Swoop · the boss'],
+  ],
+};
+for (const [id, list] of Object.entries(groups)) {
+  const grid = document.getElementById(id);
+  for (const [name, slug, shut, open, move] of list) {
+    const a = document.createElement('a');
+    a.className = 'card';
+    a.href = slug + '_animation_demo.html';
+    a.innerHTML =
+      `<div class="pic">${open ? '<span class="tag">folds</span>' : ''}` +
+      `<img class="shut${open ? ' has-open' : ''}" src="${P}${shut}.png" alt="${name}">` +
+      (open ? `<img class="open" src="${P}${open}.png" alt="" aria-hidden="true">` : '') +
+      `</div><div class="txt"><div class="name">${name}</div><div class="move">${move}</div></div>`;
+    grid.appendChild(a);
+  }
+}
+</script>
+</body>
+</html>

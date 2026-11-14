@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bolts: character animation demo</title>
+<style>
+*{box-sizing:border-box}
+:root{--ink:#1a1a1a;--paper:#efe9dc;--sheet:#FBF8F0;--orange:#3fae66;--yellow:#FFF1A8;--mute:#5b554b}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font-family:Andika,"Avenir Next Rounded","Arial Rounded MT Bold",Verdana,"DejaVu Sans",sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center}
+header{width:100%;max-width:1100px;padding:14px 20px 0;display:flex;align-items:center;gap:14px}
+.chip{width:46px;height:46px;border-radius:12px;border:3px solid var(--ink);background:var(--orange);color:#fff;display:grid;place-items:center;font-size:26px;font-weight:900;text-shadow:0 2px 0 var(--ink);flex:none}
+h1{margin:0;font-size:22px;line-height:1.1}
+h1 small{display:block;font-size:13px;font-weight:400;color:var(--mute);margin-top:3px}
+main{width:100%;max-width:1100px;padding:10px 20px 20px;display:flex;flex-direction:column;align-items:center;gap:10px}
+.stage{position:relative;width:min(100%,calc((100vh - 230px)*1.6));aspect-ratio:960/600;border:3px solid var(--ink);border-radius:14px;overflow:hidden;
+  background:
+   radial-gradient(120% 90% at 18% 8%,rgba(255,236,170,.65),rgba(255,236,170,0) 60%),
+   repeating-linear-gradient(0deg,rgba(120,150,190,.13) 0 1.5px,transparent 1.5px 34px),
+   var(--sheet);
+  box-shadow:0 3px 0 rgba(0,0,0,.18),0 12px 24px -12px rgba(80,60,20,.35)}
+.stage::after{content:"";position:absolute;inset:0;pointer-events:none;mix-blend-mode:multiply;opacity:.55;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' seed='4'/><feColorMatrix values='0 0 0 0 .55  0 0 0 0 .47  0 0 0 0 .33  0 0 0 .22 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
+#stage{position:absolute;inset:0;width:100%;height:100%;display:block}
+.tag{position:absolute;left:12px;top:10px;font-weight:800;font-size:15px;background:var(--yellow);border:3px solid var(--ink);border-radius:10px;padding:3px 10px;transform:rotate(-1.5deg);z-index:2}
+.badge{position:absolute;right:12px;top:10px;font-weight:800;font-size:14px;background:#fff;border:3px solid var(--ink);border-radius:10px;padding:3px 10px;transform:rotate(1.5deg);z-index:2;display:none}
+.badge.on{display:block}
+.bar{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+button{font:800 15px inherit;font-family:inherit;color:var(--ink);padding:8px 14px;border-radius:12px;border:3px solid var(--ink);background:#fff;cursor:pointer;box-shadow:0 3px 0 var(--ink);transition:transform .06s,box-shadow .06s}
+button:active{transform:translateY(2px);box-shadow:0 1px 0 var(--ink)}
+button[aria-pressed=true]{background:var(--yellow)}
+button kbd{font:inherit;font-size:12px;opacity:.55;margin-right:5px}
+.seg{display:flex;gap:6px;align-items:center}
+.seg span{font-size:13px;color:var(--mute);font-weight:700}
+.seg button{padding:5px 10px;font-size:13px;box-shadow:0 2px 0 var(--ink)}
+.thumb{width:26px;height:18px;vertical-align:-4px;margin-right:4px}
+#cap{max-width:900px;font-size:14px;line-height:1.45;color:#3d382f;text-align:center;margin:2px 0 0}
+#cap b{color:var(--ink)}
+@media (max-height:520px){
+  header{display:none}
+  main{padding:6px 10px;gap:6px}
+  .stage{width:min(100%,calc((100vh - 104px)*1.6))}
+  #cap{display:none}
+  button{padding:5px 9px;font-size:12px;box-shadow:0 2px 0 var(--ink)}
+  .seg button{padding:3px 7px;font-size:11px}
+  .tag{font-size:12px}
+}
+@media (max-width:640px) and (min-height:521px){ .stage{width:100%} h1{font-size:18px} }
+</style></head>
+<body>
+<header><span class="chip">B</span><h1>Bolts, animated part by part<small>The kid's Frankenstein monster: bolts, hair, eyes, fists, tongue and throat are each their own piece. Number keys 1&ndash;6 pick an animation.</small></h1></header>
+<main>
+<div class="stage">
+<svg id="stage" viewBox="0 0 960 600" preserveAspectRatio="xMidYMid meet" aria-label="Bolts the Frankenstein monster, animated">
+<defs>
+  <radialGradient id="shadowG"><stop offset="0" stop-color="#3a2a10" stop-opacity=".5"/><stop offset=".6" stop-color="#3a2a10" stop-opacity=".22"/><stop offset="1" stop-color="#3a2a10" stop-opacity="0"/></radialGradient>
+  <radialGradient id="glowG"><stop offset="0" stop-color="#fff6c0" stop-opacity=".95"/><stop offset=".5" stop-color="#ffe27a" stop-opacity=".45"/><stop offset="1" stop-color="#ffe27a" stop-opacity="0"/></radialGradient>
+  <filter id="flash" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB"><feColorMatrix id="fm" type="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 1 0"/></filter>
+  <symbol id="s-star" overflow="visible"><polygon points="0,-10 3,-3.5 10,-3 4.6,1.6 6.2,8.6 0,4.8 -6.2,8.6 -4.6,1.6 -10,-3 -3,-3.5" stroke-linejoin="round"/></symbol>
+  <symbol id="s-dot" overflow="visible"><circle r="5"/></symbol>
+  <symbol id="s-scrap" overflow="visible"><rect x="-6" y="-3.5" width="12" height="7" rx="1"/></symbol>
+  <symbol id="s-spike" overflow="visible"><polygon points="0,-30 7,-12 26,-20 15,-4 34,2 14,8 22,28 6,16 0,34 -6,16 -22,28 -14,8 -34,2 -15,-4 -26,-20 -7,-12" stroke-linejoin="round"/></symbol>
+</defs>
+<g id="world">
+  <g id="far"></g>
+  <g id="groundBack">
+    <path d="M-20 548 C 120 540, 240 552, 380 543 S 640 551, 780 542 S 920 550, 990 545 L990 620 L-20 620Z" fill="#eadfc4" opacity=".7"/>
+    <path d="M-20 543 C 120 536, 240 548, 380 539 S 640 547, 780 538 S 920 546, 990 541" fill="none" stroke="#1a1a1a" stroke-width="4" stroke-linecap="round"/>
+    <path d="M30 560 L170 559 M260 574 L420 572 M520 560 L690 561 M770 576 L930 574" stroke="#a8b4c4" stroke-width="2.5" stroke-linecap="round" fill="none" opacity=".7"/>
+  </g>
+  <g id="tufts"></g>
+  <g id="posts" style="display:none"></g>
+  <g id="bat" style="display:none"><g id="batI"><path id="batP" transform="translate(-395 -370) scale(1)" d="M303.0 348.0 C303.0 348.0 342.0 316.0 342.0 316.0 C342.0 316.0 366.0 343.0 366.0 343.0 C366.0 343.0 396.0 309.0 396.0 309.0 C396.0 309.0 405.0 347.0 405.0 347.0 C405.0 347.0 435.0 311.0 435.0 311.0 C435.0 311.0 446.0 345.0 446.0 345.0 C446.0 345.0 492.0 318.0 492.0 318.0 C492.0 318.0 508.0 373.0 508.0 373.0 C508.0 373.0 470.0 366.0 470.0 366.0 C470.0 366.0 478.0 416.0 478.0 416.0 C478.0 416.0 437.0 389.0 437.0 389.0 C437.0 389.0 383.0 450.0 383.0 450.0 C383.0 450.0 378.0 364.0 378.0 364.0 C378.0 364.0 317.0 405.0 317.0 405.0 C317.0 405.0 346.0 360.0 346.0 360.0 C346.0 360.0 303.0 348.0 303.0 348.0 Z" fill="#3a3a3a" stroke="#1a1a1a" stroke-width="7" stroke-linejoin="round"/></g></g>
+  <circle id="glowL" r="1" fill="url(#glowG)" opacity="0"/><circle id="glowR" r="1" fill="url(#glowG)" opacity="0"/>
+  <ellipse id="shadow" cx="480" cy="543" rx="120" ry="18" fill="url(#shadowG)"/>
+  <g id="rig"><g stroke-linecap="round" stroke-linejoin="round">
+<g id="part-inside"><path d="M112.0 205.0 C112.0 205.0 313.0 207.0 313.0 207.0 C313.0 207.0 306.5 271.2 303.0 300.0 C299.5 328.8 295.5 356.3 292.0 380.0 C288.5 403.7 284.3 417.0 282.0 442.0 C279.7 467.0 279.2 500.0 278.0 530.0 C276.8 560.0 275.0 622.0 275.0 622.0 C275.0 622.0 97.0 622.0 97.0 622.0 C97.0 622.0 98.7 552.3 100.0 520.0 C101.3 487.7 103.7 464.7 105.0 428.0 C106.3 391.3 106.8 337.2 108.0 300.0 C109.2 262.8 112.0 205.0 112.0 205.0 Z" fill="#3fae66" stroke="#1a1a1a" stroke-width="9" /><path d="M132.0 206.0 C132.0 206.0 282.0 208.0 282.0 208.0 C282.0 208.0 272.0 267.0 272.0 267.0 C272.0 267.0 132.0 252.0 132.0 252.0 C132.0 252.0 132.0 206.0 132.0 206.0 Z" fill="#fbfaf6" stroke="none" /><path d="M137.0 570.0 C137.0 570.0 233.0 583.0 233.0 583.0 C233.0 583.0 233.0 622.0 233.0 622.0 C233.0 622.0 140.0 622.0 140.0 622.0 C140.0 622.0 137.0 570.0 137.0 570.0 Z" fill="#fbfaf6" stroke="none" /><path d="M132.0 252.0 C132.0 252.0 272.0 267.0 272.0 267.0 C272.0 267.0 260.3 322.8 255.0 350.0 C249.7 377.2 243.3 403.3 240.0 430.0 C236.7 456.7 236.2 484.5 235.0 510.0 C233.8 535.5 233.0 583.0 233.0 583.0 C233.0 583.0 137.0 570.0 137.0 570.0 C137.0 570.0 138.5 521.3 139.0 500.0 C139.5 478.7 140.5 468.7 140.0 442.0 C139.5 415.3 137.3 371.7 136.0 340.0 C134.7 308.3 132.0 252.0 132.0 252.0 Z" fill="#c3262d" stroke="#1a1a1a" stroke-width="9" /><path d="M183.0 262.0 C181.8 268.3 179.3 287.8 176.0 300.0 C172.7 312.2 167.3 318.3 163.0 335.0 C158.7 351.7 153.5 382.2 150.0 400.0 C146.5 417.8 142.7 425.3 142.0 442.0 C141.3 458.7 143.3 483.7 146.0 500.0 C148.7 516.3 153.0 528.0 158.0 540.0 C163.0 552.0 170.2 565.7 176.0 572.0 C181.8 578.3 187.3 579.0 193.0 578.0 C198.7 577.0 205.2 572.3 210.0 566.0 C214.8 559.7 219.0 554.3 222.0 540.0 C225.0 525.7 227.0 496.2 228.0 480.0 C229.0 463.8 230.0 459.7 228.0 443.0 C226.0 426.3 219.8 398.8 216.0 380.0 C212.2 361.2 206.8 349.2 205.0 330.0 C203.2 310.8 205.0 275.8 205.0 265.0" fill="none" stroke="#1a1a1a" stroke-width="6"/><path d="M180.0 424.0 C180.0 428.3 180.0 445.7 180.0 450.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M140.0 340.0 C141.0 331.0 143.7 337.0 147.0 336.0 C150.3 335.0 156.2 333.3 160.0 334.0 C163.8 334.7 167.7 336.5 170.0 340.0 C172.3 343.5 172.7 350.0 174.0 355.0 C175.3 360.0 178.0 370.0 178.0 370.0 C178.0 370.0 181.2 361.2 183.0 357.0 C184.8 352.8 186.2 347.3 189.0 345.0 C191.8 342.7 194.8 343.0 200.0 343.0 C205.2 343.0 215.3 343.0 220.0 345.0 C224.7 347.0 226.2 348.3 228.0 355.0 C229.8 361.7 230.8 375.8 231.0 385.0 C231.2 394.2 231.7 405.0 229.0 410.0 C226.3 415.0 220.7 414.0 215.0 415.0 C209.3 416.0 200.8 414.7 195.0 416.0 C189.2 417.3 185.0 423.0 180.0 423.0 C175.0 423.0 170.7 417.5 165.0 416.0 C159.3 414.5 150.0 418.3 146.0 414.0 C142.0 409.7 142.0 402.3 141.0 390.0 C140.0 377.7 139.0 349.0 140.0 340.0 Z" fill="#1a1a1a" stroke="#1a1a1a" stroke-width="5" /><path d="M132.0 206.0 C132.2 213.7 132.8 244.3 133.0 252.0" fill="none" stroke="#1a1a1a" stroke-width="7"/><path d="M282.0 208.0 C280.3 217.8 273.7 257.2 272.0 267.0" fill="none" stroke="#1a1a1a" stroke-width="7"/><path d="M137.0 570.0 C137.5 578.7 139.5 613.3 140.0 622.0" fill="none" stroke="#1a1a1a" stroke-width="7"/><path d="M233.0 583.0 C233.0 589.5 233.0 615.5 233.0 622.0" fill="none" stroke="#1a1a1a" stroke-width="7"/><path d="M152.0 208.0 C151.7 214.5 150.3 240.5 150.0 247.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M172.0 208.0 C170.5 215.8 164.5 247.2 163.0 255.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M197.0 208.0 C196.2 216.0 192.8 248.0 192.0 256.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M218.0 208.0 C217.8 214.7 217.2 241.3 217.0 248.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M243.0 210.0 C242.0 218.0 238.0 250.0 237.0 258.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M263.0 212.0 C261.3 220.5 254.7 254.5 253.0 263.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M152.0 573.0 C151.5 581.0 149.5 613.0 149.0 621.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M162.0 577.0 C161.7 584.3 160.3 613.7 160.0 621.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M178.0 579.0 C178.0 586.0 178.0 614.0 178.0 621.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M193.0 581.0 C192.8 587.7 192.2 614.3 192.0 621.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M207.0 582.0 C206.7 588.5 205.3 614.5 205.0 621.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M222.0 585.0 C221.7 589.5 220.3 607.5 220.0 612.0" fill="none" stroke="#1a1a1a" stroke-width="5"/></g>
+<g id="part-body"><path d="M84.0 714.0 C84.0 714.0 130.7 714.3 150.0 715.0 C169.3 715.7 177.2 717.7 200.0 718.0 C222.8 718.3 287.0 717.0 287.0 717.0 C287.0 717.0 293.8 721.8 296.0 726.0 C298.2 730.2 300.0 742.0 300.0 742.0 C300.0 742.0 294.7 754.5 293.0 770.0 C291.3 785.5 290.0 835.0 290.0 835.0 C290.0 835.0 192.3 835.0 155.0 835.0 C117.7 835.0 66.0 835.0 66.0 835.0 C66.0 835.0 69.3 821.2 68.0 815.0 C66.7 808.8 61.3 804.7 58.0 798.0 C54.7 791.3 50.7 783.0 48.0 775.0 C45.3 767.0 42.0 750.0 42.0 750.0 C42.0 750.0 53.0 733.0 60.0 727.0 C67.0 721.0 84.0 714.0 84.0 714.0 Z" fill="#3f33a6" stroke="#1a1a1a" stroke-width="9" /><path d="M50.0 752.0 C46.3 750.5 43.0 753.8 40.0 756.0 C37.0 758.2 34.0 761.7 32.0 765.0 C30.0 768.3 28.0 772.8 28.0 776.0 C28.0 779.2 32.2 781.0 32.0 784.0 C31.8 787.0 27.2 790.5 27.0 794.0 C26.8 797.5 29.2 801.5 31.0 805.0 C32.8 808.5 34.7 812.2 38.0 815.0 C41.3 817.8 46.7 821.2 51.0 822.0 C55.3 822.8 60.5 822.3 64.0 820.0 C67.5 817.7 71.0 813.8 72.0 808.0 C73.0 802.2 71.7 792.2 70.0 785.0 C68.3 777.8 65.3 770.5 62.0 765.0 C58.7 759.5 53.7 753.5 50.0 752.0 Z" fill="#3fae66" stroke="#1a1a1a" stroke-width="9" /><path d="M42.0 770.0 C40.3 770.3 33.5 770.3 32.0 772.0 C30.5 773.7 31.3 778.5 33.0 780.0 C34.7 781.5 40.5 780.8 42.0 781.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M40.0 786.0 C38.3 786.5 31.5 787.2 30.0 789.0 C28.5 790.8 29.2 795.5 31.0 797.0 C32.8 798.5 39.3 797.8 41.0 798.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M44.0 803.0 C42.5 803.5 36.2 804.2 35.0 806.0 C33.8 807.8 35.2 812.8 37.0 814.0 C38.8 815.2 44.5 813.2 46.0 813.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M284.0 742.0 C286.0 736.3 292.3 736.3 296.0 736.0 C299.7 735.7 303.3 737.3 306.0 740.0 C308.7 742.7 310.3 748.2 312.0 752.0 C313.7 755.8 316.0 759.7 316.0 763.0 C316.0 766.3 311.8 768.7 312.0 772.0 C312.2 775.3 316.8 779.3 317.0 783.0 C317.2 786.7 313.2 790.3 313.0 794.0 C312.8 797.7 316.7 801.3 316.0 805.0 C315.3 808.7 312.0 812.5 309.0 816.0 C306.0 819.5 301.8 825.0 298.0 826.0 C294.2 827.0 288.8 826.3 286.0 822.0 C283.2 817.7 281.3 808.7 281.0 800.0 C280.7 791.3 283.5 779.7 284.0 770.0 C284.5 760.3 282.0 747.7 284.0 742.0 Z" fill="#3fae66" stroke="#1a1a1a" stroke-width="9" /><path d="M302.0 754.0 C303.7 754.3 310.3 754.3 312.0 756.0 C313.7 757.7 313.5 762.3 312.0 764.0 C310.5 765.7 304.5 765.7 303.0 766.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M303.0 774.0 C304.7 774.3 311.3 774.3 313.0 776.0 C314.7 777.7 314.7 782.3 313.0 784.0 C311.3 785.7 304.7 785.7 303.0 786.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M302.0 795.0 C303.5 795.3 309.5 795.3 311.0 797.0 C312.5 798.7 312.7 803.3 311.0 805.0 C309.3 806.7 302.7 806.7 301.0 807.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M147.0 713.0 C147.0 713.0 173.0 713.0 173.0 713.0 C173.0 713.0 173.0 835.0 173.0 835.0 C173.0 835.0 147.0 835.0 147.0 835.0 C147.0 835.0 147.0 713.0 147.0 713.0 Z" fill="#ec5a1a" stroke="#1a1a1a" stroke-width="7" /><path d="M130.0 722.0 C127.2 723.8 112.5 729.7 113.0 733.0 C113.5 736.3 129.7 740.5 133.0 742.0" fill="none" stroke="#1a1a1a" stroke-width="6"/><path d="M190.0 722.0 C192.3 723.7 203.7 729.0 204.0 732.0 C204.3 735.0 194.0 738.7 192.0 740.0" fill="none" stroke="#1a1a1a" stroke-width="6"/><path d="M100.0 716.0 C98.8 722.8 96.3 741.0 93.0 757.0 C89.7 773.0 82.2 802.8 80.0 812.0" fill="none" stroke="#1a1a1a" stroke-width="6"/><path d="M58.0 731.0 C63.8 735.3 87.2 752.7 93.0 757.0" fill="none" stroke="#1a1a1a" stroke-width="6"/><path d="M226.0 719.0 C235.3 725.8 272.7 753.2 282.0 760.0" fill="none" stroke="#1a1a1a" stroke-width="6"/><path d="M233.0 772.0 C242.5 768.7 280.5 755.3 290.0 752.0" fill="none" stroke="#1a1a1a" stroke-width="6"/><path d="M264.0 762.0 C265.5 772.0 271.5 812.0 273.0 822.0" fill="none" stroke="#1a1a1a" stroke-width="6"/><path d="M94.0 622.0 C94.0 622.0 294.0 630.0 294.0 630.0 C294.0 630.0 288.2 629.0 287.0 639.0 C285.8 649.0 287.0 677.0 287.0 690.0 C287.0 703.0 287.0 717.0 287.0 717.0 C287.0 717.0 264.5 715.8 250.0 716.0 C235.5 716.2 216.7 718.2 200.0 718.0 C183.3 717.8 169.3 715.7 150.0 715.0 C130.7 714.3 84.0 714.0 84.0 714.0 C84.0 714.0 85.7 690.7 87.0 680.0 C88.3 669.3 90.8 659.7 92.0 650.0 C93.2 640.3 94.0 622.0 94.0 622.0 Z" fill="#3fae66" stroke="#1a1a1a" stroke-width="9" /></g>
+<g id="part-head"><path d="M88.0 176.0 C88.0 176.0 120.0 176.0 120.0 176.0 C120.0 176.0 120.0 196.0 120.0 196.0 C120.0 196.0 88.0 196.0 88.0 196.0 C88.0 196.0 88.0 176.0 88.0 176.0 Z" fill="#a3abab" stroke="#1a1a1a" stroke-width="7" /><path d="M72.0 167.0 C72.0 167.0 90.0 166.0 90.0 166.0 C90.0 166.0 91.0 203.0 91.0 203.0 C91.0 203.0 73.0 203.0 73.0 203.0 C73.0 203.0 72.0 167.0 72.0 167.0 Z" fill="#a3abab" stroke="#1a1a1a" stroke-width="7" /><path d="M312.0 178.0 C312.0 178.0 343.0 178.0 343.0 178.0 C343.0 178.0 343.0 194.0 343.0 194.0 C343.0 194.0 312.0 194.0 312.0 194.0 C312.0 194.0 312.0 178.0 312.0 178.0 Z" fill="#a3abab" stroke="#1a1a1a" stroke-width="7" /><path d="M341.0 167.0 C341.0 167.0 360.0 167.0 360.0 167.0 C360.0 167.0 360.0 202.0 360.0 202.0 C360.0 202.0 342.0 202.0 342.0 202.0 C342.0 202.0 341.0 167.0 341.0 167.0 Z" fill="#a3abab" stroke="#1a1a1a" stroke-width="7" /><path d="M147.0 23.0 C147.0 23.0 190.2 25.7 216.0 26.0 C241.8 26.3 302.0 25.0 302.0 25.0 C302.0 25.0 307.2 39.8 310.0 49.0 C312.8 58.2 316.7 71.7 319.0 80.0 C321.3 88.3 323.5 88.0 324.0 99.0 C324.5 110.0 323.0 132.5 322.0 146.0 C321.0 159.5 319.2 170.2 318.0 180.0 C316.8 189.8 315.0 205.0 315.0 205.0 C315.0 205.0 248.2 205.2 215.0 205.0 C181.8 204.8 116.0 204.0 116.0 204.0 C116.0 204.0 117.3 194.7 119.0 186.0 C120.7 177.3 123.3 165.0 126.0 152.0 C128.7 139.0 132.2 122.0 135.0 108.0 C137.8 94.0 141.0 82.2 143.0 68.0 C145.0 53.8 147.0 23.0 147.0 23.0 Z" fill="#3fae66" stroke="#1a1a1a" stroke-width="9" /><path d="M147.0 23.0 C147.0 23.0 161.5 19.7 168.0 18.0 C174.5 16.3 180.7 12.5 186.0 13.0 C191.3 13.5 195.0 18.8 200.0 21.0 C205.0 23.2 207.7 26.0 216.0 26.0 C224.3 26.0 240.0 22.5 250.0 21.0 C260.0 19.5 267.3 16.3 276.0 17.0 C284.7 17.7 302.0 25.0 302.0 25.0 C302.0 25.0 306.5 39.3 308.0 44.0 C309.5 48.7 311.0 53.0 311.0 53.0 C311.0 53.0 302.3 57.2 298.0 57.0 C293.7 56.8 285.0 52.0 285.0 52.0 C285.0 52.0 276.0 75.0 276.0 75.0 C276.0 75.0 263.0 49.0 263.0 49.0 C263.0 49.0 253.5 59.5 249.0 60.0 C244.5 60.5 236.0 52.0 236.0 52.0 C236.0 52.0 226.7 54.7 222.0 58.0 C217.3 61.3 208.0 72.0 208.0 72.0 C208.0 72.0 192.0 61.0 192.0 61.0 C192.0 61.0 180.0 84.0 180.0 84.0 C180.0 84.0 171.5 74.5 167.0 71.0 C162.5 67.5 153.0 63.0 153.0 63.0 C153.0 63.0 147.0 96.0 147.0 96.0 C147.0 96.0 143.0 80.2 143.0 68.0 C143.0 55.8 147.0 23.0 147.0 23.0 Z" fill="#1a1a1a" stroke="none" /><path d="M147.0 23.0 C147.0 23.0 190.2 25.7 216.0 26.0 C241.8 26.3 302.0 25.0 302.0 25.0 C302.0 25.0 307.2 39.8 310.0 49.0 C312.8 58.2 316.7 71.7 319.0 80.0 C321.3 88.3 323.5 88.0 324.0 99.0 C324.5 110.0 323.0 132.5 322.0 146.0 C321.0 159.5 319.2 170.2 318.0 180.0 C316.8 189.8 315.0 205.0 315.0 205.0 C315.0 205.0 248.2 205.2 215.0 205.0 C181.8 204.8 116.0 204.0 116.0 204.0 C116.0 204.0 117.3 194.7 119.0 186.0 C120.7 177.3 123.3 165.0 126.0 152.0 C128.7 139.0 132.2 122.0 135.0 108.0 C137.8 94.0 141.0 82.2 143.0 68.0 C145.0 53.8 147.0 23.0 147.0 23.0 Z" fill="none" stroke="#1a1a1a" stroke-width="9" /><path d="M316.0 70.0 C317.8 71.5 325.2 77.5 327.0 79.0" fill="none" stroke="#1a1a1a" stroke-width="6"/><path d="M147.0 106.0 C150.2 104.8 159.7 100.7 166.0 99.0 C172.3 97.3 178.5 95.8 185.0 96.0 C191.5 96.2 198.2 97.5 205.0 100.0 C211.8 102.5 222.5 109.2 226.0 111.0" fill="none" stroke="#1a1a1a" stroke-width="6"/><path d="M162.0 93.1 C161.3 96.1 158.7 108.1 158.0 111.1" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M172.0 91.7 C171.7 94.7 170.3 106.7 170.0 109.7" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M187.0 91.0 C187.0 94.0 187.0 106.0 187.0 109.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M201.0 92.0 C201.3 95.0 202.7 107.0 203.0 110.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M213.0 94.0 C213.7 97.0 216.3 109.0 217.0 112.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M188.0 140.8 C187.4 144.5 183.7 148.9 180.6 151.1 C177.4 153.3 172.8 154.5 169.2 154.0 C165.5 153.5 160.6 151.1 158.6 148.0 C156.7 144.9 156.7 139.4 157.5 135.4 C158.2 131.5 160.1 126.6 163.0 124.3 C165.9 122.0 171.4 120.8 174.9 121.5 C178.4 122.3 182.1 125.6 184.3 128.8 C186.4 132.0 188.6 137.1 188.0 140.8 Z" fill="#1a1a1a" stroke="#1a1a1a" stroke-width="4" /><path d="M172.0 124.7 C172.2 125.4 171.7 126.7 171.0 127.4 C170.3 128.2 169.0 129.0 167.9 129.3 C166.8 129.7 165.1 129.8 164.1 129.4 C163.2 129.1 162.6 128.1 162.4 127.2 C162.1 126.4 162.2 125.3 162.9 124.5 C163.5 123.7 164.9 122.9 166.1 122.6 C167.2 122.3 168.7 122.5 169.7 122.8 C170.7 123.2 171.8 123.9 172.0 124.7 Z" fill="#fbfaf6" stroke="none" /><path d="M304.0 138.0 C304.0 140.6 302.1 144.0 300.2 145.9 C298.4 147.8 295.5 149.3 293.0 149.3 C290.5 149.4 286.9 148.4 285.3 146.5 C283.6 144.6 283.0 140.8 283.0 138.0 C283.0 135.2 283.7 131.6 285.4 129.7 C287.1 127.7 290.5 126.3 293.0 126.3 C295.5 126.4 298.3 128.3 300.1 130.2 C301.9 132.2 304.0 135.4 304.0 138.0 Z" fill="#1a1a1a" stroke="#1a1a1a" stroke-width="4" /><path d="M292.9 133.0 C292.9 133.6 292.4 134.4 291.9 134.8 C291.5 135.2 290.7 135.6 290.0 135.6 C289.3 135.6 288.4 135.3 288.0 134.9 C287.5 134.5 287.3 133.6 287.3 133.0 C287.3 132.4 287.5 131.6 288.0 131.1 C288.4 130.7 289.3 130.4 290.0 130.4 C290.7 130.4 291.4 130.8 291.9 131.2 C292.4 131.7 292.9 132.4 292.9 133.0 Z" fill="#fbfaf6" stroke="none" /><path d="M197.0 178.0 C197.0 178.0 213.0 178.0 213.0 178.0 C213.0 178.0 213.3 183.7 212.0 186.0 C210.7 188.3 207.3 191.8 205.0 192.0 C202.7 192.2 199.3 189.3 198.0 187.0 C196.7 184.7 197.0 178.0 197.0 178.0 Z" fill="#3fae66" stroke="#1a1a1a" stroke-width="6" /><path d="M206.4 184.0 C206.4 184.4 206.1 185.0 205.7 185.2 C205.4 185.5 204.9 185.8 204.5 185.8 C204.1 185.8 203.5 185.6 203.2 185.3 C202.9 185.0 202.8 184.4 202.8 184.0 C202.8 183.6 202.9 183.0 203.2 182.7 C203.5 182.4 204.1 182.2 204.5 182.2 C204.9 182.2 205.4 182.5 205.7 182.8 C206.0 183.1 206.4 183.6 206.4 184.0 Z" fill="#1a1a1a" stroke="#1a1a1a" stroke-width="1.5" /></g>
+</g></g>
+  <g id="lg"></g>
+  <g id="fx"></g>
+  <rect id="wflash" x="-40" y="-40" width="1040" height="680" fill="#fff" opacity="0" pointer-events="none"/>
+  <text id="word" x="0" y="0" text-anchor="middle" font-family="Andika,'Avenir Next Rounded','Arial Rounded MT Bold',Verdana,sans-serif" font-weight="900" font-size="52" fill="#FFF1A8" stroke="#1a1a1a" stroke-width="9" stroke-linejoin="round" paint-order="stroke" opacity="0"></text>
+</g>
+</svg>
+<div class="tag" id="tag">Idle</div><div class="badge" id="badge">slow-mo</div>
+</div>
+<div class="bar" id="modes" role="group" aria-label="Animations"></div>
+<div class="bar">
+  <div class="seg" role="group" aria-label="Form"><span>Form</span><button data-form="0" aria-pressed="true"><svg class="thumb" viewBox="10 0 366 434" style="width:16px;height:20px;vertical-align:-5px"><g stroke-linecap="round" stroke-linejoin="round"><g stroke-linecap="round" stroke-linejoin="round">
+<g transform="translate(0,-417)"><path d="M84.0 714.0 C84.0 714.0 130.7 714.3 150.0 715.0 C169.3 715.7 177.2 717.7 200.0 718.0 C222.8 718.3 287.0 717.0 287.0 717.0 C287.0 717.0 293.8 721.8 296.0 726.0 C298.2 730.2 300.0 742.0 300.0 742.0 C300.0 742.0 294.7 754.5 293.0 770.0 C291.3 785.5 290.0 835.0 290.0 835.0 C290.0 835.0 192.3 835.0 155.0 835.0 C117.7 835.0 66.0 835.0 66.0 835.0 C66.0 835.0 69.3 821.2 68.0 815.0 C66.7 808.8 61.3 804.7 58.0 798.0 C54.7 791.3 50.7 783.0 48.0 775.0 C45.3 767.0 42.0 750.0 42.0 750.0 C42.0 750.0 53.0 733.0 60.0 727.0 C67.0 721.0 84.0 714.0 84.0 714.0 Z" fill="#3f33a6" stroke="#1a1a1a" stroke-width="9" /><path d="M50.0 752.0 C46.3 750.5 43.0 753.8 40.0 756.0 C37.0 758.2 34.0 761.7 32.0 765.0 C30.0 768.3 28.0 772.8 28.0 776.0 C28.0 779.2 32.2 781.0 32.0 784.0 C31.8 787.0 27.2 790.5 27.0 794.0 C26.8 797.5 29.2 801.5 31.0 805.0 C32.8 808.5 34.7 812.2 38.0 815.0 C41.3 817.8 46.7 821.2 51.0 822.0 C55.3 822.8 60.5 822.3 64.0 820.0 C67.5 817.7 71.0 813.8 72.0 808.0 C73.0 802.2 71.7 792.2 70.0 785.0 C68.3 777.8 65.3 770.5 62.0 765.0 C58.7 759.5 53.7 753.5 50.0 752.0 Z" fill="#3fae66" stroke="#1a1a1a" stroke-width="9" /><path d="M42.0 770.0 C40.3 770.3 33.5 770.3 32.0 772.0 C30.5 773.7 31.3 778.5 33.0 780.0 C34.7 781.5 40.5 780.8 42.0 781.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M40.0 786.0 C38.3 786.5 31.5 787.2 30.0 789.0 C28.5 790.8 29.2 795.5 31.0 797.0 C32.8 798.5 39.3 797.8 41.0 798.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M44.0 803.0 C42.5 803.5 36.2 804.2 35.0 806.0 C33.8 807.8 35.2 812.8 37.0 814.0 C38.8 815.2 44.5 813.2 46.0 813.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M284.0 742.0 C286.0 736.3 292.3 736.3 296.0 736.0 C299.7 735.7 303.3 737.3 306.0 740.0 C308.7 742.7 310.3 748.2 312.0 752.0 C313.7 755.8 316.0 759.7 316.0 763.0 C316.0 766.3 311.8 768.7 312.0 772.0 C312.2 775.3 316.8 779.3 317.0 783.0 C317.2 786.7 313.2 790.3 313.0 794.0 C312.8 797.7 316.7 801.3 316.0 805.0 C315.3 808.7 312.0 812.5 309.0 816.0 C306.0 819.5 301.8 825.0 298.0 826.0 C294.2 827.0 288.8 826.3 286.0 822.0 C283.2 817.7 281.3 808.7 281.0 800.0 C280.7 791.3 283.5 779.7 284.0 770.0 C284.5 760.3 282.0 747.7 284.0 742.0 Z" fill="#3fae66" stroke="#1a1a1a" stroke-width="9" /><path d="M302.0 754.0 C303.7 754.3 310.3 754.3 312.0 756.0 C313.7 757.7 313.5 762.3 312.0 764.0 C310.5 765.7 304.5 765.7 303.0 766.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M303.0 774.0 C304.7 774.3 311.3 774.3 313.0 776.0 C314.7 777.7 314.7 782.3 313.0 784.0 C311.3 785.7 304.7 785.7 303.0 786.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M302.0 795.0 C303.5 795.3 309.5 795.3 311.0 797.0 C312.5 798.7 312.7 803.3 311.0 805.0 C309.3 806.7 302.7 806.7 301.0 807.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M147.0 713.0 C147.0 713.0 173.0 713.0 173.0 713.0 C173.0 713.0 173.0 835.0 173.0 835.0 C173.0 835.0 147.0 835.0 147.0 835.0 C147.0 835.0 147.0 713.0 147.0 713.0 Z" fill="#ec5a1a" stroke="#1a1a1a" stroke-width="7" /><path d="M130.0 722.0 C127.2 723.8 112.5 729.7 113.0 733.0 C113.5 736.3 129.7 740.5 133.0 742.0" fill="none" stroke="#1a1a1a" stroke-width="6"/><path d="M190.0 722.0 C192.3 723.7 203.7 729.0 204.0 732.0 C204.3 735.0 194.0 738.7 192.0 740.0" fill="none" stroke="#1a1a1a" stroke-width="6"/><path d="M100.0 716.0 C98.8 722.8 96.3 741.0 93.0 757.0 C89.7 773.0 82.2 802.8 80.0 812.0" fill="none" stroke="#1a1a1a" stroke-width="6"/><path d="M58.0 731.0 C63.8 735.3 87.2 752.7 93.0 757.0" fill="none" stroke="#1a1a1a" stroke-width="6"/><path d="M226.0 719.0 C235.3 725.8 272.7 753.2 282.0 760.0" fill="none" stroke="#1a1a1a" stroke-width="6"/><path d="M233.0 772.0 C242.5 768.7 280.5 755.3 290.0 752.0" fill="none" stroke="#1a1a1a" stroke-width="6"/><path d="M264.0 762.0 C265.5 772.0 271.5 812.0 273.0 822.0" fill="none" stroke="#1a1a1a" stroke-width="6"/><path d="M94.0 622.0 C94.0 622.0 294.0 630.0 294.0 630.0 C294.0 630.0 288.2 629.0 287.0 639.0 C285.8 649.0 287.0 677.0 287.0 690.0 C287.0 703.0 287.0 717.0 287.0 717.0 C287.0 717.0 264.5 715.8 250.0 716.0 C235.5 716.2 216.7 718.2 200.0 718.0 C183.3 717.8 169.3 715.7 150.0 715.0 C130.7 714.3 84.0 714.0 84.0 714.0 C84.0 714.0 85.7 690.7 87.0 680.0 C88.3 669.3 90.8 659.7 92.0 650.0 C93.2 640.3 94.0 622.0 94.0 622.0 Z" fill="#3fae66" stroke="#1a1a1a" stroke-width="9" /></g>
+<g><path d="M88.0 176.0 C88.0 176.0 120.0 176.0 120.0 176.0 C120.0 176.0 120.0 196.0 120.0 196.0 C120.0 196.0 88.0 196.0 88.0 196.0 C88.0 196.0 88.0 176.0 88.0 176.0 Z" fill="#a3abab" stroke="#1a1a1a" stroke-width="7" /><path d="M72.0 167.0 C72.0 167.0 90.0 166.0 90.0 166.0 C90.0 166.0 91.0 203.0 91.0 203.0 C91.0 203.0 73.0 203.0 73.0 203.0 C73.0 203.0 72.0 167.0 72.0 167.0 Z" fill="#a3abab" stroke="#1a1a1a" stroke-width="7" /><path d="M312.0 178.0 C312.0 178.0 343.0 178.0 343.0 178.0 C343.0 178.0 343.0 194.0 343.0 194.0 C343.0 194.0 312.0 194.0 312.0 194.0 C312.0 194.0 312.0 178.0 312.0 178.0 Z" fill="#a3abab" stroke="#1a1a1a" stroke-width="7" /><path d="M341.0 167.0 C341.0 167.0 360.0 167.0 360.0 167.0 C360.0 167.0 360.0 202.0 360.0 202.0 C360.0 202.0 342.0 202.0 342.0 202.0 C342.0 202.0 341.0 167.0 341.0 167.0 Z" fill="#a3abab" stroke="#1a1a1a" stroke-width="7" /><path d="M147.0 23.0 C147.0 23.0 190.2 25.7 216.0 26.0 C241.8 26.3 302.0 25.0 302.0 25.0 C302.0 25.0 307.2 39.8 310.0 49.0 C312.8 58.2 316.7 71.7 319.0 80.0 C321.3 88.3 323.5 88.0 324.0 99.0 C324.5 110.0 323.0 132.5 322.0 146.0 C321.0 159.5 319.2 170.2 318.0 180.0 C316.8 189.8 315.0 205.0 315.0 205.0 C315.0 205.0 248.2 205.2 215.0 205.0 C181.8 204.8 116.0 204.0 116.0 204.0 C116.0 204.0 117.3 194.7 119.0 186.0 C120.7 177.3 123.3 165.0 126.0 152.0 C128.7 139.0 132.2 122.0 135.0 108.0 C137.8 94.0 141.0 82.2 143.0 68.0 C145.0 53.8 147.0 23.0 147.0 23.0 Z" fill="#3fae66" stroke="#1a1a1a" stroke-width="9" /><path d="M147.0 23.0 C147.0 23.0 161.5 19.7 168.0 18.0 C174.5 16.3 180.7 12.5 186.0 13.0 C191.3 13.5 195.0 18.8 200.0 21.0 C205.0 23.2 207.7 26.0 216.0 26.0 C224.3 26.0 240.0 22.5 250.0 21.0 C260.0 19.5 267.3 16.3 276.0 17.0 C284.7 17.7 302.0 25.0 302.0 25.0 C302.0 25.0 306.5 39.3 308.0 44.0 C309.5 48.7 311.0 53.0 311.0 53.0 C311.0 53.0 302.3 57.2 298.0 57.0 C293.7 56.8 285.0 52.0 285.0 52.0 C285.0 52.0 276.0 75.0 276.0 75.0 C276.0 75.0 263.0 49.0 263.0 49.0 C263.0 49.0 253.5 59.5 249.0 60.0 C244.5 60.5 236.0 52.0 236.0 52.0 C236.0 52.0 226.7 54.7 222.0 58.0 C217.3 61.3 208.0 72.0 208.0 72.0 C208.0 72.0 192.0 61.0 192.0 61.0 C192.0 61.0 180.0 84.0 180.0 84.0 C180.0 84.0 171.5 74.5 167.0 71.0 C162.5 67.5 153.0 63.0 153.0 63.0 C153.0 63.0 147.0 96.0 147.0 96.0 C147.0 96.0 143.0 80.2 143.0 68.0 C143.0 55.8 147.0 23.0 147.0 23.0 Z" fill="#1a1a1a" stroke="none" /><path d="M147.0 23.0 C147.0 23.0 190.2 25.7 216.0 26.0 C241.8 26.3 302.0 25.0 302.0 25.0 C302.0 25.0 307.2 39.8 310.0 49.0 C312.8 58.2 316.7 71.7 319.0 80.0 C321.3 88.3 323.5 88.0 324.0 99.0 C324.5 110.0 323.0 132.5 322.0 146.0 C321.0 159.5 319.2 170.2 318.0 180.0 C316.8 189.8 315.0 205.0 315.0 205.0 C315.0 205.0 248.2 205.2 215.0 205.0 C181.8 204.8 116.0 204.0 116.0 204.0 C116.0 204.0 117.3 194.7 119.0 186.0 C120.7 177.3 123.3 165.0 126.0 152.0 C128.7 139.0 132.2 122.0 135.0 108.0 C137.8 94.0 141.0 82.2 143.0 68.0 C145.0 53.8 147.0 23.0 147.0 23.0 Z" fill="none" stroke="#1a1a1a" stroke-width="9" /><path d="M316.0 70.0 C317.8 71.5 325.2 77.5 327.0 79.0" fill="none" stroke="#1a1a1a" stroke-width="6"/><path d="M147.0 106.0 C150.2 104.8 159.7 100.7 166.0 99.0 C172.3 97.3 178.5 95.8 185.0 96.0 C191.5 96.2 198.2 97.5 205.0 100.0 C211.8 102.5 222.5 109.2 226.0 111.0" fill="none" stroke="#1a1a1a" stroke-width="6"/><path d="M162.0 93.1 C161.3 96.1 158.7 108.1 158.0 111.1" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M172.0 91.7 C171.7 94.7 170.3 106.7 170.0 109.7" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M187.0 91.0 C187.0 94.0 187.0 106.0 187.0 109.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M201.0 92.0 C201.3 95.0 202.7 107.0 203.0 110.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M213.0 94.0 C213.7 97.0 216.3 109.0 217.0 112.0" fill="none" stroke="#1a1a1a" stroke-width="5"/><path d="M188.0 140.8 C187.4 144.5 183.7 148.9 180.6 151.1 C177.4 153.3 172.8 154.5 169.2 154.0 C165.5 153.5 160.6 151.1 158.6 148.0 C156.7 144.9 156.7 139.4 157.5 135.4 C158.2 131.5 160.1 126.6 163.0 124.3 C165.9 122.0 171.4 120.8 174.9 121.5 C178.4 122.3 182.1 125.6 184.3 128.8 C186.4 132.0 188.6 137.1 188.0 140.8 Z" fill="#1a1a1a" stroke="#1a1a1a" stroke-width="4" /><path d="M172.0 124.7 C172.2 125.4 171.7 126.7 171.0 127.4 C170.3 128.2 169.0 129.0 167.9 129.3 C166.8 129.7 165.1 129.8 164.1 129.4 C163.2 129.1 162.6 128.1 162.4 127.2 C162.1 126.4 162.2 125.3 162.9 124.5 C163.5 123.7 164.9 122.9 166.1 122.6 C167.2 122.3 168.7 122.5 169.7 122.8 C170.7 123.2 171.8 123.9 172.0 124.7 Z" fill="#fbfaf6" stroke="none" /><path d="M304.0 138.0 C304.0 140.6 302.1 144.0 300.2 145.9 C298.4 147.8 295.5 149.3 293.0 149.3 C290.5 149.4 286.9 148.4 285.3 146.5 C283.6 144.6 283.0 140.8 283.0 138.0 C283.0 135.2 283.7 131.6 285.4 129.7 C287.1 127.7 290.5 126.3 293.0 126.3 C295.5 126.4 298.3 128.3 300.1 130.2 C301.9 132.2 304.0 135.4 304.0 138.0 Z" fill="#1a1a1a" stroke="#1a1a1a" stroke-width="4" /><path d="M292.9 133.0 C292.9 133.6 292.4 134.4 291.9 134.8 C291.5 135.2 290.7 135.6 290.0 135.6 C289.3 135.6 288.4 135.3 288.0 134.9 C287.5 134.5 287.3 133.6 287.3 133.0 C287.3 132.4 287.5 131.6 288.0 131.1 C288.4 130.7 289.3 130.4 290.0 130.4 C290.7 130.4 291.4 130.8 291.9 131.2 C292.4 131.7 292.9 132.4 292.9 133.0 Z" fill="#fbfaf6" stroke="none" /><path d="M197.0 178.0 C197.0 178.0 213.0 178.0 213.0 178.0 C213.0 178.0 213.3 183.7 212.0 186.0 C210.7 188.3 207.3 191.8 205.0 192.0 C202.7 192.2 199.3 189.3 198.0 187.0 C196.7 184.7 197.0 178.0 197.0 178.0 Z" fill="#3fae66" stroke="#1a1a1a" stroke-width="6" /><path d="M206.4 184.0 C206.4 184.4 206.1 185.0 205.7 185.2 C205.4 185.5 204.9 185.8 204.5 185.8 C204.1 185.8 203.5 185.6 203.2 185.3 C202.9 185.0 202.8 184.4 202.8 184.0 C202.8 183.6 202.9 183.0 203.2 182.7 C203.5 182.4 204.1 182.2 204.5 182.2 C204.9 182.2 205.4 182.5 205.7 182.8 C206.0 183.1 206.4 183.6 206.4 184.0 Z" fill="#1a1a1a" stroke="#1a1a1a" stroke-width="1.5" /></g>
+</g></g></svg>Folded <kbd>F</kbd></button><button data-form="1" aria-pressed="false">Unfolded</button></div>
+  <div class="seg" role="group" aria-label="Speed"><span>Speed</span><button data-speed="1" aria-pressed="true">1&times;</button><button data-speed=".5" aria-pressed="false">&frac12;&times;</button><button data-speed=".25" aria-pressed="false">&frac14;&times;</button></div>
+  <button id="replay"><kbd>R</kbd>Replay</button><button id="pause"><kbd>Space</kbd>Pause</button>
+</div>
+<p id="cap"></p>
+</main>
+<script>
+(()=>{
+"use strict";
+const $=s=>document.querySelector(s);
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const sm=t=>{t=clamp(t);return t*t*(3-2*t)};
+const eob=t=>{t=clamp(t);const c1=1.70158,c3=c1+1;return 1+c3*Math.pow(t-1,3)+c1*Math.pow(t-1,2)};
+const eoc=t=>1-Math.pow(1-clamp(t),3);
+const eic=t=>{t=clamp(t);return t*t*t};
+const TAU=Math.PI*2;
+const sin=Math.sin,cos=Math.cos,exp=Math.exp,PI=Math.PI;
+function keys(t,k){if(t<=k[0][0])return k[0][1];for(let i=0;i<k.length-1;i++)if(t<k[i+1][0]){const u=(t-k[i][0])/(k[i+1][0]-k[i][0]);return lerp(k[i][1],k[i+1][1],sm(u))}return k[k.length-1][1]}
+const wrap=(t,d)=>((t%d)+d)%d;
+function rng(seed){return()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+
+/* ---------- stage constants ---------- */
+const SX=480,GY=540,CX=216,STR=417,HIN=205,BH=851,H0=480;     // stage centre, ground line, rig centre x, inside length, hinge y, art height, on-screen height
+const Kof=o=>H0/(434+STR*clamp(o,-.05,1.15));                    // keep the figure about the same height on screen: folded looks bigger
+const BOT=o=>BH-STR*(1-o);
+const SVG='http://www.w3.org/2000/svg';
+const rig=$('#rig'),shadow=$('#shadow'),worldEl=$('#world'),fxG=$('#fx'),word=$('#word'),fm=$('#fm'),wflash=$('#wflash'),lgG=$('#lg'),postsG=$('#posts'),batG=$('#bat'),batI=$('#batI'),batP=$('#batP'),glowL=$('#glowL'),glowR=$('#glowR');
+const ns=n=>document.createElementNS(SVG,n);
+
+/* ---------- tag the parts (the SVG only names inside / body / head) ---------- */
+const inside=rig.querySelector('#part-inside'),bd=rig.querySelector('#part-body'),hd=rig.querySelector('#part-head');
+function wrapKids(arr,a,b,id){const g=ns('g');g.id=id;arr[a].before(g);for(let i=a;i<=b;i++)g.appendChild(arr[i])}
+{const bc=[...bd.children],hc=[...hd.children],ic=[...inside.children];
+ wrapKids(bc,5,8,'fist-r');wrapKids(bc,1,4,'fist-l');
+ wrapKids(hc,18,19,'mouth');wrapKids(hc,16,17,'eye-r');wrapKids(hc,14,15,'eye-l');wrapKids(hc,8,13,'scar');
+ hc[5].id='hair';wrapKids(hc,2,3,'bolt-r');wrapKids(hc,0,1,'bolt-l');
+ wrapKids(ic,4,5,'tongue');ic[6].id='throat'}
+const inner=['bolt-l','bolt-r','hair','scar','eye-l','eye-r','mouth','fist-l','fist-r','tongue','throat'];
+const FIX={'bolt-l':[118,172],'bolt-r':[314,172],'hair':[215,50],'fist-l':[108,724],'fist-r':[272,724],'tongue':[180,262]};
+const P={};
+for(const id of [...inner,'part-head','part-body','part-inside']){const el=rig.querySelector('#'+id);const bb=el.getBBox();P[id]={el,piv:FIX[id]||[bb.x+bb.width/2,bb.y+bb.height/2],last:''}}
+let acc={};
+function add(id,o){const a=acc[id]||(acc[id]={x:0,y:0,r:0,sx:1,sy:1,k:0});
+  if(o.x)a.x+=o.x;if(o.y)a.y+=o.y;if(o.r)a.r+=o.r;if(o.k)a.k+=o.k;if(o.sx)a.sx*=o.sx;if(o.sy)a.sy*=o.sy}
+const f2=n=>Math.round(n*100)/100;
+function setT(id,s){const p=P[id];if(p.last!==s){p.last=s;if(s)p.el.setAttribute('transform',s);else p.el.removeAttribute('transform')}}
+
+/* ---------- scenery ---------- */
+(function(){
+  const g=$('#tufts'),far=$('#far');
+  let h='';
+  for(let i=-1;i<6;i++){const x=i*240;
+    h+=`<path d="M${x+60} 580 l-6 -20 M${x+66} 580 l2 -26 M${x+72} 580 l8 -20" stroke="#1a1a1a" stroke-width="4" stroke-linecap="round" fill="none"/>`;
+    h+=`<path d="M${x+172} 574 q4 -10 10 -12" stroke="#3fae66" stroke-width="4" stroke-linecap="round" fill="none"/><ellipse cx="${x+172}" cy="574" rx="15" ry="11" fill="#ec5a1a" stroke="#1a1a1a" stroke-width="3.5"/><path d="M${x+172} 563 v12" stroke="#a8400f" stroke-width="3" stroke-linecap="round"/>`;
+    h+=`<ellipse cx="${x+120}" cy="590" rx="11" ry="6" fill="#d9cfb8" stroke="#1a1a1a" stroke-width="3"/>`;
+  }
+  g.innerHTML=`<g id="tuftsM">${h}</g>`;
+  let f='';
+  for(let i=-1;i<4;i++){const x=i*480;
+    f+=`<path d="M${x+120} 150 c-30 0 -34 -34 -6 -38 c4 -26 40 -28 50 -8 c24 -8 44 14 28 30 c8 14 -8 18 -22 16 Z" fill="#fff" stroke="#b7c2d3" stroke-width="3.5" stroke-linejoin="round" opacity=".85"/>`;
+    f+=`<path d="M${x+380} 96 c-20 0 -22 -22 -4 -26 c4 -16 28 -18 34 -4 c16 -4 28 10 18 20 Z" fill="#fff" stroke="#b7c2d3" stroke-width="3" stroke-linejoin="round" opacity=".8"/>`;
+  }
+  f+=`<g transform="translate(830 88)" opacity=".9"><circle r="30" fill="#FFF1A8" stroke="#d4a82a" stroke-width="3.5"/><circle cx="-8" cy="-6" r="6" fill="#f3e08a"/><circle cx="9" cy="9" r="4" fill="#f3e08a"/></g>`;
+  far.innerHTML=`<g id="farM">${f}</g>`;
+})();
+const tuftsM=$('#tuftsM'),farM=$('#farM');
+
+/* ---------- the two bolt-posts (stage props, only used in Unfold) ---------- */
+const POSTX=[225,735],SOCKY=157;
+postsG.innerHTML=[0,1].map(i=>{const px=POSTX[i],sg=i?-1:1;
+ return `<g class="post" data-i="${i}"><g class="pb">
+  <rect x="${px-16}" y="128" width="32" height="430" rx="8" fill="#a3abab" stroke="#1a1a1a" stroke-width="5"/>
+  <rect x="${px-22}" y="226" width="44" height="14" rx="5" fill="#8a9393" stroke="#1a1a1a" stroke-width="4"/>
+  <rect x="${px-22}" y="330" width="44" height="14" rx="5" fill="#8a9393" stroke="#1a1a1a" stroke-width="4"/>
+  <rect x="${px-40}" y="512" width="80" height="34" rx="8" fill="#8a9393" stroke="#1a1a1a" stroke-width="5"/>
+  <rect x="${px+(sg>0?8:-52)}" y="146" width="44" height="22" rx="7" fill="#a3abab" stroke="#1a1a1a" stroke-width="5"/>
+  <circle cx="${px+sg*44}" cy="${SOCKY}" r="9" fill="#1a1a1a"/><circle class="sk" cx="${px+sg*44}" cy="${SOCKY}" r="4" fill="#FFE27A" opacity="0"/>
+  <circle cx="${px}" cy="112" r="26" fill="#a3abab" stroke="#1a1a1a" stroke-width="5"/>
+  <circle class="bulb" cx="${px}" cy="112" r="15" fill="#FFF1A8" stroke="#1a1a1a" stroke-width="3.5"/>
+  <circle class="blit" cx="${px}" cy="112" r="15" fill="#fff" opacity="0"/>
+ </g><circle class="pg" cx="${px}" cy="112" r="90" fill="url(#glowG)" opacity="0"/></g>`}).join('');
+const postEls=[...postsG.querySelectorAll('.post')].map(g=>({g,pb:g.querySelector('.pb'),pg:g.querySelector('.pg'),sk:g.querySelector('.sk'),bl:g.querySelector('.blit')}));
+function drawPosts(ps){
+  if(!ps){postsG.style.display='none';return}
+  postsG.style.display='';
+  postEls.forEach((e,i)=>{const jx=ps.lit*1.6*sin(70*ps.t+i*2),jy=ps.lit*1.2*sin(83*ps.t+i);
+    e.pb.setAttribute('transform',`translate(${f2(jx)} ${f2(ps.dy+jy)})`);
+    e.pg.setAttribute('transform',`translate(0 ${f2(ps.dy)})`);e.pg.setAttribute('opacity',f2(ps.lit*(.75+.25*sin(60*ps.t+i))));
+    e.sk.setAttribute('opacity',f2(ps.lit));e.bl.setAttribute('opacity',f2(ps.lit*.7))})}
+
+/* ---------- bat (target for the zap) ---------- */
+function drawBat(b){
+  if(!b){batG.style.display='none';return}
+  batG.style.display='';
+  batG.setAttribute('transform',`translate(${f2(b.x)} ${f2(b.y)}) rotate(${f2(b.r)}) scale(${f2(b.s)})`);
+  const fl=b.flap;batI.setAttribute('transform',`scale(${f2(1+.05*fl)} ${f2(1-.12*fl)})`);
+  batP.setAttribute('fill',b.fill||'#3a3a3a')}
+
+/* ---------- fx pool ---------- */
+const pool=[];for(let i=0;i<64;i++){const u=ns('use');u.setAttribute('stroke','#1a1a1a');u.style.display='none';fxG.appendChild(u);pool.push(u)}
+let fxList=[];
+const fxAdd=o=>fxList.push(o);
+function drawFx(){
+  let i=0;
+  for(const o of fxList){if(i>=pool.length)break;const u=pool[i++];
+    u.style.display='';u.setAttribute('href','#s-'+o.k);u.setAttribute('fill',o.c);u.setAttribute('opacity',f2(o.a==null?1:o.a));
+    u.setAttribute('transform',`translate(${f2(o.x)} ${f2(o.y)}) rotate(${f2(o.r||0)}) scale(${f2(o.s)})`);u.setAttribute('stroke-width',f2((o.sw||2.5)/Math.max(o.s,.3)))}
+  for(;i<pool.length;i++)pool[i].style.display='none';
+}
+const COL=['#3fae66','#FFD23C','#3f33a6','#ec5a1a','#f06a8a','#7cc3e8','#fbfaf6'];
+function confetti(t,t0,ox,oy,n,seed,speed=520,life=1.6){const tau=t-t0;if(tau<0||tau>life)return;const R=rng(seed);
+  for(let i=0;i<n;i++){const a=-PI/2+(R()-.5)*2.3,v=speed*(.45+R()*.7),vx=cos(a)*v,vy=sin(a)*v;
+    fxAdd({k:i%3?'scrap':'star',x:ox+vx*tau,y:oy+vy*tau+.5*900*tau*tau,s:(i%3?1.1:.9)*(.8+R()*.6),r:R()*360+tau*(R()-.5)*900,c:COL[i%COL.length],a:1-sm((tau-life*.55)/(life*.45))})}}
+function crumbs(t,t0,ox,oy,n,seed,speed=260,life=.7,col='#d9cfb8'){const tau=t-t0;if(tau<0||tau>life)return;const R=rng(seed);
+  for(let i=0;i<n;i++){const a=-PI*(.1+.8*R()),v=speed*(.5+R()*.6);fxAdd({k:'dot',x:ox+cos(a)*v*tau,y:oy+sin(a)*v*tau+500*tau*tau,s:(1-tau/life)*(.8+R()*.8),c:col,a:1})}}
+function sparks(t,t0,ox,oy,n,seed,speed=300,life=.45){const tau=t-t0;if(tau<0||tau>life)return;const R=rng(seed);
+  for(let i=0;i<n;i++){const a=R()*TAU,v=speed*(.4+R()*.7);fxAdd({k:'star',x:ox+cos(a)*v*tau,y:oy+sin(a)*v*tau,s:(1-tau/life)*(.5+R()*.5)*1.15,r:R()*360,c:i%2?'#FFE27A':'#fff',a:1})}}
+function smoke(t,t0,ox,oy,n,seed,life=1){const tau=t-t0;if(tau<0||tau>life)return;const R=rng(seed);
+  for(let i=0;i<n;i++){const d=R()*.3,u=clamp((tau-d)/(life-.3));if(u<=0)continue;fxAdd({k:'dot',x:ox+(R()-.5)*24+sin(u*5+i)*10,y:oy-u*(70+R()*40),s:.8+u*2.2,c:'#b9bec3',a:.8*(1-u),sw:1.6})}}
+function wordPop(txt,x,y,t,t0,life,rot=-8){const tau=t-t0;if(tau<0||tau>life){return false}
+  const s=eob(tau/.14)*(1-sm((tau-life+.15)/.15)*.3);word.textContent=txt;word.setAttribute('opacity',f2(1-sm((tau-life+.12)/.12)));
+  word.setAttribute('transform',`translate(${f2(x)} ${f2(y)}) rotate(${rot}) scale(${f2(Math.max(s,.01))})`);return true}
+
+/* ---------- lightning ---------- */
+const LG=[];for(let i=0;i<10;i++){const g=ns('g');g.style.display='none';
+  for(const [c,w] of [['#1a1a1a',20],['#FFD23C',13],['#ffffff',5.5]]){const p=ns('path');p.setAttribute('fill','none');p.setAttribute('stroke',c);p.setAttribute('stroke-width',w);p.setAttribute('stroke-linecap','round');p.setAttribute('stroke-linejoin','round');g.appendChild(p)}
+  lgG.appendChild(g);LG.push(g)}
+let lgList=[];
+function lightning(x1,y1,x2,y2,seed,segs=8,amp=22,w=1){
+  const R=rng(seed),dx=x2-x1,dy=y2-y1,L=Math.hypot(dx,dy)||1,nx=-dy/L,ny=dx/L;let d='';
+  for(let i=0;i<=segs;i++){const u=i/segs,o=(i===0||i===segs)?0:(R()-.5)*2*amp;d+=(i?'L':'M')+f2(x1+dx*u+nx*o)+' '+f2(y1+dy*u+ny*o)}
+  lgList.push({d,w})}
+function drawLg(){let i=0;for(const o of lgList){if(i>=LG.length)break;const g=LG[i++];g.style.display='';g.setAttribute('transform','');
+    [...g.children].forEach((p,j)=>{p.setAttribute('d',o.d);p.setAttribute('stroke-width',[20,13,5.5][j]*o.w)})}
+  for(;i<LG.length;i++)LG[i].style.display='none'}
+
+/* ---------- blink (global time) ---------- */
+const blinks=[];(function(){const R=rng(11);let t=1.1;for(let i=0;i<400;i++){blinks.push(t);const r=R();if(r<.18){blinks.push(t+.26)}t+=1.5+R()*3.6+(r>.85?2.2:0)}})();
+function blinkAmt(T){let lo=0,hi=blinks.length-1;while(lo<hi){const m=(lo+hi+1)>>1;if(blinks[m]<=T)lo=m;else hi=m-1}
+  const d=T-blinks[lo];if(d<0||d>.2)return 0;return d<.07?d/.07:1-sm((d-.07)/.13)}
+
+/* ---------- modes ---------- */
+let form=0; // 0 folded, 1 unfolded (used by Idle / Lumber / Ouch / Yay)
+const B=o=>Object.assign({x:0,y:0,r:0,sx:1,sy:1,pv:0},o);
+const breath=t=>{const b=sin(TAU*t/3.2);return b+.25*sin(TAU*t/1.6)}
+const volume=sy=>1+(1-sy)*.65;
+const M={};
+const BL=[72,172],BR=[360,172];            // bolt tips in art coordinates
+
+/* 1: idle */
+M.idle={name:'Idle',dur:6.4,
+ caption:'<b>Idle.</b> A heavy, slow breath with the head lagging the body, then a stiff <b>robot head-turn</b>. The <b>neck bolts</b> droop and bounce a beat behind, the <b>hair</b> and <b>fists</b> drift, the eyes glance and blink at irregular intervals, and now and then a bolt gives a tiny <b>static tick</b> (a spark, a twitch, a sideways glance). Try Unfolded form with F.',
+ state(t){const br=breath(t);const sy=1+.022*br;
+  const hr=keys(t,[[0,0],[1.1,0],[1.6,-4],[3.1,-4],[3.6,3.5],[4.7,3.5],[5.3,0],[6.4,0]]);
+  return{b:B({sy,sx:volume(sy),r:.8*sin(TAU*t/6.4)}),open:form,hr}},
+ extra(t,st,T,A,api){
+  A('eye-l',{x:-st.hr*.9});A('eye-r',{x:-st.hr*.9});
+  for(const [s,sg] of [[2.35,-1],[4.95,1]]){const tau=t-s;
+   if(tau>0&&tau<.55){const k=exp(-8*tau)*sin(55*tau);A(sg<0?'bolt-l':'bolt-r',{r:(sg<0?1:-1)*16*k});
+    A('eye-l',{x:sg*3});A('eye-r',{x:sg*3});
+    const [x,y]=api.S(sg<0?BL[0]-8:BR[0]+8,BL[1]);
+    sparks(t,s,x,y,6,s*10,170,.38);
+    if(tau<.2&&Math.floor(tau*60)%2===0)lightning(x,y,x+sg*34,y-26,Math.floor(tau*60)+7,3,6,.55)}}
+ }};
+
+/* 2: lumber */
+const STEP=.9;
+function stepU(t){const idx=Math.floor(t/STEP);return{u:(t-idx*STEP)/STEP,s:idx%2?-1:1,idx}}
+M.walk={name:'Lumber',dur:3.6,
+ caption:'<b>Lumber.</b> He has no legs in the drawing, so the walk is all weight: each step he rocks onto one side, lifts, then <b>plants with a squash and a thud</b> (dust, a small shake). The fists swing against the sway, the head bobs a beat late, and the bolts flap. Ground and moon-clouds scroll at different speeds.',
+ state(t){const{u,s}=stepU(t);const f=form?.5:1;
+  const y=15*f*sin(PI*sm((u-.04)/.9))*(u>.04&&u<.94?1:0);
+  const sy=keys(u,[[0,.9],[.09,1.05],[.45,1.04],[.85,1.0],[1,.9]]);
+  const r=f*5.5*sin(TAU*t/(2*STEP)+.4);
+  return{b:B({y,sy,sx:volume(sy),r}),open:form,hr:-f*3*sin(TAU*t/(2*STEP)+.9)}},
+ extra(t,st,T,A,api){const{u,s}=stepU(t);
+  const sw=sin(TAU*t/(2*STEP)+.4);
+  A('fist-l',{r:22*sw});A('fist-r',{r:22*sw});
+  for(let k=0;k<4;k++){const tau=t-k*STEP;if(tau>0&&tau<.2){A('bolt-l',{r:-14*sin(PI*tau/.2)*exp(-4*tau)*4});A('bolt-r',{r:14*sin(PI*tau/.2)*exp(-4*tau)*4});
+    crumbs(t,k*STEP,SX-84,GY-4,6,30+k,230,.5);crumbs(t,k*STEP,SX+84,GY-4,6,50+k,230,.5)}}
+  api.word('THUD',SX+10,120,t,0,.5,-6);
+  A('eye-l',{y:1.5*sin(TAU*t/STEP)});A('eye-r',{y:1.5*sin(TAU*t/STEP)});
+ },
+ scroll(t){const idx=Math.floor(t/STEP),{u}=stepU(t);return idx*240+240*sm((u-.1)/.8)}};
+
+/* 3: unfold */
+const UT=1.9,CT=5.2,ARC0=2.6,ARC1=4.9;
+M.unfold={name:'Unfold',dur:7,
+ caption:'<b>Unfold.</b> He squats and shudders, hair crackling, bolts arcing. Then head and body <b>spring apart</b> with a big overshoot, revealing the huge mouth: the tongue wags and the throat pulses. Two <b>bolt-posts rise</b> either side and he stretches to meet them, <b>completing the circuit</b>: arcs jump, the bulbs light and he buzzes. Then he snaps shut and the posts sink.',
+ state(t){
+  const br=breath(t);let sy=1+.02*br,x=0,y=0,open=0,hr=0;
+  if(t<UT){const c=sm((t-.8)/.45)*(1-sm((t-1.78)/.12));const sh=sm((t-1.0)/.7);
+    sy*=1-.2*c;x=sh*3*sin(TAU*9*(t-.8))}
+  else if(t<CT){const tau=t-UT;open=1-exp(-7.5*tau)*cos(10.5*tau);
+    sy*=keys(tau,[[0,.82],[.1,1.12],[.3,.96],[.5,1.02],[.8,1]]);
+    y=10*sin(PI*clamp(tau/.4));
+    const z=sm((t-ARC0)/.2)*(1-sm((t-ARC1)/.15));x=z*2*sin(TAU*26*t);
+    hr=2*exp(-5*tau)*sin(14*tau)}
+  else{const tc=t-CT;open=Math.max(0,1-eic(tc/.24));
+    sy*=keys(tc,[[0,1],[.2,1.05],[.26,.68],[.38,1.1],[.55,.96],[.75,1.01],[1,1]])}
+  return{b:B({x,y,sy,sx:volume(sy)}),open,hr}},
+ extra(t,st,T,A,api){
+  const tau=t-UT,o=clamp(st.open,0,1);
+  const z=sm((t-ARC0)/.2)*(1-sm((t-ARC1)/.15));
+  if(t<UT){const w=sm((t-.8)/.5),sh=sm((t-1.0)/.7);
+    A('eye-l',{sx:1+.25*w,sy:1+.25*w});A('eye-r',{sx:1+.25*w,sy:1+.25*w});
+    A('bolt-l',{r:sh*9*sin(TAU*14*t)+w*6});A('bolt-r',{r:-sh*9*sin(TAU*14*t+1)-w*6});
+    A('hair',{k:sh*4*sin(TAU*16*t),sy:1+.12*sh});A('fist-l',{r:-sh*7*sin(TAU*12*t)+w*6});A('fist-r',{r:sh*7*sin(TAU*12*t+1)-w*6});
+    if(t>1.25){const fr=Math.floor(t*20),R=rng(fr*3+1);const ch=sm((t-1.25)/.6);
+      for(const sg of [-1,1]){if(R()<ch*.9){const [x,y]=api.S(sg<0?BL[0]-8:BR[0]+8,BL[1]);lightning(x,y,x+sg*(26+R()*22),y-14-R()*30,fr*7+sg,3,7,.6)}}}
+  }
+  if(t>=UT&&t<CT){
+    const a=sm(tau/.2)*(1-sm((tau-.5)/.7));
+    A('fist-l',{r:30*a});A('fist-r',{r:-30*a});A('hair',{sy:1+.18*exp(-4*tau),k:6*exp(-4*tau)*sin(18*tau)});
+    A('eye-l',{sx:1+.25*exp(-3*tau),sy:1+.25*exp(-3*tau)});A('eye-r',{sx:1+.25*exp(-3*tau),sy:1+.25*exp(-3*tau)});
+    A('mouth',{sx:1+.3*a,sy:1+.5*a});
+    const wv=clamp(o*2-.6);
+    A('tongue',{k:9*wv*sin(TAU*1.7*t),sy:1+.04*wv*sin(TAU*3.4*t)});
+    A('throat',{sx:1+.06*wv*sin(TAU*2.4*t+1),sy:1+.07*wv*sin(TAU*2.4*t)});
+    const [lx,ly]=api.S(BL[0]-8,BL[1]),[rx,ry]=api.S(BR[0]+8,BR[1]);
+    sparks(t,UT+.02,lx,ly,9,3,330,.5);sparks(t,UT+.02,rx,ry,9,4,330,.5);
+    confetti(t,UT+.1,api.S(216,60)[0],api.S(216,60)[1],22,3,620,1.8);
+    api.word('SPROING!',SX,api.S(216,-50)[1]<40?60:api.S(216,-50)[1],t,UT+.12,.9,-6);
+    // the circuit
+    if(z>.02){
+      A('eye-l',{sx:1+.2*z,sy:1+.2*z});A('eye-r',{sx:1+.2*z,sy:1+.2*z});
+      A('hair',{sy:1+.35*z,k:10*z*sin(TAU*20*t)});A('fist-l',{r:12*z*sin(TAU*24*t)});A('fist-r',{r:-12*z*sin(TAU*24*t+1)});
+      A('bolt-l',{r:5*z*sin(TAU*31*t)});A('bolt-r',{r:-5*z*sin(TAU*31*t+1)});
+      A('mouth',{sy:1+.4*z});
+      const fr=Math.floor(t*24);
+      for(let i=0;i<2;i++){const sg=i?1:-1,[bx,by]=api.S(sg<0?BL[0]-8:BR[0]+8,BL[1]);
+        const px=POSTX[i]+(i?-44:44);
+        if((fr+i)%7!==6){lightning(bx,by,px,SOCKY,fr*5+i,7,15,z);if((fr+i)%2)lightning(bx,by+2,px,SOCKY-3,fr*9+i+3,6,22,.6*z)}}
+      if(t>ARC0&&t<ARC0+.45){const [x1,y1]=api.S(BL[0]-8,BL[1]),[x2,y2]=api.S(BR[0]+8,BR[1]);sparks(t,ARC0,x1,y1,6,11,200,.4);sparks(t,ARC0,x2,y2,6,12,200,.4);
+        api.word('BZZT!',SX,70,t,ARC0,.8,5)}
+    }
+  }
+  // posts rise / sink
+  if(t>1.1&&t<6.6){const dy=t<5.9?480*(1-eob((t-1.1)/.65)):480*sm((t-5.9)/.6);
+    api.posts({dy:Math.min(dy,480),lit:z,t});
+    crumbs(t,1.15,POSTX[0],GY,6,41,260,.6);crumbs(t,1.15,POSTX[1],GY,6,42,260,.6)}
+ }};
+
+/* 4: zap (action) */
+const CHG=.5,REL=1.45,DIS=2.65;
+M.zap={name:'Zap (action)',dur:4.6,
+ caption:'<b>Zap.</b> He rocks back and squashes, eyes narrowing, hair rising, bolts bristling while sparks are <b>sucked in</b> to each bolt. Then the release: a flash, a kick of body stretch, and <b>forked lightning</b> from both neck bolts, one hitting the bat. It tumbles away, smoke curls off the bolts, his hair frizzes, and the bat flutters back.',
+ state(t){let sy=1+.02*breath(t),x=0,y=0,r=0,hr=0;const c=sm((t-CHG)/.9);
+  if(t<REL){r=-5.5*c;sy*=1-.1*c;x=c*c*1.8*sin(TAU*20*t)}
+  else{const tau=t-REL;r=-5.5*exp(-5*tau)*cos(11*tau);
+    sy*=keys(tau,[[0,.9],[.08,1.14],[.3,.97],[.6,1.03],[1,1]]);y=10*sin(PI*clamp(tau/.3));
+    x=tau<1.2?2.4*sin(TAU*32*tau)*(1-tau/1.2):0;hr=-3*exp(-4*tau)*sin(14*tau)}
+  return{b:B({x,y,sy,sx:volume(sy),r}),open:form,hr,wf:t>=REL?.5*exp(-12*(t-REL))+(t<DIS&&Math.floor((t-REL)*24)%5===0?.18:0):0}},
+ extra(t,st,T,A,api){
+  const c=sm((t-CHG)/.9)*(t<REL?1:0),tau=t-REL;
+  const [lx,ly]=api.S(BL[0]-8,BL[1]),[rx,ry]=api.S(BR[0]+8,BR[1]);
+  const BX=800,BY=290;
+  // the bat
+  let b={x:BX,y:BY+9*sin(2.2*T),r:6*sin(1.7*T),s:1,flap:sin(TAU*3.4*T),fill:'#3a3a3a'};
+  if(t>=REL+.02&&t<3.55){const k=t-REL-.02;
+    const fl=Math.floor(k*26)%2;b.fill=k<.45?(fl?'#fff':'#FFE27A'):'#3a3a3a';
+    b.x=BX+560*eoc(k/1.1);b.y=BY-250*eoc(k/.8)+60*sm((k-.8)/.5)*0;b.r=k*520;b.s=1-.35*sm(k/1.2);b.flap=sin(TAU*9*k);
+    if(k<.5)b.x+=3*sin(TAU*30*k)}
+  else if(t>=3.55){const k=t-3.55;b.y=lerp(-90,BY+9*sin(2.2*T),eob(k/.8));b.x=BX;b.r=lerp(25,6*sin(1.7*T),sm(k/.9));b.s=1}
+  api.bat(b);
+  const tx=Math.min(940,b.x-34*b.s),ty=b.y;
+  if(t<REL){
+    A('eye-l',{sy:1-.4*c,sx:1+.1*c});A('eye-r',{sy:1-.4*c,sx:1+.1*c});
+    A('bolt-l',{r:18*c+2*c*sin(TAU*18*t)});A('bolt-r',{r:-18*c-2*c*sin(TAU*18*t+1)});
+    A('hair',{sy:1+.3*c,k:4*c*sin(TAU*14*t)});A('fist-l',{r:-10*c});A('fist-r',{r:10*c});
+    if(t>CHG+.05)for(let i=0;i<6;i++){const p=((t-CHG)*1.7+i/6)%1,an=i*1.9+.4,rad=120*(1-p);
+      for(const sg of [-1,1]){const [x,y]=sg<0?[lx,ly]:[rx,ry];fxAdd({k:'star',x:x+sg*cos(an)*rad,y:y+sin(an)*rad*.8,s:.35+.6*p,r:p*300,c:i%2?'#FFE27A':'#fff',a:clamp(p*3)})}}
+    glowL.setAttribute('cx',f2(lx));glowL.setAttribute('cy',f2(ly));glowL.setAttribute('r',f2(26+70*c));glowL.setAttribute('opacity',f2(c*.9));
+    glowR.setAttribute('cx',f2(rx));glowR.setAttribute('cy',f2(ry));glowR.setAttribute('r',f2(26+70*c));glowR.setAttribute('opacity',f2(c*.9));
+    if(c>.2){const fr=Math.floor(t*22),R=rng(fr);for(const sg of [-1,1]){if(R()<c){const [x,y]=sg<0?[lx,ly]:[rx,ry];lightning(x,y,x+sg*(14+R()*18),y-8-R()*22,fr*3+sg,3,5,.5)}}}
+  }else{
+    glowL.setAttribute('opacity',0);glowR.setAttribute('opacity',0);
+    A('eye-l',{sx:1+.35*exp(-3*tau),sy:1+.35*exp(-3*tau)});A('eye-r',{sx:1+.35*exp(-3*tau),sy:1+.35*exp(-3*tau)});
+    const dz=t<DIS?1:0;
+    if(dz){const fr=Math.floor(t*24),R=rng(fr+99),w=1.15-.5*sm((t-REL)/1.2);
+      A('bolt-l',{r:14+8*sin(TAU*30*t)});A('bolt-r',{r:-14-8*sin(TAU*30*t)});
+      A('hair',{sy:1.3,k:8*sin(TAU*22*t)});A('mouth',{sy:1.5,sx:1.3});
+      A('fist-l',{r:16*sin(TAU*26*t)});A('fist-r',{r:-16*sin(TAU*26*t+1)});
+      if(fr%5!==4){
+        lightning(rx,ry,tx,ty,fr*2+1,9,24,w);lightning(rx+(tx-rx)*.4,ry+(ty-ry)*.4,tx-60+R()*50,ty+90+R()*40,fr+5,5,14,w*.6);
+        lightning(lx,ly,-10,ly-110-R()*30,fr*2+2,8,22,w);lightning(lx-(lx+10)*.35,ly-38,lx-(lx+10)*.5,ly+60,fr+8,4,12,w*.6)}
+      if(fr%3===0){sparks(t,t,rx,ry,3,fr,150,.25);sparks(t,t,lx,ly,3,fr+1,150,.25)}
+    }else{const u=sm((t-DIS)/.6);A('hair',{sy:1.3-.3*u,k:6*exp(-4*(t-DIS))*sin(14*(t-DIS))+8*(1-u)});
+      A('bolt-l',{r:14*(1-u)});A('bolt-r',{r:-14*(1-u)});A('eye-l',{sy:1-.25*sm((t-DIS)/.2)*(1-u)});A('eye-r',{sy:1-.25*sm((t-DIS)/.2)*(1-u)})}
+    if(t>DIS-.1){smoke(t,DIS-.1,lx,ly,3,2,1.1);smoke(t,DIS-.1,rx,ry,3,5,1.1)}
+    if(t>DIS&&t<3.5)A('hair',{k:10*sin(TAU*1.5*t)*.0+3*sin(TAU*9*t)*exp(-2*(t-DIS))});
+    sparks(t,REL,rx,ry,12,5,360,.5);sparks(t,REL,lx,ly,12,6,360,.5);
+    api.word('ZAP!',SX,api.S(216,-50)[1]<46?60:api.S(216,-50)[1],t,REL+.02,.8,-7);
+    crumbs(t,REL,SX-70,GY-4,7,12,300,.5);crumbs(t,REL,SX+70,GY-4,7,13,300,.5)}
+  if(t>=REL&&t<REL+.5){const [hx,hy]=[BX-30,BY];sparks(t,REL+.02,hx,hy,10,8,340,.45);
+    if(tau<.3){const s=eob(tau/.1)*(1-sm((tau-.18)/.12));fxAdd({k:'spike',x:hx,y:hy,s:1.7*s,r:tau*60,c:'#FFD23C',a:1})}}
+ }};
+
+/* 5: hurt */
+const HT=.45;
+function flashAt(h){if(h<0)return null;if(h<.06)return{a:.8,c:[1,1,1]};if(h<.12)return{a:.0,c:[1,1,1]};if(h<.2)return{a:.7,c:[1,1,1]};
+  if(h<.8)return{a:.55*exp(-5*(h-.2)),c:[1,.35,.32]};return null}
+M.hurt={name:'Ouch! (hurt)',dur:3.6,
+ caption:'<b>Ouch.</b> A white then pink hit flash, <b>knockback</b> with squash-then-stretch, the stiff body wobbling on a decaying spring while the <b>head whips</b> a beat late. The eyes bulge, the mouth gapes, the <b>bolts and fists flail</b> and the hair spikes. A few sparks spit off the bolts, dizzy stars circle, then a slow slide home.',
+ state(t){const h=t-HT;let x=0,y=0,r=0,sx=1,sy=1,hr=0;const f=form?.55:1;
+  if(h>0){x=-92*eoc(h/.4);if(h>1.25)x=-92*(1-sm((h-1.25)/.8));
+    y=30*f*sin(PI*clamp(h/.42))+(h>1.25&&h<2.05?9*f*sin(PI*(h-1.25)/.8):0);
+    r=-15*f*exp(-4.2*h)*cos(12*h)+(h>1.25&&h<2.1?3.5*sin(PI*(h-1.25)/.85):0);
+    sx=1-.22*exp(-9*h)*cos(24*h);sy=1+.26*exp(-9*h)*cos(24*h);hr=-22*exp(-3.6*h)*cos(15*h)}
+  else{sy=1+.022*breath(t);sx=volume(sy)}
+  return{b:B({x,y,r,sx,sy}),open:form,hr,flash:flashAt(h)}},
+ extra(t,st,T,A,api){const h=t-HT;
+  if(h>0){const w=exp(-3*h);
+   A('eye-l',{sx:1+.4*exp(-1.5*h),sy:1+.4*exp(-1.5*h)});A('eye-r',{sx:1+.4*exp(-1.5*h),sy:1+.4*exp(-1.5*h)});
+   A('mouth',{sx:1+.9*exp(-1.1*h),sy:1+1.6*exp(-1.1*h)});
+   A('bolt-l',{r:46*w*cos(14*h)});A('bolt-r',{r:-46*w*cos(14*h+.4)});
+   A('hair',{k:16*w*sin(15*h),sy:1+.25*exp(-2*h)});A('scar',{y:-3*exp(-1.5*h)});
+   A('fist-l',{r:38*w*cos(13*h)});A('fist-r',{r:-38*w*cos(13*h+.5)});
+   if(st.open>.3){A('tongue',{k:12*w*sin(18*h)});A('throat',{sy:1+.1*w*sin(20*h)})}
+   const [bx,by]=api.S(330,BOT(st.open)-120);
+   if(h<.3){const s=eob(h/.1)*(1-sm((h-.18)/.12));fxAdd({k:'spike',x:bx+10,y:by-10,s:2*s,r:h*60,c:'#FFD23C',a:1})}
+   const [lx,ly]=api.S(BL[0]-8,BL[1]),[rx,ry]=api.S(BR[0]+8,BR[1]);
+   sparks(t,HT+.05,lx,ly,7,1,240,.4);sparks(t,HT+.05,rx,ry,7,2,240,.4);
+   if(h>.1&&h<.6){const fr=Math.floor(h*30);if(fr%2===0){lightning(lx,ly,lx-30,ly-24,fr+1,3,6,.55);lightning(rx,ry,rx+30,ry-24,fr+2,3,6,.55)}}
+   api.word('OUCH!',api.S(216,-10)[0]-30,Math.max(56,api.S(216,-50)[1]),t,HT+.04,.8,-10);
+   if(h>.35&&h<1.9){const a=1-sm((h-1.5)/.4),[hx,hy]=api.S(216,-20);
+     for(let i=0;i<3;i++){const an=h*5+i*TAU/3;fxAdd({k:'star',x:hx+cos(an)*80,y:hy+sin(an)*18-sm((h-.35)/.15)*8,s:.9+.2*sin(an+1),r:an*40,c:i==1?'#f06a8a':'#FFD23C',a})}}
+  }}};
+
+/* 6: happy */
+M.happy={name:'Yay! (happy)',dur:3.2,
+ caption:'<b>Celebrate.</b> A squat and a springy hop with <b>fists thrown up</b>, eyes squeezed into happy slits, the bolts fizzing. Then a bigger jump where he <b>cracks open a little</b> (a stretchy laugh), does a full spin and lands in a confetti burst. Hair and bolts whip behind each move.',
+ state(t){let y=0,r=0,pv=0,sy=1+.02*breath(t);
+  const hop=(s,e,H)=>{const u=(t-s)/(e-s);return u>0&&u<1?H*4*u*(1-u):0};
+  const f=form?.6:1;
+  y=hop(.55,1.15,46*f)+hop(1.95,2.7,64*f);
+  sy*=keys(t,[[0,1],[.2,.8],[.28,.82],[.36,1.2],[.9,1.08],[1.15,1.1],[1.22,.74],[1.34,1.08],[1.45,1],[1.7,1],[1.85,.76],[1.95,.8],[2.02,1.22],[2.55,1.08],[2.7,1.12],[2.78,.72],[2.92,1.08],[3.05,.99],[3.2,1]]);
+  let open=form;
+  const lau=keys(t,[[0,0],[1.98,0],[2.1,1],[2.55,1],[2.8,0],[3.2,0]]);
+  open=clamp(form+.28*lau*(form?-.5:1),0,1.1);
+  if(t>2.0&&t<2.72){r=360*sm((t-2.0)/.7);pv=(434+STR*open)*.45}
+  if(t>.55&&t<1.15)r=5*sin(PI*(t-.55)/.6);
+  return{b:B({y,r,pv,sy,sx:volume(sy)}),open,hr:0}},
+ extra(t,st,T,A,api){
+  const up=keys(t,[[0,0],[.25,-.3],[.45,0],[.55,1],[1.15,1],[1.4,.2],[1.7,0],[1.85,-.3],[1.95,-.2],[2.02,1],[2.7,1],[2.95,.1],[3.2,0]]);
+  const fl=sin(TAU*3.2*t);
+  A('fist-l',{r:up>0?up*(125+14*sin(TAU*3.2*t)):up*40});A('fist-r',{r:-(up>0?up*(125+14*sin(TAU*3.2*t+1)):up*40)});
+  const sq=keys(t,[[0,0],[.3,.6],[.5,1],[1.2,1],[1.5,0],[1.8,.4],[2,1],[2.8,1],[3.0,0]]);
+  A('eye-l',{sy:1-.62*sq,sx:1+.12*sq});A('eye-r',{sy:1-.62*sq,sx:1+.12*sq});
+  A('mouth',{sx:1+.5*sq,sy:1+.9*sq});
+  A('bolt-l',{r:10*sq*sin(TAU*5*t)});A('bolt-r',{r:-10*sq*sin(TAU*5*t+1)});
+  A('hair',{k:5*sq*sin(TAU*3.2*t)});
+  if(st.open>.3){A('tongue',{k:8*sin(TAU*4*t)});A('throat',{sy:1+.08*sin(TAU*5*t)})}
+  const [lx,ly]=api.S(BL[0]-8,BL[1]),[rx,ry]=api.S(BR[0]+8,BR[1]);
+  for(const s0 of [.55,2.0]){sparks(t,s0,lx,ly,6,Math.floor(s0*7),220,.4);sparks(t,s0,rx,ry,6,Math.floor(s0*9),220,.4)}
+  const [cx,cy]=api.S(216,BOT(st.open)-300);
+  confetti(t,.95,cx,cy-80,20,5,560,1.7);confetti(t,2.45,cx,cy-40,30,8,700,1.9);
+  api.word('YAY!',SX+150,80,t,.62,.9,8);api.word('WHEE!',SX-150,80,t,2.1,.9,-8);
+ }};
+const ORDER=['idle','walk','unfold','zap','hurt','happy'];
+const LABEL={idle:'Idle',walk:'Lumber',unfold:'Unfold',zap:'Zap',hurt:'Ouch',happy:'Yay'};
+
+/* ---------- render ---------- */
+let K=1,curB=null,curO=0,wordShown=false,postS=null,batS=null;
+const api={S:(cx,cy)=>{ // art point -> stage point (follows the rig transform, ignores per-part motion)
+    const b=curB;let x=cx-CX,y=cy-BOT(curO);x*=b.sx;y*=b.sy;y+=b.pv;
+    const c=cos(b.r*PI/180),s=sin(b.r*PI/180);const rx=x*c-y*s,ry=x*s+y*c;
+    return[SX+(rx+b.x)*K,GY+(ry-b.pv-b.y)*K]},
+  word:(txt,x,y,t,t0,life,rot)=>{if(wordPop(txt,x,y,t,t0,life,rot))wordShown=true},
+  posts:o=>{postS=o},bat:o=>{batS=o}};
+let cur='idle',t0=0,speed=1,paused=false,T=0;
+function render(T){
+  const m=M[cur];const t=wrap(T-t0,m.dur);
+  const st=m.state(t);const b=st.b;curB=b;curO=st.open;K=Kof(st.open);acc={};fxList=[];lgList=[];wordShown=false;postS=null;batS=null;
+  glowL.setAttribute('opacity',0);glowR.setAttribute('opacity',0);
+  const lag=d=>m.state(wrap(t-d,m.dur));
+  const vel=d=>{const a=lag(d).b,c=lag(d+.04).b;return{x:(a.x-c.x)/.04,y:(a.y-c.y)/.04,r:(a.r-c.r)/.04,sy:(a.sy-c.sy)/.04}};
+  const A=add,cl=(x,m)=>clamp(x,-m,m);
+  const v1=vel(.05),v2=vel(.09),v3=vel(.13);
+  /* shared secondary motion */
+  A('hair',{k:cl(-v2.x*.02,16)+1.8*sin(2.2*T+.5)+cl(v2.r*.06,10),sy:1-cl(v2.y*.00032,.2),sx:1+cl(v2.y*.00012,.08)});
+  A('bolt-l',{r:cl(-v3.x*.012,14)+cl(-v3.y*.03,26)+cl(v3.r*.3,18)+2.4*sin(2.6*T)});
+  A('bolt-r',{r:-(cl(v3.x*.012,14)+cl(-v3.y*.03,26)-cl(v3.r*.3,18))-2.4*sin(2.3*T+1.4)});
+  A('fist-l',{r:cl(v2.y*.02,16)-cl(v2.x*.025,16)+3*sin(1.3*T)});A('fist-r',{r:-(cl(v2.y*.02,16)+cl(v2.x*.025,16))-3*sin(1.1*T+1)});
+  A('scar',{y:cl(-v3.y*.006,3)});
+  const lx=2.8*sin(.6*T)+1.4*sin(1.7*T+1),ly=1.2*sin(.9*T+2),bl=blinkAmt(T);
+  A('eye-l',{x:lx,y:ly,sy:1-.92*bl});A('eye-r',{x:lx,y:ly,sy:1-.92*bl});
+  A('throat',{sy:1+.03*sin(1.9*T)});A('tongue',{k:2*sin(1.3*T)});
+  const L=lag(.07).b,Lo=lag(.05).open;
+  const topLag={r:cl((L.r-b.r)*.5,3.5),y:cl((L.y-b.y)*-.08,4),sy:1+cl((st.open-Lo)/.05*.012,.07)+cl((L.sy-b.sy)*.5,.05)};
+  /* rig transform first, so the modes can aim effects at body points */
+  rig.setAttribute('transform',`translate(${SX} ${GY}) scale(${f2(K)}) translate(${f2(b.x)} ${f2(-b.y)}) translate(0 ${-f2(b.pv)}) rotate(${f2(b.r)}) translate(0 ${f2(b.pv)}) scale(${f2(b.sx)} ${f2(b.sy)}) translate(${-CX} ${-f2(BOT(st.open))})`);
+  m.extra(t,st,T,A,api);
+  /* pull apart: body drops by the unfolded length, the inside stretches between */
+  const o=st.open,sv=Math.max(clamp(o,0,1.15),.001);
+  setT('part-body',`translate(0 ${f2(-STR*(1-o))})`);
+  if(o<.02)inside.setAttribute('visibility','hidden');else inside.removeAttribute('visibility');
+  setT('part-inside',`translate(0 ${HIN}) scale(1 ${f2(sv)}) translate(0 ${-HIN})`);
+  const hr=(st.hr||0)+topLag.r;
+  setT('part-head',`translate(0 ${f2(topLag.y)}) translate(212 ${HIN}) rotate(${f2(hr)}) scale(1 ${f2(topLag.sy)}) translate(-212 ${-HIN})`);
+  for(const id of inner){const a=acc[id];
+    if(!a){setT(id,'');continue}
+    const pv=P[id].piv;
+    setT(id,`translate(${f2(pv[0]+a.x)} ${f2(pv[1]+a.y)}) rotate(${f2(a.r)}) skewX(${f2(a.k)}) scale(${f2(a.sx)} ${f2(a.sy)}) translate(${-pv[0]} ${-pv[1]})`)}
+  /* shadow */
+  const sc=1/(1+Math.max(b.y,0)/230);
+  const rx=(100*K+28)*sc*(1+(1-b.sy)*.5);
+  shadow.setAttribute('cx',f2(SX+b.x*K));shadow.setAttribute('cy',GY+3);shadow.setAttribute('rx',f2(rx));shadow.setAttribute('ry',f2(rx*.15));shadow.setAttribute('opacity',f2(.95*(.4+.6*sc)));
+  /* world */
+  let sc2=0;if(cur==='walk'&&m.scroll)sc2=m.scroll(t);
+  tuftsM.setAttribute('transform',`translate(${f2(-(sc2%240))} 0)`);farM.setAttribute('transform',`translate(${f2(-((sc2*.5)%480))} 0)`);
+  let shk=0;
+  if(cur==='unfold'){if(t>UT&&t<UT+.6)shk=exp(-8*(t-UT))*sin(60*(t-UT))*7;if(t>ARC0&&t<ARC0+.3)shk+=exp(-10*(t-ARC0))*sin(70*(t-ARC0))*4;const tc=t-CT;if(tc>.24&&tc<.5)shk=exp(-12*(tc-.24))*sin(70*tc)*5}
+  if(cur==='hurt'&&t>HT&&t<HT+.4)shk=exp(-9*(t-HT))*sin(70*(t-HT))*7;
+  if(cur==='zap'&&t>REL&&t<DIS)shk=exp(-3*(t-REL))*sin(80*(t-REL))*5;
+  if(cur==='walk')for(let k=0;k<4;k++){const tau=t-k*STEP;if(tau>0&&tau<.25)shk+=exp(-14*tau)*sin(70*tau)*2.5}
+  worldEl.setAttribute('transform',shk?`translate(${f2(shk)} ${f2(shk*.4)})`:'');
+  if(!wordShown)word.setAttribute('opacity',0);
+  const fl=st.flash;
+  if(fl&&fl.a>.01){const a=fl.a,c=fl.c;fm.setAttribute('values',`${1-a} 0 0 0 ${a*c[0]} 0 ${1-a} 0 0 ${a*c[1]} 0 0 ${1-a} 0 ${a*c[2]} 0 0 0 1 0`);rig.setAttribute('filter','url(#flash)')}else rig.removeAttribute('filter');
+  wflash.setAttribute('opacity',f2(st.wf||0));
+  drawPosts(postS);drawBat(batS);drawFx();drawLg();
+}
+
+/* ---------- UI ---------- */
+const modesBar=$('#modes');
+ORDER.forEach((k,i)=>{const b=document.createElement('button');b.dataset.mode=k;b.innerHTML=`<kbd>${i+1}</kbd>${LABEL[k]}`;b.setAttribute('aria-pressed',k===cur);b.onclick=()=>setMode(k);modesBar.appendChild(b)});
+function setMode(k){cur=k;t0=T;[...modesBar.children].forEach(b=>b.setAttribute('aria-pressed',b.dataset.mode===k));$('#tag').textContent=M[k].name;$('#cap').innerHTML=M[k].caption}
+function setForm(f){form=f;document.querySelectorAll('[data-form]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.form===f))}
+document.querySelectorAll('[data-form]').forEach(b=>b.onclick=()=>setForm(+b.dataset.form));
+function setSpeed(s){speed=s;document.querySelectorAll('[data-speed]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.speed===s));$('#badge').classList.toggle('on',s<1);$('#badge').textContent=s+'× slow-mo'}
+document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>setSpeed(+b.dataset.speed));
+$('#replay').onclick=()=>{t0=T};
+function setPause(p){paused=p;$('#pause').innerHTML=`<kbd>Space</kbd>${p?'Play':'Pause'}`}
+$('#pause').onclick=()=>setPause(!paused);
+addEventListener('keydown',e=>{if(e.metaKey||e.ctrlKey||e.altKey)return;const k=e.key;
+  if(k>='1'&&k<='6'){setMode(ORDER[+k-1])}else if(k===' '){e.preventDefault();setPause(!paused)}
+  else if(k==='r'||k==='R')t0=T;else if(k==='s'||k==='S')setSpeed(speed===1?.5:speed===.5?.25:1);else if(k==='f'||k==='F')setForm(form?0:1)});
+setMode('idle');
+let last=performance.now();
+function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;if(!paused)T+=dt*speed;render(T);requestAnimationFrame(loop)}
+requestAnimationFrame(t=>{last=t;loop(t)});
+window.__bolts={seek(mode,t,f){if(f!=null)setForm(f);setMode(mode);paused=true;T=t;t0=0;render(T)},setSpeed,setPause};
+})();
+
+</script>
+</body></html>
