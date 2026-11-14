@@ -1,9 +1,12 @@
-// Field scene: input -> field simulation -> stage view, with sounds, small effects, pause and autosave.
+// Field scene: input -> field simulation -> stage view, with sounds, small effects, pause, stage travel
+// and autosave.
 //
 // createFieldScene({ assets, data, input, audio, storage, settings, onBattle[, query] }) -> Scene
 //   scene.update(dt, inputFrame), scene.render(ctx, timeMs)
 //   scene.field           the live FieldState (src/field/field.js)
-//   scene.stage           the parsed Stage
+//   scene.stage           the parsed Stage on screen (changes with stage travel)
+//   scene.travelling      true during the 0.4 s page slide between stages
+//   scene.cues            the kinds of the effects playing now (for scripted checks)
 //   scene.resumeFromBattle({ outcome, creatureUid, hearts, candyDrop })   hearts: { id: n } or [{ id, hearts }]
 //   scene.pendingBattle    { creatureUid, kind } when the save says the game was closed mid-battle (else null)
 //   scene.startPendingBattle(p)   restarts that battle (as if the creature had just been met); false if it can't
@@ -13,31 +16,44 @@
 // pendingBattle, so closing the game mid-battle restarts it at round 1 with the going-in hearts.
 // The scene's inputMode is 'field'.
 // Pause: padLost or Options; the page dims (a controller picture if the pad went away) until any press or tap.
-// Eat: a chomp ('hit') and a crumb burst on the eaten tile, then an autosave. Nope (Cross with a target
-// that is not ready): 'boing'; the stage view hops the helper badge from field.target.nudgeAt.
+// Stage travel: an 'exit' event to a stage in the data leaves the stage (leaveStage), enters the next one at
+// the matching entrance (enterStage, from + row), autosaves, then slides the new page in over TRAVEL_TIME
+// (input ignored). An exit to nowhere, or walking up to the S6 door, shows the "more soon" bubble.
+// Events: eat (chomp, crumbs), nope/short (boing), bridge start (stretch), push start (push), stone (splash),
+// reach bell (bell), reach candy (the candy flies to the HUD counter, then the candy sound), gate (gate),
+// join (join, heart burst), spotted (spotted, a "!" over the creature).
 // Candy won in a battle: the candy sound and sparkle play over the lead on the first step back in the field.
-// Autosave: candy, rest, eat, battle end, and every 30 s of play.
+// Autosave: candy, rest, eat, stone, reach, join, arrival in a stage, battle end, and every 30 s of play.
 // World: scene.world (src/field/world.js) holds what outlives the stage; the save is v2 (src/save.js).
-// A fresh game is the monster alone in S1. Stage travel is not built here yet: an exit shows the bubble.
+// A fresh game is the monster alone in S1.
 // Dev query parameters: x, y (lead tile position), form (folded|open), party (1|3; default 1, the monster
 // alone), lead (id; without party=, it implies party=3), bat (patrol|asleep|ignore), zoom, fresh (1 = ignore
 // the save), stage (S1..S7: start in that stage; x, y are tiles within it). Any of them starts without the save.
-import { W, H, INK, PEN, PAPER, FONT, wx, wy, clamp, eOutCubic, rng } from '../render/core.js';
+import { W, H, INK, wx, wy, clamp, eInOutCubic } from '../render/core.js';
 import { createStageView, renderStage } from '../render/stageview.js';
 import { createCamera, updateCamera, toScreen } from '../render/camera.js';
 import { drawFieldHud } from '../render/hud.js';
 import { memberSize } from '../render/actors.js';
 import { burst, ring } from '../render/fx.js';
+import { OBJ } from '../render/stageobjs.js';
+import { EXIT_BUBBLE, CANDY_COUNTER, drawRisingHearts, drawMoreSoonBubble, drawPaused, drawBang, drawCandyFly } from '../render/fieldcues.js';
 import { parseStage } from '../field/stage.js';
 import { stepField, applyBattleResult } from '../field/field.js';
 import { createWorld, enterStage, leaveStage } from '../field/world.js';
 import { loadSave, writeSave, toSave } from '../save.js';
 
 const AUTOSAVE_EVERY = 30;   // seconds
-const EXIT_BUBBLE = 1.5;     // seconds
 const REST_CUE = 1.4;
 const CANDY_FX = .7;
 const CRUMB_FX = .6;
+const SPLASH_FX = .6;
+const JOIN_FX = 1.4;
+const BANG_FX = .9;
+const FLY_FX = .6;
+const GATE_FX = .6;
+const TRAVEL_TIME = .4;      // seconds of page slide between stages
+const SEAM = { col: INK, w: 3 };
+const SPLASH_COLS = ['#5DA9DA', '#9FD3F0', '#FFFFFF'];
 const STEP_EVERY = .3;       // seconds between footstep taps
 const DEV_KEYS = ['x', 'y', 'form', 'party', 'lead', 'bat', 'fresh', 'stage'];
 const ALL = ['monster', 'fish', 'icecream'];
@@ -48,11 +64,13 @@ export function createFieldScene({ assets, data, input = null, audio = null, sto
   query = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams() }) {
   const dev = DEV_KEYS.some(k => query.has(k));
   const saved = dev ? null : loadSave(storage, data);
-  const { world, stage, field } = makeField(data, query, saved);
+  let { world, stage, field } = makeField(data, query, saved);
   const pendingBattle = saved && saved.pendingBattle && field.creatures.some(c => c.uid === saved.pendingBattle.creatureUid && c.kind === saved.pendingBattle.kind)
     ? { ...saved.pendingBattle } : null;
-  const view = createStageView(stage, assets);
-  const cam = createCamera(stage);
+  const views = new Map();
+  const viewFor = s => { if (!views.has(s.id)) views.set(s.id, createStageView(s, assets)); return views.get(s.id); };
+  let view = viewFor(stage);
+  let cam = createCamera(stage);
   const zoomQ = query.has('zoom') ? Number(query.get('zoom')) || 1 : 1;
   const zoom = () => settings.steadyCam ? 1 : zoomQ;
   const play = n => { try { audio && audio.play(n); } catch { /* never mind */ } };
@@ -61,16 +79,19 @@ export function createFieldScene({ assets, data, input = null, audio = null, sto
   let saveTimer = 0, stepTimer = 0;
   let waiting = null;            // the battle we are waiting on: { creatureUid }
   let paused = null;             // { pad: bool, at: clock }
-  let lastFrame = null, lastLeadX = field.party[0].x;
-  const fx = [];                 // { kind, t0, x, y } world px
+  let travel = null;             // { t, dir, old: { view, field, cam } } during the page slide
+  let lastFrame = null, lastLeadX = field.party[0].x, lastAction = null, atDoor = false;
+  const fx = [];                 // { kind, t0, x, y } world px (fly: screen px)
   let candyCue = 0;              // candy won in a battle: its sound and sparkle wait until the field is back on screen
 
   const save = () => writeSave(storage, toSave(world, field, settings));
   const snapCam = () => { const l = field.party[0]; updateCamera(cam, { x: l.x, y: l.y, vx: 0 }, 0, { zoom: zoom(), snap: true }); lastLeadX = l.x; };
   snapCam();
+  const bubble = () => { for (let i = fx.length - 1; i >= 0; i--) if (fx[i].kind === 'exit') fx.splice(i, 1); fx.push({ kind: 'exit', t0: clock }); };
 
   function update(dt, frame) {
     lastFrame = frame || lastFrame;
+    if (travel) { travel.t += dt; if (travel.t >= TRAVEL_TIME) travel = null; return; }   // input ignored
     if (paused) {
       if (paused.armed && anyPress(frame)) paused = null;
       else { paused.armed = true; return; }   // the press that paused does not also unpause
@@ -81,23 +102,61 @@ export function createFieldScene({ assets, data, input = null, audio = null, sto
     clock += dt;
     const events = stepField(field, stage, frame, dt);
     const lead = field.party[0];
+    const a = field.action;
+    if (a && a !== lastAction && lead.foldAnim >= 1) {          // a wind-up starts moving
+      if (a.kind === 'bridge') play('stretch');
+      else if (a.kind === 'push' && !a.blocked) play('push');
+      lastAction = a;
+    }
     if (candyCue) { candyCue = 0; play('candy'); fx.push({ kind: 'candy', t0: clock, x: wx(lead.x), y: wy(lead.y) - 60 }); }
     for (const e of events) {
       if (e.t === 'candy') { play('candy'); fx.push({ kind: 'candy', t0: clock, x: wx(e.i + .5), y: wy(e.j + .7) - 22 }); save(); }
       else if (e.t === 'rest') { play('heal'); const r = field.restAt; fx.push({ kind: 'rest', t0: clock, x: wx(r.i + .5), y: wy(r.j + .5) }); save(); }
       else if (e.t === 'eat') { play('hit'); fx.push({ kind: 'crumbs', t0: clock, x: wx(e.i + .5), y: wy(e.j + .5) - 20 }); save(); }
-      else if (e.t === 'nope') play('boing');
+      else if (e.t === 'nope' || e.t === 'short') play('boing');
       else if (e.t === 'fold') play(e.form === 'open' ? 'open' : 'fold');
       else if (e.t === 'swap') play('select');
-      else if (e.t === 'exit') { for (let i = fx.length - 1; i >= 0; i--) if (fx[i].kind === 'exit') fx.splice(i, 1); fx.push({ kind: 'exit', t0: clock }); }
+      else if (e.t === 'stone') { play('splash'); fx.push({ kind: 'splash', t0: clock, x: wx(e.i + .5), y: wy(e.j + .5) }); save(); }
+      else if (e.t === 'push' || e.t === 'bridge') save();
+      else if (e.t === 'reach') {
+        if (e.kind === 'bell') play('bell');
+        else { const [x, y] = toScreen(cam, wx(e.i + .5), wy(e.j + OBJ.postY) - OBJ.candyLift); fx.push({ kind: 'fly', t0: clock, x, y }); }
+        save();
+      }
+      else if (e.t === 'gate') { play('gate'); fx.push({ kind: 'gate', t0: clock, x: wx(e.i + .5), y: wy(e.j + .5) - 30 }); }
+      else if (e.t === 'join') { play('join'); const m = field.party.find(p => p.id === e.id) || lead; fx.push({ kind: 'join', t0: clock, x: wx(m.x), y: wy(m.y) - 40 }); save(); }
+      else if (e.t === 'spotted') { play('spotted'); fx.push({ kind: 'bang', t0: clock, uid: e.uid }); }
+      else if (e.t === 'exit') {
+        const next = data.stages.find(s => s.id === e.to);
+        if (next) { beginTravel(next); return; }
+        bubble();
+      }
       else if (e.t === 'battle') { beginBattle(e.creatureUid, e.kind, !!e.sneak); break; }
       // 'bump': nothing loud
     }
+    const li = Math.floor(lead.x), lj = Math.floor(lead.y);
+    const door = (stage.door || []).some(([i, j]) => i === li && (j === lj || j === lj - 1));   // the S6 door: nope
+    if (door && !atDoor) { play('boing'); bubble(); }
+    atDoor = door;
     if (lead.moving) { stepTimer -= dt; if (stepTimer <= 0) { play('step'); stepTimer = STEP_EVERY; } } else stepTimer = 0;
     const vx = dt > 0 ? (field.party[0].x - lastLeadX) / dt : 0; lastLeadX = field.party[0].x;
     updateCamera(cam, { x: field.party[0].x, y: field.party[0].y, vx }, dt, { zoom: zoom() });
     saveTimer += dt; if (saveTimer >= AUTOSAVE_EVERY) { saveTimer = 0; save(); }
     for (let i = fx.length - 1; i >= 0; i--) if (clock - fx[i].t0 > 3) fx.splice(i, 1);
+  }
+
+  // Leave this stage, enter the next at the matching entrance, autosave, and slide the new page in.
+  function beginTravel(nextData) {
+    const from = stage.id, lead = field.party[0];
+    const dir = lead.x < stage.width / 2 ? -1 : 1, row = Math.floor(lead.y);
+    leaveStage(world, field);
+    const old = { view, field, cam };
+    stage = parseStage(nextData);
+    field = enterStage(world, stage, data, { from, row });
+    view = viewFor(stage); cam = createCamera(stage); snapCam();
+    fx.length = 0; lastAction = null; atDoor = false; stepTimer = 0;
+    save();
+    travel = { t: 0, dir, old };
   }
 
   function beginBattle(creatureUid, kind, sneak) {
@@ -125,10 +184,20 @@ export function createFieldScene({ assets, data, input = null, audio = null, sto
   }
 
   function render(ctx, timeMs) {
-    renderStage(ctx, view, field, cam, timeMs);
-    drawFx(ctx);
-    if (input && input.drawTouch && !paused) input.drawTouch(ctx, 'field');
-    drawFieldHud(ctx, assets, field, lastFrame, { leadBox: leadScreenBox(), timeMs });
+    if (travel) {
+      const u = eInOutCubic(clamp(travel.t / TRAVEL_TIME)), d = travel.dir, o = travel.old;
+      const page = (dx, draw) => { ctx.save(); ctx.translate(dx, 0); ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.clip(); draw(); ctx.restore(); };
+      page(-d * W * u, () => renderStage(ctx, o.view, o.field, o.cam, timeMs));
+      page(d * W * (1 - u), () => renderStage(ctx, view, field, cam, timeMs));
+      const sx = d > 0 ? W * (1 - u) : W * u;
+      ctx.save(); ctx.strokeStyle = SEAM.col; ctx.lineWidth = SEAM.w; ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx, H); ctx.stroke(); ctx.restore();
+    } else {
+      renderStage(ctx, view, field, cam, timeMs);
+      drawFx(ctx);
+      if (input && input.drawTouch && !paused) input.drawTouch(ctx, 'field');
+    }
+    drawFieldHud(ctx, assets, field, lastFrame, { leadBox: travel ? null : leadScreenBox(), timeMs });
+    if (!travel) drawFly(ctx);
     if (paused) drawPaused(ctx, paused.pad, timeMs);
   }
 
@@ -149,10 +218,21 @@ export function createFieldScene({ assets, data, input = null, audio = null, sto
       } else if (f.kind === 'crumbs' && age < CRUMB_FX) {
         const [x, y] = sc(f.x, f.y);
         burst(ctx, x, y, age / CRUMB_FX, 31 + Math.round(f.x), 10, ['#A39C8E', '#C9BFAE', '#7D7466'], 70, 60);
-      } else if (f.kind === 'rest' && age < REST_CUE) {
-        const [x, y] = sc(f.x, f.y), u = age / REST_CUE;
-        ring(ctx, x, y, Math.min(.99, u * 1.4), 46, '#D03C30');
+      } else if (f.kind === 'splash' && age < SPLASH_FX) {
+        const [x, y] = sc(f.x, f.y), u = age / SPLASH_FX;
+        ring(ctx, x, y, u, 44, '#5DA9DA');
+        burst(ctx, x, y - 6, u, 53 + Math.round(f.x), 12, SPLASH_COLS, 90, 160);
+      } else if (f.kind === 'gate' && age < GATE_FX) {
+        const [x, y] = sc(f.x, f.y);
+        burst(ctx, x, y, age / GATE_FX, 71 + Math.round(f.x), 8, ['#D03C30', '#FFFFFF', '#7FC25B'], 70, 40);
+      } else if (f.kind === 'join' && age < JOIN_FX) {
+        const [x, y] = sc(f.x, f.y), u = age / JOIN_FX;
+        ring(ctx, x, y + 30, Math.min(.99, u * 1.6), 56, '#E4574A');
         drawRisingHearts(ctx, x, y, u);
+      } else if (f.kind === 'bang' && age < BANG_FX) {
+        const c = field.creatures.find(k => k.uid === f.uid); if (!c) continue;
+        const [x, y] = sc(wx(c.x), wy(c.y));
+        drawBang(ctx, x, y, age);
       } else if (f.kind === 'exit' && age < EXIT_BUBBLE) {
         const l = field.party[0], sz = memberSize(assets, l);
         const [x, y] = sc(wx(l.x), wy(l.y) - sz.h - 6);
@@ -160,11 +240,26 @@ export function createFieldScene({ assets, data, input = null, audio = null, sto
       }
     }
   }
+  function drawFly(ctx) {                        // over the HUD: candy from a post into the counter, then a pop
+    for (const f of fx) {
+      if (f.kind !== 'fly') continue;
+      const age = clock - f.t0;
+      if (age < FLY_FX) drawCandyFly(ctx, assets, f.x, f.y, age / FLY_FX);
+      else if (age < FLY_FX + CANDY_FX) {
+        if (!f.landed) { f.landed = true; play('candy'); }
+        const u = (age - FLY_FX) / CANDY_FX;
+        ring(ctx, CANDY_COUNTER.x, CANDY_COUNTER.y, u, 34, '#E99DBB');
+        burst(ctx, CANDY_COUNTER.x, CANDY_COUNTER.y, u, 9, 8, ['#E99DBB', '#D03C30', '#FFF1A8'], 50, 20);
+      }
+    }
+  }
 
   return {
     update, render, resumeFromBattle, startPendingBattle, pendingBattle, inputMode: 'field',
-    get field() { return field; }, world, stage, view, cam,
-    get paused() { return !!paused; }, get waiting() { return !!waiting; },
+    get field() { return field; }, get world() { return world; }, get stage() { return stage; },
+    get view() { return view; }, get cam() { return cam; },
+    get paused() { return !!paused; }, get waiting() { return !!waiting; }, get travelling() { return !!travel; },
+    get cues() { return fx.map(f => f.kind); },      // the effects on screen now, for scripted checks
     save,
   };
 }
@@ -200,88 +295,3 @@ function makeField(data, q, saved) {
   return { world, stage, field: f };
 }
 
-// ---------------------------------------------------------------- drawing helpers (screen space)
-
-function drawRisingHearts(ctx, x, y, u) {
-  const r = rng(11);
-  ctx.save(); ctx.lineJoin = 'round';
-  for (let i = 0; i < 5; i++) {
-    const d = i * .1, v = clamp((u - d) / (1 - d)); if (v <= 0 || v >= 1) continue;
-    const hx = x + (r() - .5) * 70 + Math.sin(v * 6 + i) * 6, hy = y - 10 - eOutCubic(v) * 70, s = 7 + r() * 4;
-    ctx.globalAlpha = 1 - v * v;
-    ctx.beginPath(); ctx.moveTo(hx, hy + s * .9);
-    ctx.bezierCurveTo(hx - s * 1.6, hy - s * .2, hx - s * .6, hy - s * 1.3, hx, hy - s * .4);
-    ctx.bezierCurveTo(hx + s * .6, hy - s * 1.3, hx + s * 1.6, hy - s * .2, hx, hy + s * .9);
-    ctx.fillStyle = '#D03C30'; ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 1.8; ctx.stroke();
-  }
-  ctx.restore();
-}
-
-// A pencil thought bubble with a little padlock and "..." : "more soon".
-function drawMoreSoonBubble(ctx, x, y, age) {
-  const a = clamp(age / .18) * clamp((EXIT_BUBBLE - age) / .25);
-  const pop = .85 + .15 * eOutCubic(clamp(age / .25));
-  const bx = clamp(x + 30, 80, W - 80), by = clamp(y - 52, 60, H - 60);
-  ctx.save(); ctx.globalAlpha = a; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-  // trailing dots down to the lead
-  ctx.fillStyle = PAPER; ctx.strokeStyle = PEN; ctx.lineWidth = 2;
-  for (const [t, r] of [[.25, 4], [.55, 6.5]]) { ctx.beginPath(); ctx.arc(x + (bx - x) * t, y + (by + 30 - y) * t, r, 0, 7); ctx.fill(); ctx.stroke(); }
-  ctx.translate(bx, by); ctx.scale(pop, pop);
-  // cloud: a ring of bumps
-  ctx.beginPath();
-  const n = 9;
-  for (let i = 0; i < n; i++) {
-    const t0 = i / n * Math.PI * 2, t1 = (i + 1) / n * Math.PI * 2;
-    const p = t => [Math.cos(t) * 58, Math.sin(t) * 34];
-    const [x0, y0] = p(t0), [x1, y1] = p(t1), tm = (t0 + t1) / 2;
-    if (!i) ctx.moveTo(x0, y0);
-    ctx.quadraticCurveTo(Math.cos(tm) * 74, Math.sin(tm) * 46, x1, y1);
-  }
-  ctx.closePath(); ctx.fillStyle = PAPER; ctx.fill(); ctx.strokeStyle = PEN; ctx.lineWidth = 2.4; ctx.stroke();
-  // padlock
-  ctx.strokeStyle = INK; ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.arc(-18, -6, 9, Math.PI, 0); ctx.lineTo(-9, 2); ctx.moveTo(-27, -6); ctx.lineTo(-27, 2); ctx.stroke();
-  ctx.fillStyle = '#F4C84A'; ctx.beginPath(); ctx.roundRect(-32, 0, 28, 22, 4); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(-18, 9, 3, 0, 7); ctx.fill(); ctx.fillRect(-19.2, 10, 2.4, 6);
-  // pencil dots, appearing one by one
-  for (let i = 0; i < 3; i++) if (age > .25 + i * .2) { ctx.beginPath(); ctx.arc(12 + i * 13, 12, 3.6, 0, 7); ctx.fill(); }
-  ctx.restore();
-}
-
-// Dim page; a controller picture when the pad went away, two pencil bars otherwise.
-function drawPaused(ctx, pad, t) {
-  ctx.save();
-  ctx.fillStyle = 'rgba(40,30,20,.45)'; ctx.fillRect(0, 0, W, H);
-  ctx.translate(W / 2, H / 2); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-  // paper card
-  ctx.fillStyle = 'rgba(80,55,25,.25)'; ctx.beginPath(); ctx.roundRect(-130, -86, 260, 176, 18); ctx.fill();
-  ctx.fillStyle = PAPER; ctx.beginPath(); ctx.roundRect(-130, -90, 260, 176, 18); ctx.fill();
-  ctx.strokeStyle = '#cfc5b1'; ctx.lineWidth = 1.5; ctx.stroke();
-  ctx.strokeStyle = INK; ctx.lineWidth = 4;
-  if (pad) {
-    const bob = Math.sin(t * .004) * 3;
-    ctx.translate(0, -10 + bob);
-    // controller body with two grips
-    ctx.fillStyle = '#E9E3D6';
-    ctx.beginPath();
-    ctx.moveTo(-70, -22); ctx.quadraticCurveTo(-80, -30, -60, -32); ctx.lineTo(60, -32); ctx.quadraticCurveTo(80, -30, 70, -22);
-    ctx.quadraticCurveTo(96, 30, 82, 46); ctx.quadraticCurveTo(66, 58, 50, 30); ctx.lineTo(-50, 30);
-    ctx.quadraticCurveTo(-66, 58, -82, 46); ctx.quadraticCurveTo(-96, 30, -70, -22); ctx.closePath();
-    ctx.fill(); ctx.stroke();
-    // d-pad
-    ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-52, -6); ctx.lineTo(-32, -6); ctx.moveTo(-42, -16); ctx.lineTo(-42, 4); ctx.stroke();
-    // buttons
-    for (const [bx, by] of [[42, -16], [52, -6], [42, 4], [32, -6]]) { ctx.beginPath(); ctx.arc(bx, by, 4, 0, 7); ctx.stroke(); }
-    // sticks
-    ctx.fillStyle = PAPER; for (const sx of [-20, 20]) { ctx.beginPath(); ctx.arc(sx, 14, 8, 0, 7); ctx.fill(); ctx.stroke(); }
-    // a dangling cable with a question-ish wiggle: "where did it go?"
-    ctx.strokeStyle = PEN; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0, -32); ctx.bezierCurveTo(10, -52, -14, -60, 4, -74); ctx.stroke();
-  } else {
-    ctx.fillStyle = INK;
-    ctx.beginPath(); ctx.roundRect(-30, -42, 20, 76, 6); ctx.fill();
-    ctx.beginPath(); ctx.roundRect(10, -42, 20, 76, 6); ctx.fill();
-  }
-  ctx.restore();
-  ctx.save(); ctx.fillStyle = INK; ctx.font = `800 18px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('PAUSED', W / 2, H / 2 + 66); ctx.restore();
-}

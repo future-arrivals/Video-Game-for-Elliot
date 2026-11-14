@@ -26,10 +26,12 @@ export const ASSET_LIST = {
   // the 256-colour PNG as it is.
   rig_monster: { path: 'assets/rigs/monster/atlas.png', maxH: 1024, palette: true },
   rig_fish: { path: 'assets/rigs/fish/atlas.png', maxH: 1024, palette: true },
+  rig_icecream: { path: 'assets/rigs/icecream/atlas.png', maxH: 1024, palette: true },
+  rig_icecream_folded: { path: 'assets/rigs/icecream_folded/atlas.png', maxH: 1024, palette: true },
 };
 
 /** Rig layout JSON per character (tools/rigparts.mjs). Dev: fetched; build: embedded as window.__RIGS__. */
-export const RIG_LIST = { monster: 'assets/rigs/monster/rig.json', fish: 'assets/rigs/fish/rig.json' };
+export const RIG_LIST = { monster: 'assets/rigs/monster/rig.json', fish: 'assets/rigs/fish/rig.json', icecream: 'assets/rigs/icecream/rig.json', icecream_folded: 'assets/rigs/icecream_folded/rig.json' };
 
 function load(key, src) {
   return new Promise((ok, fail) => {

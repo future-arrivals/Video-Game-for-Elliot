@@ -9,6 +9,7 @@ import { bakeSky, bakeFar, bakeMid, bakeLight, bakeForeground, bakeCornerFrame }
 import { placeScenery, placeInk, bakeGround, CHUNK_W, CHUNK_Y0, CHUNK_Y1 } from './stagebake.js';
 import { prepareRibbons } from './water.js';
 import { bakeObjects, drawFlatObjects, pushObjectItems, drawFriend } from './stageobjs.js';
+import { boulderAt, drawBridge, drawReach, hidesLead } from './fieldfx.js';
 import { bakeMarks, leadState, drawLeadRing, drawCrumbs, drawTargetOutline, drawTargetBadge, readDevMarks } from './fieldmarks.js';
 
 const PUMPKIN_SCALE = { S1: .4, S2: .55, S3: .7, S4: .8, S5: .9, S6: 1.15 };   // S6: as big as still hides fully behind the pumpkin-house standee
@@ -77,7 +78,7 @@ export function renderStage(ctx, view, fs, cam, timeMs) {
   // eaten boulders leave pencil crumbs (dev: eaten=1 pretends every boulder was eaten)
   const boulders = view.devEaten ? [] : fs.boulders;
   for (const [i, j] of view.stage.boulders) if (!boulders.some(b => b.i === i && b.j === j)) drawCrumbs(ctx, view.marks, i + ',' + j);
-  const target = view.devEaten ? null : (fs.target || view.devTarget);
+  const target = view.devEaten || fs.action ? null : (fs.target || view.devTarget);   // no outline while a power plays out
   const ls = leadState(view.marks, fs);
   // the lead's box, for fading standees in front of it
   const lead = fs.party[0];
@@ -85,19 +86,22 @@ export function renderStage(ctx, view, fs, cam, timeMs) {
   if (lead) { const sz = memberSize(view.assets, lead), x = wx(lead.x), y = wy(lead.y); leadBox = [x - sz.w / 2, y - sz.h, x + sz.w / 2, y]; }
   const items = [];
   for (const p of view.props) if (p.bb[2] > vx0 && p.bb[0] < vx1) items.push({ y: p.y, p });
-  for (const b of boulders) { const p = view.boulderSprites.get(b.i + ',' + b.j); if (p) items.push({ y: p.y, p }); }
+  for (const b of boulders) { const q = boulderAt(view, fs, b); if (q) items.push({ y: q.p.y + q.dy, p: q.p, sx: q.dx, sy: q.dy }); }
   fs.candy.forEach((c, n) => { if (!c.taken) { const p = view.candySprites.get(c.i + ',' + c.j); if (p) items.push({ y: p.y, p, bob: Math.sin(t * .004 + n * 1.7) * 3 }); } });
   for (const tf of view.tufts) if (tf.x > vx0 && tf.x < vx1) items.push({ y: tf.y, tf });
   pushObjectItems(view, fs, items, t, vx0, vx1);
   for (const c of fs.creatures) items.push({ y: wy(c.y), c });
-  fs.party.forEach((m, n) => items.push({ y: wy(m.y) + (n === 0 ? .01 : 0), m, lead: n === 0 }));
+  const hide = hidesLead(fs);                               // the fish is the bridge: drawBridge draws it
+  fs.party.forEach((m, n) => { if (!(n === 0 && hide)) items.push({ y: wy(m.y) + (n === 0 ? .01 : 0), m, lead: n === 0 }); });
   if (target) items.push({ y: wy(target.j + .95), target });     // just in front of the target's row (its hedges)
   items.sort((a, b) => a.y - b.y);
+  drawBridge(ctx, fs, t);                                   // flat on the water, under everyone crossing
   ctx.lineCap = 'round';
   for (const it of items) {
     if (it.p) {
       const fade = leadBox && it.p.standee && it.y > leadBox[3] && overlaps(it.p.bb, leadBox);
-      drawProp(ctx, it.p, it.bob || 0, fade ? .5 : 1);
+      if (it.sx || it.sy) { ctx.save(); ctx.translate(it.sx, it.sy); drawProp(ctx, it.p, it.bob || 0, fade ? .5 : 1); ctx.restore(); }
+      else drawProp(ctx, it.p, it.bob || 0, fade ? .5 : 1);
     } else if (it.tf) {
       const tf = it.tf, sw = Math.sin(t * .0032 + tf.ph + tf.x * .01) * .16;
       ctx.strokeStyle = TUFT.col; ctx.lineWidth = TUFT.lw;
@@ -111,6 +115,7 @@ export function renderStage(ctx, view, fs, cam, timeMs) {
       drawMember(ctx, view.assets, it.m, x, y, t, it.lead ? { lead: true, pop: ls.pop } : { follower: true });
     }
   }
+  drawReach(ctx, fs);
   if (target) { drawTargetOutline(ctx, view, fs, target, true); drawTargetBadge(ctx, view, fs, target); }
   ctx.restore();
   // foreground, pre-blurred, parallax 1.4

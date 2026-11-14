@@ -10,7 +10,7 @@
 //   scene, setScene(s), frame(dt), timeFrames(n),
 //   state()              the FieldState (in every mode; the field is frozen during a battle)
 //   battle()             the BattleState during a battle (also while its pages turn), else null
-//   mode()               'field' | 'battle' | 'transition'
+//   mode()               'field' | 'battle' | 'transition' (a battle page turn, or the field's stage slide)
 //   press(name)          queue a one-frame button press ('cross', 'square', 'r1', 'options', ...; 'padLost' fakes a pad loss)
 //   move(x, y, seconds)  hold a movement vector for that long (simulated seconds)
 //   hold(name, on)       hold or release a trigger ('r2' = dash in the field, Run in a battle; 'l2')
@@ -140,7 +140,7 @@ export async function startGame({ canvas }) {
   game.setScene(field);
   game.state = () => field.field;
   game.battle = () => (battleScene ? battleScene.state : null);
-  game.mode = () => (game.scene && game.scene.transition ? 'transition' : game.scene === field ? 'field' : 'battle');
+  game.mode = () => (game.scene && (game.scene.transition || game.scene.travelling) ? 'transition' : game.scene === field ? 'field' : 'battle');
   if (field.pendingBattle) field.startPendingBattle(field.pendingBattle);   // closed mid-battle: start it again
 
   function draw(timeMs) {

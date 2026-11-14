@@ -45,8 +45,9 @@
 // and sets c.zoom, c.open, c.shadow, c.glow, c.flash, c.shake, c.scroll, c.fx (array), c.word.
 import monster from './rigs/monster.js';
 import fish from './rigs/fish.js';
+import icecream, { icecream_folded } from './rigs/icecream.js';
 
-const DEFS = { monster, fish };
+const DEFS = { monster, fish, icecream, icecream_folded };
 const INK = '#1a1a1a';
 
 /* ---------- loading ---------- */

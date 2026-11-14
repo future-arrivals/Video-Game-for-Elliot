@@ -11,9 +11,12 @@ import { bakeSprite, alphaBounds, tinted, radial, paperFilled } from './sprites.
 import { loadRig, rigPose, drawRig } from './rig.js';
 
 // Animated rigs for the walking view (see rig.js). on: false draws the bitmaps exactly as before.
-// A character with no rig (ice cream) always uses the bitmaps. FLIP: the rig art faces the opposite way to
+// A character with no rig always uses the bitmaps. SPLIT: Scoops has two separate drawings (rigs `icecream` open and
+// `icecream_folded`); they are used only when the member is settled, and a fold or unfold in progress falls back to the
+// bitmap hinge flip, which hides the change of picture. FLIP: the rig art faces the opposite way to
 // the bitmap, so true mirrors it when the bitmap is not mirrored.
-export const RIG = { on: true, clips: { monster: { still: 'idle', move: 'hop' }, fish: { still: 'idle', move: 'walk' } }, flip: { monster: false, fish: false } };
+export const RIG = { on: true, clips: { monster: { still: 'idle', move: 'hop' }, fish: { still: 'idle', move: 'walk' }, icecream: { still: 'idle', move: 'walk' } }, flip: { monster: false, fish: false, icecream: false },
+  split: { icecream: { open: 'icecream', folded: 'icecream_folded' } } };
 const rigPoses = new Map();                  // one reusable pose per rig
 
 export const FOLDED_H = 78;                  // folded height on screen (logical px)
@@ -149,7 +152,8 @@ function drawFlip(ctx, r, form, u) {
  *          pop = 1 (extra scale about the feet, e.g. the swap pop) } */
 export function drawMember(ctx, assets, member, sx, sy, timeMs, opts = {}) {
   const A = prepareActors(assets); const r = A.chars[member.id]; if (!r) return;
-  const rig = RIG.on ? loadRig(assets, member.id) : null;
+  const sp = RIG.split[member.id];
+  const rig = !RIG.on ? null : sp ? (member.foldAnim >= 1 ? loadRig(assets, sp[member.form === 'open' ? 'open' : 'folded']) : null) : loadRig(assets, member.id);
   const settled = member.foldAnim >= 1, u = clamp(member.foldAnim);
   const v = member.form === 'open' ? r.open : r.folded;
   const ph = member.id.length * 1.7, w = .00692;
