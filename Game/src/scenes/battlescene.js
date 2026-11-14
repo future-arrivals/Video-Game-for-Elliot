@@ -15,6 +15,7 @@ import { typeBonus } from '../battle/rules.js';
 import { prepareActors, hingeCurve } from '../render/actors.js';
 import { shake as shakeAt } from '../render/fx.js';
 import { clamp, eOutBack, eOutCubic } from '../render/core.js';
+import { littleSpot } from '../render/battle/scenery.js';
 import { drawBattle, bakeBackdrop, bakeOverlays, playerScale, heartSpot, actorSpot, hitTest, LAYOUT } from '../render/battleview.js';
 import { CARD_W, CARD_H, SLOT_OF } from '../render/battle/layout.js';
 import { buildBeats } from './battleplay.js';
@@ -43,6 +44,7 @@ export function createBattleScene({ assets, data, battle, settings = {}, audio =
     badges: badgesOf(st), sticky: st.sticky, dizzy: st.dizzy, pointer: st.pointer, pointerFrom: null, pointerT0: -1e9, bubbleT0: 0,
     sleepy: Object.fromEntries(st.party.map(m => [m.id, m.hearts <= 0])), pops: {}, end: null, curl: 0,
     anim: { player: {}, enemy: {} },
+    littles: st.boss ? st.boss.littles : 0, bossPhase: st.boss ? st.boss.phase : 0,   // boss only
   };
   if (S.sleepy[st.party[st.active].id]) S.anim.player.ko = -1e9;
 
@@ -63,6 +65,8 @@ export function createBattleScene({ assets, data, battle, settings = {}, audio =
     spot: (which, part) => {
       if (which === 'card') { const c = LAYOUT.cards[part]; return [c.x + CARD_W / 2, c.y + CARD_H / 2]; }
       if (which === 'l1' || which === 'r1') { const m = mates(st, S.active)[which]; if (m == null) return null; const L = LAYOUT[which]; return [L.x + L.w / 2, L.y + L.h / 2]; }
+      if (which === 'enemy' && S.bossPhase === 1 && S.littles > 0) { const [x, y] = littleSpot(0); return part === 'top' ? [x, y - 80] : [x, y - 30]; }
+      if (which === 'enemy' && S.bossPhase) { const [x, y] = actorSpot(which, part); return part === 'top' ? [x, y - 60] : [x + 10, y - 20]; }
       return actorSpot(which, part);
     },
     heart: (bar, i) => heartSpot(bar, i, { max: bar === 'enemy' ? st.enemy.maxHearts : maxOfBar(bar) }),
@@ -153,7 +157,8 @@ export function createBattleScene({ assets, data, battle, settings = {}, audio =
   }
   function finishPlayback() {
     playing = false; disp = st; dispI = st; S.intentNum = undefined;
-    S.enemyHearts = st.enemy.hearts; S.active = st.active; S.sticky = st.sticky; S.dizzy = st.dizzy; S.pointer = st.pointer;
+    S.enemyHearts = st.enemy.hearts; if (st.boss) { S.littles = st.boss.littles; S.bossPhase = st.boss.phase; }
+    S.active = st.active; S.sticky = st.sticky; S.dizzy = st.dizzy; S.pointer = st.pointer;
     for (const m of st.party) { S.hearts[m.id] = m.hearts; S.sleepy[m.id] = m.hearts <= 0; if (S.forms[m.id].form !== m.form) S.forms[m.id] = { form: m.form, t0: -1e9 }; }
     if (!S.end) S.badges = badgesOf(st);
     if (S.end) startEnd();
@@ -174,7 +179,8 @@ export function createBattleScene({ assets, data, battle, settings = {}, audio =
     if ((el >= limit || skip) && !doneCalled) {
       doneCalled = true;
       const hearts = Object.fromEntries(st.party.map(m => [m.id, m.hearts]));
-      onDone(k === 'won' ? { outcome: k, hearts, candyDrop: dropOf(st.enemy.id) } : { outcome: k, hearts });
+      const r = k === 'won' ? { outcome: k, hearts, candyDrop: dropOf(st.enemy.id) } : { outcome: k, hearts };
+      onDone(st.boss ? { ...r, boss: true } : r);
     }
   }
 
@@ -219,7 +225,8 @@ export function createBattleScene({ assets, data, battle, settings = {}, audio =
       backdrop: art.backdrop, overlays: art.overlays,
       shake: shakes.reduce((a, s) => { const d = shakeAt(rt, s.t0, 300, s.amp, s.t0 % 7); return [a[0] + d[0], a[1] + d[1]]; }, [0, 0]),
       enemy: { kind: st.enemy.id, dx: edx, dy: edy, curl: S.curl, win: end && end.kind === 'won' ? endMs : null, flash: flashA(ea.flash), pulse: pulseU(ea.pulse) },
-      enemyBar: { max: st.enemy.maxHearts, shown: S.enemyHearts, lost: lp ? lp.enemyHeartsLost : 0 },
+      enemyBar: S.bossPhase === 1 ? { ghosts: { n: S.littles, max: st.boss.maxLittles, sprite: A.creatures.ghost.s } }
+        : { max: st.enemy.maxHearts, shown: S.enemyHearts, lost: lp ? lp.enemyHeartsLost : 0 },
       player: { member: { id, form: fm.form, foldAnim: clamp(hinge / FOLD_MS), faceX: 1, moving: false }, pace: 'battle', scale, dx: pdx, dy: pdy,
         ko: koU, flash: flashA(pa.flash), pulse: pulseU(pa.pulse), squash,
         hurtMs: pa.flash != null || pa.pulse != null ? rt - Math.max(pa.flash ?? -1e9, pa.pulse ?? -1e9) : null, winMs: end && end.kind === 'won' ? endMs : null, calm: !!settings.reduceFlash, alpha: S.sleepy[id] && pa.ko == null ? .5 : 1 },
@@ -233,6 +240,8 @@ export function createBattleScene({ assets, data, battle, settings = {}, audio =
     const it = cards(dispI).intent, defType = isSwitch ? st.party[la.to].type : dispI.party[dispI.active].type;
     const attacks = it.attack > 0 && !it.dizzy;
     const shownNum = S.intentNum !== undefined ? S.intentNum : lp ? lp.intentNumber : it.number;
+    if (st.boss) vm.enemy.boss = { phase: S.bossPhase, littles: S.littles, goneMs: ea.gone != null ? since(ea.gone) : null,
+      backMs: ea.back != null ? since(ea.back) : null, roarMs: ea.roar != null ? since(ea.roar) : null };
     vm.bubble = { word: it.word, number: attacks ? shownNum : null, dizzy: S.dizzy && it.dizzy, changed: !!lp && attacks && lp.intentNumber !== it.number,
       arrow: attacks ? typeBonus(st.enemy.type, defType) : 0, pop: since(S.bubbleT0) / 260 };
     // cards

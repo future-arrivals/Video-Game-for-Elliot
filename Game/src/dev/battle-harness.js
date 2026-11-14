@@ -1,5 +1,5 @@
 // Stand-alone battle harness for Game/dev/battle.html. Runs one battle with the real input layer in battle mode.
-// Query: enemy (bat | spider | ghost), lead (monster | fish | icecream), party (1 | 3), hearts (lead's starting
+// Query: enemy (bat | spider | ghost | bigghost: the boss, no running), lead (monster | fish | icecream), party (1 | 3), hearts (lead's starting
 // hearts), quick=1 (Quick play), flash=0 (reduce flash), dizzy=1 (sneak attack), stage (backdrop stage id, default S1; 'none' = plain page),
 // still=1 (no real-time steps before the first tick(): the page shows the battle's first frame, as the page turn reveals it).
 // window.__game = { ready, state(), press(name), hold(name, on), tap(x, y, long), tick(seconds), scene, result }

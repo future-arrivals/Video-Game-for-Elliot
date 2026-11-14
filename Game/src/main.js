@@ -103,7 +103,8 @@ export async function startGame({ canvas }) {
 
   // A field 'battle' event (or a battle restarted from the save).
   function startBattle(info) {
-    const battle = createBattle({ data, party: info.party, lead: 0, enemy: info.kind, dizzy: !!info.sneak });
+    const isBoss = info.kind === data.boss.id;          // Big Ghost: built from data.boss, no running, no sneak start
+    const battle = createBattle({ data, party: info.party, lead: 0, enemy: info.kind, dizzy: !isBoss && !!info.sneak, canRun: !isBoss });
     const scene = createBattleScene({ assets, data, battle, audio, backdrop: { stage: field.stage },
       settings: { quickPlay: !!settings.quickPlay, reduceFlash: !!settings.reduceFlash },
       onDone: r => endBattle(info, scene, r) });
@@ -113,7 +114,7 @@ export async function startGame({ canvas }) {
   }
   // The battle's onDone (called from inside its update): apply the result, then turn the page back.
   function endBattle(info, scene, r) {
-    field.resumeFromBattle({ outcome: r.outcome, creatureUid: info.creatureUid, hearts: r.hearts, candyDrop: r.candyDrop || 0 });
+    field.resumeFromBattle({ outcome: r.outcome, creatureUid: info.creatureUid, hearts: r.hearts, candyDrop: r.candyDrop || 0, ...(r.boss ? { boss: true } : {}) });
     game.setScene(pageTurn(scene, field, -1, () => { battleScene = null; game.setScene(field); }));
   }
   // The page-turn scene: `from` stays frozen on screen, `to` is revealed under it. No input reaches either.

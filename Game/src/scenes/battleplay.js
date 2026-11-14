@@ -9,7 +9,7 @@
 
 const MOVE_COL = { claw: '#E58A3A', chomp: '#E58A3A', burp: '#A8C878', splash: '#8CC8DC', slap: '#E99DBB',
   bonk: '#E2B878', drop: '#E99DBB', smash: '#F6B0C8' };
-const ENEMY_COL = { bat: '#7E6A93', spider: '#6B5A48', ghost: '#CFE3F1' };
+const ENEMY_COL = { bat: '#7E6A93', spider: '#6B5A48', ghost: '#CFE3F1', bigghost: '#B9CFE6' };
 const HEART_STEP = 110;                                   // ms between hearts tearing off / filling in
 
 const shakeFor = lost => (lost >= 3 ? 10 : lost === 2 ? 6 : lost === 1 ? 3 : 0);
@@ -64,6 +64,21 @@ export function buildBeats(events, P) {
         });
         break;
       }
+      case 'little':                                    // boss phase 1: the front Little Ghost takes the hit
+        add(e.gone ? 620 : 420, () => {
+          const [x, y] = P.spot('enemy');
+          if (e.amount > 0) { P.fx({ kind: 'spark', x, y, seed: i * .7 }); P.hitStop(40); P.sfx('hit'); P.shake(3); }
+          else { P.fx({ kind: 'ring', x, y: y + 30, r: 50, col: '#9d9485' }); P.sfx('boing'); }
+          P.fx({ kind: 'digit', x: x - 40, y: y + 30, n: e.amount, size: 60, col: '#B8261B' });
+          if (e.gone) { S.littles = e.left; S.anim.enemy.gone = P.wt(); }
+        });
+        break;
+      case 'littleBack':
+        add(700, () => { S.littles = e.left; S.anim.enemy.back = P.wt(); P.sfx('select'); });
+        break;
+      case 'bossPhase':                                 // the roar: one scale-up and a shake, no full-screen flash
+        add(1100, () => { S.bossPhase = e.phase; S.anim.enemy.roar = P.wt(); S.anim.enemy.pulse = P.rt(); P.shake(10); P.sfx('bigHit'); });
+        break;
       case 'heal': {
         const bar = P.barOf(e.who);
         let from = 0;

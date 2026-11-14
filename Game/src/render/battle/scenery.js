@@ -90,6 +90,7 @@ function outlinePulse(ctx, x, y, rx, ry, u) {
  *  Win beat: the creature drops onto the disc, tips over dizzy with little circling stars, and a wrapped candy
  *  pops out of it and lands on the disc in front. */
 export function drawEnemy(ctx, assets, e, t) {
+  if (e.boss) return drawBigGhost(ctx, assets, e, t);
   const A = prepareActors(assets), r = A.creatures[e.kind]; if (!r) return;
   const L = LAYOUT.enemy, k = L.h / (r.s.h * r.k), x = L.x + (e.dx || 0), y = L.y + (e.dy || 0);
   const win = e.win != null && e.win >= 0 ? e.win : null;
@@ -112,6 +113,56 @@ export function drawEnemy(ctx, assets, e, t) {
   withFlash(ctx, e.flash, draw);
   outlinePulse(ctx, x, y - L.h * .55, 70, 74, e.pulse);
   if (win != null) { dizzyStars(ctx, x + 34, y - L.h * .42, win, t); droppedCandy(ctx, assets, x, y, win); }
+}
+
+// ---- Big Ghost (boss, slice-design section 7) ----------------------------------------------------
+export const BIG_H = 172;                                // Big Ghost's drawn height (ordinary creatures are 120)
+const LITTLE_H = 58, LITTLE_FRONT = [-96, 6], LITTLE_STEP = [42, -16];   // Little Ghosts: front one lowest-left, toward you
+/** Feet spot of Little Ghost slot i (0 = the front one) in screen px. */
+export function littleSpot(i) { return [LAYOUT.enemy.x + LITTLE_FRONT[0] + i * LITTLE_STEP[0], LAYOUT.enemy.y + LITTLE_FRONT[1] + i * LITTLE_STEP[1]]; }
+
+function drawLittle(ctx, assets, x, y, t, seed, { alpha = 1, rot = 0, k = 1 } = {}) {
+  const A = prepareActors(assets), r = A.creatures.ghost; if (!r) return;
+  const s = LITTLE_H / (r.s.h * r.k) * k;
+  ctx.save(); ctx.globalAlpha *= alpha; ctx.translate(x, y + Math.sin(t * .004 + seed * 2.1) * 4); ctx.rotate(rot); ctx.scale(s, s);
+  drawCreature(ctx, assets, { uid: 'battle', kind: 'ghost', faceX: -1, mode: 'patrol' }, 0, 0, t, { still: true });
+  ctx.restore();
+}
+
+/** e.boss: { phase, littles (shown), goneMs (ms since one was knocked away, or null), backMs (since one was called back),
+ *  roarMs (since the phase change) }. Big Ghost floats on the disc; in phase 1 the Little Ghosts float in front of it. */
+function drawBigGhost(ctx, assets, e, t) {
+  const im = assets.img.ghost_big, B = e.boss, L = LAYOUT.enemy;
+  const x = L.x + (e.dx || 0) + 10, y = L.y + (e.dy || 0);
+  const win = e.win != null && e.win >= 0 ? e.win : null;
+  const roar = B.roarMs != null && B.roarMs >= 0 && B.roarMs < 600 ? Math.sin(B.roarMs / 600 * Math.PI) : 0;
+  const draw = g => {
+    g.save(); g.translate(x, y);
+    g.drawImage(prepareActors(assets).shadow.c, -70, -8, 140, 16);
+    const bob = win != null ? 0 : Math.sin(t * .0025) * 5 - 4;
+    const tip = win != null ? .5 * eOutBack(clamp((win - 140) / 420), 1.8) : 0;
+    g.translate(0, bob); g.rotate(tip);
+    const k = (1 + roar * .14) * (1 + (e.curl || 0) * .08), kv = 1 - (e.curl || 0) * .12;
+    if (im) { const h = BIG_H, w = h * im.width / im.height; g.scale(k, k * kv); g.drawImage(im, -w / 2, -h, w, h); }
+    g.restore();
+  };
+  withFlash(ctx, e.flash, draw);
+  outlinePulse(ctx, x, y - BIG_H * .5, 100, 110, e.pulse);
+  if (B.phase === 1 || (B.goneMs != null && B.goneMs < 700)) {
+    const n = B.littles;
+    for (let i = n - 1; i >= 0; i--) {
+      let [lx, ly] = littleSpot(i), a = 1;
+      if (i === n - 1 && B.backMs != null && B.backMs >= 0 && B.backMs < 600) {   // the called one floats back in from above-right
+        const u = eOutCubic(B.backMs / 600); lx += (1 - u) * 140; ly -= (1 - u) * 120; a = u;
+      }
+      drawLittle(ctx, assets, lx, ly, t, i, { alpha: a });
+    }
+    if (B.goneMs != null && B.goneMs >= 0 && B.goneMs < 700) {                     // the knocked one flies off, spinning
+      const u = B.goneMs / 700, [fx0, fy0] = littleSpot(0);
+      drawLittle(ctx, assets, fx0 + u * 300, fy0 - Math.sin(u * Math.PI * .8) * 160 - u * 60, t, 9, { alpha: 1 - u * u, rot: u * 6, k: 1 - u * .4 });
+    }
+  }
+  if (win != null) { dizzyStars(ctx, x + 40, y - BIG_H * .7, win, t); droppedCandy(ctx, assets, x, y, win); }
 }
 
 // Three little stars circling over the knocked-over creature's head (from 450 ms into the win).

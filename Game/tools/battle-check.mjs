@@ -92,6 +92,14 @@ const CHECKS = [
     return { ok: s0.phase === 'chooseNext' && JSON.stringify(g.state()) === before && r.lifted === null && r2.lifted === null && !r2.playing,
       got: `phase ${s0.phase}, lifted ${JSON.stringify(r2.lifted)}, state ${JSON.stringify(g.state()) === before ? 'unchanged' : 'changed'}` };
   }],
+  ['Boss: no Run (R2 hold does nothing), Claw x3 clears the Little Ghosts, phase 2 on 11 hearts', 'enemy=bigghost&lead=monster&party=3', async g => {
+    g.tick(1); g.hold('r2', true); g.tick(1.3); g.hold('r2', false);
+    const ph0 = g.state().phase;
+    for (let i = 0; i < 3; i++) { g.press('cross'); g.tick(.05); g.press('cross'); g.tick(5); }
+    const s = g.state(), mon = s.party[0];
+    return { ok: ph0 === 'choose' && !s.canRun && s.boss.phase === 2 && s.boss.littles === 0 && s.enemy.hearts === 11 && s.pointer === 0 && mon.hearts === 7 && s.phase === 'choose',
+      got: `after R2 ${ph0}, boss phase ${s.boss.phase}, littles ${s.boss.littles}, hearts ${s.enemy.hearts}, card ${s.enemy.strip[s.pointer].word}, monster ${mon.hearts}` };
+  }],
   ['Layout: the card diamond clears the enemy and its disc; tap targets at least 64 px', 'enemy=bat', async g => {
     const { LAYOUT, CARD_W, CARD_H, CARD_PAD } = await import('/Game/src/render/battle/layout.js');
     const D = LAYOUT.disc, E = LAYOUT.enemy, cards = Object.values(LAYOUT.cards);

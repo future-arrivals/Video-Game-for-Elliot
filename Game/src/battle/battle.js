@@ -10,6 +10,12 @@
 //   id, form, free?}; fresh {on}; lift {on,amount?}; gulp {stored} (stored 0 = nothing eaten); burp {amount};
 //   enemyCard {index,word,number,dizzy?}; sticky {on}; switch {from,to,fromId,toId,free}; ko {who}; pointer {index};
 //   won; lost; ran; illegal. `who` on player events is the member id.
+// Boss (slice-design section 7): createBattle with enemy = data.boss.id builds Big Ghost from data.boss. The state then has
+//   boss: { phase: 1|2, littles (Little Ghosts left), maxLittles, littleType, next: { hearts, strip } (phase 2, null once
+//   started) }; running is never allowed. In phase 1 a damaging move hits the front Little Ghost (never folded): any final
+//   damage of 1+ knocks it away and the rest is lost; Big Ghost's hearts cannot be hit. Boss events: little {amount, gone,
+//   left} (instead of an enemy damage event), littleBack {left} (Call), bossPhase {phase: 2} (the moment the last Little
+//   Ghost goes: that round's card is skipped and the strip becomes phase 2's, starting at its first card).
 // Choices where the spec is open: Gulp stores nothing if the intent digit is 0 (no attack, Dizzy, or reduced to 0);
 //   Lift is disabled while a Lift badge is already held ("one at a time"); Lift, Gulp and Burp cards have kind 'badge';
 //   a Dizzy enemy's first card still sets its form for the player's action, only its action is skipped; Sticky does
@@ -31,8 +37,14 @@ export function createBattle({ data, party, lead, enemy, dizzy = false, canRun =
       moves: def.moves.map(({ id: mid, word, icon, form, effect }) => clone({ id: mid, word, icon, form, effect })),
     };
   });
-  let edef = enemy;
-  if (typeof enemy === 'string') {
+  let edef = enemy, boss = null;
+  if (typeof enemy === 'string' && data.boss && enemy === data.boss.id) {
+    const [p1, p2] = data.boss.phases;
+    boss = { phase: 1, littles: p1.shields.count, maxLittles: p1.shields.count, littleType: p1.shields.type,
+      next: { hearts: p2.hearts, strip: p2.strip.map(stripCard) } };
+    edef = { id: data.boss.id, type: data.boss.type, hearts: p2.hearts, strip: p1.strip };
+    canRun = false;
+  } else if (typeof enemy === 'string') {
     edef = data.creatures.find((c) => c.id === enemy);
     if (!edef) throw new Error(`unknown creature ${enemy}`);
   }
@@ -42,17 +54,23 @@ export function createBattle({ data, party, lead, enemy, dizzy = false, canRun =
     party: members,
     enemy: {
       id: edef.id, type: edef.type, hearts: edef.hearts, maxHearts: edef.hearts,
-      strip: edef.strip.map((c) => clone({ word: c.word, form: c.form, attack: c.attack || 0, ...(c.effect ? { effect: c.effect } : {}) })),
+      strip: edef.strip.map(stripCard),
     },
   };
+  if (boss) state.boss = boss;
   if (members[lead].hearts <= 0) state.phase = members.some((m) => m.hearts > 0) ? 'chooseNext' : 'lost';
   return state;
 }
 
+function stripCard(c) { return clone({ word: c.word, form: c.form, attack: c.attack || 0, ...(c.effect ? { effect: c.effect } : {}) }); }
+
 // ---- small readers -------------------------------------------------------------
 
 const currentCard = (s) => s.enemy.strip[s.pointer];
-const enemyFolded = (s) => currentCard(s).form === 'folded';
+const shielded = (s) => !!(s.boss && s.boss.phase === 1 && s.boss.littles > 0);   // a Little Ghost takes the hit
+const enemyFolded = (s) => !shielded(s) && currentCard(s).form === 'folded';
+const targetType = (s) => (shielded(s) ? s.boss.littleType : s.enemy.type);
+const cardCallsBack = (card) => /comes? back/i.test(card.effect || '');
 const cardMakesSticky = (card) => /sticky/i.test(card.effect || '');
 const formMoves = (m) => m.moves.filter((mv) => mv.form === m.form);
 
@@ -90,7 +108,7 @@ function moveNumber(s, m, mv) {
   if (e.damage === 'tummy' && m.tummy === 0) return 0;
   const base = damageBase(m, mv);
   if (base != null) {
-    return finalDamage({ base, lift: m.lift, fresh: m.fresh, attackerType: m.type, defenderType: s.enemy.type, targetFolded: enemyFolded(s) });
+    return finalDamage({ base, lift: m.lift, fresh: m.fresh, attackerType: m.type, defenderType: targetType(s), targetFolded: enemyFolded(s) });
   }
   if (e.heal_self != null) return e.heal_self;
   if (e.heal_team != null) return e.heal_team;
@@ -145,9 +163,15 @@ function doMove(st, slot, ev) {
   if (base != null) {
     const amount = moveNumber(st, m, mv);
     if (e.damage === 'tummy') { ev.push({ t: 'burp', amount }); m.tummy = 0; }
+    if (shielded(st)) {                                  // phase 1: the front Little Ghost; extra damage is lost
+      const gone = amount >= 1;
+      if (gone) st.boss.littles -= 1;
+      ev.push({ t: 'little', amount, gone, left: st.boss.littles });
+    } else {
     const after = Math.max(0, st.enemy.hearts - amount);
     ev.push({ t: 'damage', target: 'enemy', amount, lost: st.enemy.hearts - after, heartsAfter: after });
     st.enemy.hearts = after;
+    }
     if (m.lift) { m.lift = 0; ev.push({ t: 'lift', on: false }); }
     if (m.fresh) { m.fresh = false; ev.push({ t: 'fresh', on: false }); }
     if (e.then && /fold/i.test(e.then)) {
@@ -196,8 +220,20 @@ export function resolve(state, action) {
   }
 
   const wasSticky = st.sticky;
+  const littlesBefore = st.boss ? st.boss.littles : 0;
   const { gulping } = applyPlayer(st, action, ev);
   if (wasSticky) { st.sticky = false; ev.push({ t: 'sticky', on: false }); }
+
+  if (st.boss && st.boss.phase === 1 && littlesBefore > 0 && st.boss.littles === 0) {   // phase change: the card is skipped
+    if (gulping) ev.push({ t: 'gulp', stored: 0 });
+    st.boss.phase = 2;
+    st.enemy.strip = st.boss.next.strip; st.enemy.hearts = st.enemy.maxHearts = st.boss.next.hearts;
+    st.boss.next = null; st.dizzy = false;
+    ev.push({ t: 'bossPhase', phase: 2 });
+    st.pointer = 0; st.round += 1;
+    ev.push({ t: 'pointer', index: 0 });
+    return { state: st, events: ev };
+  }
 
   if (st.enemy.hearts <= 0) {                           // the card does not happen
     st.phase = 'won';
@@ -224,6 +260,10 @@ export function resolve(state, action) {
       m.hearts = after;
     }
     if (cardMakesSticky(card)) { st.sticky = true; ev.push({ t: 'sticky', on: true }); }
+    if (st.boss && st.boss.phase === 1 && cardCallsBack(card) && st.boss.littles < st.boss.maxLittles) {
+      st.boss.littles += 1;
+      ev.push({ t: 'littleBack', left: st.boss.littles });
+    }
   }
 
   if (m.hearts <= 0) {
@@ -268,7 +308,9 @@ export function preview(state, action) {
     const m = mid.party[mid.active];
     intentNumber = intentAgainst(mid, m, m.form);
   }
-  return { legal: true, enemyHeartsLost: state.enemy.hearts - after.enemy.hearts, selfHeartsLost, selfHeal, intentNumber };
+  const enemyHeartsLost = after.boss && after.boss.phase !== (state.boss && state.boss.phase) ? 0 : state.enemy.hearts - after.enemy.hearts;
+  const littlesLost = state.boss ? events.filter((e) => e.t === 'little' && e.gone).length : 0;
+  return { legal: true, enemyHeartsLost, littlesLost, selfHeartsLost, selfHeal, intentNumber };
 }
 
 export function cards(s) {
@@ -288,5 +330,6 @@ export function cards(s) {
     strip: clone(s.enemy.strip),
     badges: { fresh: m.fresh, lift: m.lift, tummy: m.tummy, sticky: s.sticky },
     canRun: s.canRun,
+    boss: s.boss ? { phase: s.boss.phase, littles: s.boss.littles, maxLittles: s.boss.maxLittles } : null,
   };
 }

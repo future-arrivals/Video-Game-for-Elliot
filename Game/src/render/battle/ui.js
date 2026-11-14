@@ -54,10 +54,12 @@ export function playerHearts(g, bar, t) {
   tag(g, L.x, L.y, 22 + bar.max * HGAP, L.h, 94);
   heartsRow(g, L.x + 22, L.y + L.h / 2 + 1, HS, HGAP, bar, t, 94);
 }
+// The enemy's hearts fit inside the bubble: a long row (Big Ghost's 11) packs tighter with smaller hearts.
+function enemyHeartGeom(max) { const fit = (LAYOUT.bubble.w - 30) / Math.max(1, max - 1); return fit >= HGAP ? { gap: HGAP, s: HS } : { gap: fit, s: Math.min(HS, fit * .95) }; }
 /** Centre of heart i of a bar (screen px) and its size. which: 'player' | 'enemy' | 'l1' | 'r1'. */
 export function heartSpotOf(which, i, max) {
   if (which === 'player') { const L = LAYOUT.playerHearts; return [L.x + 22 + i * HGAP, L.y + L.h / 2 + 1, HS]; }
-  if (which === 'enemy') { const B = LAYOUT.bubble; return [B.x + B.w / 2 - (max - 1) * HGAP / 2 + i * HGAP, B.y + 25, HS]; }
+  if (which === 'enemy') { const B = LAYOUT.bubble, q = enemyHeartGeom(max); return [B.x + B.w / 2 - (max - 1) * q.gap / 2 + i * q.gap, B.y + 25, q.s]; }
   const L = LAYOUT[which]; return [L.x + (which === 'l1' ? 78 : 50), L.y + L.h / 2, 13];
 }
 
@@ -132,9 +134,18 @@ export function bubble(g, b, bar, t) {
     [B.x + B.w, B.y + B.h], [B.x, B.y + B.h]], true, 1, 93));
   g.save(); g.translate(0, 3); g.fillStyle = 'rgba(70,45,20,.10)'; g.fill(shape.p); g.restore();
   g.fillStyle = '#fff'; g.fill(shape.p); g.strokeStyle = PENCIL; g.lineWidth = 2.2; g.lineJoin = 'round'; g.stroke(shape.p);
-  if (bar) {                                              // hearts do not pop with the move
-    const [x0, y0] = heartSpotOf('enemy', 0, bar.max);
-    heartsRow(g, x0, y0, HS, HGAP, bar, t, 95);
+  if (bar && bar.ghosts) {                                // boss phase 1: one small ghost per Little Ghost left (faint when gone)
+    const G = bar.ghosts, s = G.sprite, k = 30 / s.h, w = s.w * k, gap = 40, x0 = B.x + B.w / 2 - (G.max - 1) * gap / 2;
+    for (let i = 0; i < G.max; i++) {
+      g.save(); g.globalAlpha *= i < G.n ? 1 : .2;
+      g.translate(x0 + i * gap, B.y + 25 + (i < G.n ? Math.sin(t * .004 + i * 2) * 2 : 0)); g.scale(-1, 1);
+      g.drawImage(s.c, -w / 2, -15, w, 30); g.restore();
+    }
+    g.save(); g.strokeStyle = 'rgba(163,156,142,.55)'; g.lineWidth = 1.5; g.setLineDash([5, 5]);
+    g.beginPath(); g.moveTo(B.x + 14, B.y + 48); g.lineTo(B.x + B.w - 14, B.y + 48); g.stroke(); g.restore();
+  } else if (bar) {                                       // hearts do not pop with the move
+    const [x0, y0] = heartSpotOf('enemy', 0, bar.max), q = enemyHeartGeom(bar.max);
+    heartsRow(g, x0, y0, q.s, q.gap, bar, t, 95);
     g.save(); g.strokeStyle = 'rgba(163,156,142,.55)'; g.lineWidth = 1.5; g.setLineDash([5, 5]);
     g.beginPath(); g.moveTo(B.x + 14, B.y + 48); g.lineTo(B.x + B.w - 14, B.y + 48); g.stroke(); g.restore();
   }
