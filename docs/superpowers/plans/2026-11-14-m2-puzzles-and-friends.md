@@ -213,3 +213,12 @@ Wave A is three Opus tasks and one Sonnet task and needs no visual sign-off: eve
 - Tasks 2 and 4 told to finish what S1 to S3 need and stub the rest (plates, gates, bells, lollipop, S4 to S6 scenery).
 - Order from here: review powers, review S2 and S3 drawing, join up S1 to S3 (Task 6, narrowed, with only the simplest motion from Task 5), then wire Munch's rig if usage is left. End with a rebuild, README update and a clean commit.
 - S4 to S6, the other character ports and the rest of Task 5 carry over to the next session.
+
+### 16:00, Task 2 done (rules part 2 committed); Heartfin rig ported (57c01e5)
+- Nothing stubbed: all powers, plates, gates, bells, lollipop, joins and do-over are built and tested (134 tests).
+- Shape changes: `state.action` replaces `_sim.eat`; actions `eat {kind,i,j,u}`, `reach {kind,i,j,what,u}`; wind-ups: unfold 0.5 s first, then push 0.4, blocked push 0.5, reach 0.4, bridge 1.0, short bridge 0.8.
+- Events: blocked push ends with `nope`; `reach` carries `i, j, kind` and a candy post emits only `reach` (the HUD candy pop must listen for it); `join {id}` (tile from `stage.joins`).
+- Joining is by touch: lead within 0.4 tiles of the friend's tile (the tile itself cannot be stood on).
+- `doOver(world, stage, data, state = null)` in world.js; rules in `puzzles.js` `resetPuzzle`.
+- New exports: field.js `placeTeam`, `standableNear`; powers.js `advancePowers`; puzzles.js `bridgeLine`, `onBridge`, `pushResult`, etc.
+- Design note for later: P2 solution 2d (Fish + Ice Cream, west) does not work on the real map (boxed in at (23,1)); not a softlock, 2b still solves it. Fix the map or the doc when S5 and S6 are dressed.
