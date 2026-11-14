@@ -1,10 +1,29 @@
 // Boot, canvas scaling, loop, scene switch.
 // The canvas letterboxes to 844:390 (centred on a paper-coloured page) on load and every resize; the
 // backing store is capped at device pixel ratio 2. Portrait: a "turn your phone" picture instead.
-// Loop: requestAnimationFrame, dt clamped to 50 ms. window.__game exposes scene/setScene/frame for checks.
+// Loop: requestAnimationFrame, dt clamped to 50 ms. Each step polls one InputFrame and hands it to the scene.
+// window.__game, for scripted checks:
+//   scene, setScene(s), frame(dt), timeFrames(n), state() (the FieldState),
+//   press(name)          queue a one-frame button press ('cross', 'square', 'r1', 'options', ...; 'padLost' fakes a pad loss)
+//   move(x, y, seconds)  hold a movement vector for that long (simulated seconds)
+//   tick(seconds)        advance the simulation synchronously in 1/60 s steps, then draw once
+//   freeze = true        the real-time loop keeps drawing but stops stepping (for still screenshots)
+// These are merged into the same InputFrame the devices produce.
 import { W, H, INK, PEN, PAPER, setBakeScale } from './render/core.js';
 import { loadAssets } from './assets.js';
-import { createDevScene } from './dev/devscene.js';
+import data from './data/slice.gen.js';
+import { createInput } from './input/input.js';
+import { createAudio } from './audio.js';
+import { loadSave } from './save.js';
+import { createFieldScene } from './scenes/fieldscene.js';
+
+function openStorage() {
+  try {
+    const s = window.localStorage, k = '__elliot_probe';
+    s.setItem(k, '1'); s.removeItem(k);
+    return s;
+  } catch { return null; }                 // private browsing or blocked storage: play without saving
+}
 
 export async function startGame({ canvas }) {
   const ctx = canvas.getContext('2d');
@@ -25,8 +44,52 @@ export async function startGame({ canvas }) {
   window.__game = game;
   const assets = await loadAssets();
   game.assets = assets;
-  game.setScene = s => { game.scene = s; };
-  game.setScene(createDevScene(assets));
+  const input = createInput(canvas, {
+    toLogical: (cx, cy) => {
+      const r = canvas.getBoundingClientRect();
+      return [(cx - r.left) * W / (r.width || 1), (cy - r.top) * H / (r.height || 1)];
+    },
+  });
+  const audio = createAudio();
+  const storage = openStorage();
+  const query = new URLSearchParams(location.search);
+  const settings = { steadyCam: false, ...(loadSave(storage)?.settings || {}) };
+  if (query.has('steady')) settings.steadyCam = query.get('steady') !== '0';
+  Object.assign(game, { input, audio, storage, settings, data });
+
+  // scripted input, merged into the next frames
+  const inject = { presses: [], move: null };
+  game.press = name => { inject.presses.push(String(name)); };
+  game.move = (x, y, seconds) => { inject.move = { x: Number(x) || 0, y: Number(y) || 0, left: Number(seconds) || 0 }; };
+  function pollFrame(dt) {
+    const f = input.poll(dt);
+    if (inject.presses.length) {
+      const n = inject.presses.shift();
+      if (n === 'padLost') f.padLost = true; else f.pressed = { ...f.pressed, [n]: true };
+    }
+    if (inject.move && inject.move.left > 0) {
+      f.moveX = inject.move.x; f.moveY = inject.move.y;
+      inject.move.left -= dt; if (inject.move.left <= 1e-9) inject.move = null;
+    }
+    if (Object.values(f.pressed).some(Boolean) || f.taps.length) audio.unlock();
+    return f;
+  }
+  function step(dt) { game.scene.update(dt, pollFrame(dt)); }
+
+  game.setScene = s => { game.scene = s; if (s && s.inputMode) input.setMode(s.inputMode); else input.setMode('field'); };
+  const field = createFieldScene({
+    assets, data, input, audio, storage, settings, query,
+    onBattle(info) {
+      console.log('battle', info);
+      // TEMP until the battle scene is joined: win at once with hearts unchanged.
+      field.resumeFromBattle({ outcome: 'won', creatureUid: info.creatureUid,
+        hearts: Object.fromEntries(info.party.map(m => [m.id, m.hearts])) });
+      // end TEMP
+    },
+  });
+  game.fieldScene = field;
+  game.setScene(field);
+  game.state = () => field.field;
 
   function draw(timeMs) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -36,7 +99,7 @@ export async function startGame({ canvas }) {
   }
   /** Steps and draws one frame synchronously; returns the draw cost in ms. */
   game.frame = (dt = 1 / 60, timeMs = performance.now()) => {
-    game.scene.update(Math.min(dt, .05), null);
+    step(Math.min(dt, .05));
     const t0 = performance.now(); draw(timeMs); game.frames++;
     return performance.now() - t0;
   };
@@ -52,10 +115,19 @@ export async function startGame({ canvas }) {
     return { frames: n, mean: +(ts.reduce((a, b) => a + b, 0) / n).toFixed(2), median: q(.5), p95: q(.95), max: q(1) };
   };
 
+  /** Advances the simulation synchronously in 1/60 s steps (no waiting for real time), then draws. */
+  game.tick = (seconds = 1 / 60) => {
+    const n = Math.max(1, Math.round(seconds * 60));
+    for (let i = 0; i < n; i++) step(1 / 60);
+    draw(performance.now()); game.frames++;
+    return game.state();
+  };
+
   let last = performance.now();
   function tick(now) {
     const dt = Math.min(.05, Math.max(0, (now - last) / 1000)); last = now;
-    game.scene.update(dt, null); draw(now); game.frames++;
+    if (!game.freeze) step(dt);
+    draw(now); game.frames++;
     requestAnimationFrame(tick);
   }
   draw(last); game.ready = true;

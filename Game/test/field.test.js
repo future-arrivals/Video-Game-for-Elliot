@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import data from '../src/data/slice.gen.js';
 import { parseStage } from '../src/field/stage.js';
-import { createField, stepField, applyBattleResult } from '../src/field/field.js';
+import { createField, stepField, applyBattleResult, FOLLOW_GAP } from '../src/field/field.js';
 
 const S1 = data.stages[0];
 const DT = 1 / 60;
@@ -220,8 +220,8 @@ test('two followers trail in order and stay behind', () => {
   run(state, stage, inp({ moveX: 1 }), 3);
   const [lead, f1, f2] = state.party;
   assert.ok(near(lead.x, 13.5, 1e-6));
-  assert.ok(near(f1.x, lead.x - 1.1, 0.06), `f1.x=${f1.x}`);
-  assert.ok(near(f2.x, lead.x - 2.2, 0.06), `f2.x=${f2.x}`);
+  assert.ok(near(f1.x, lead.x - FOLLOW_GAP, 0.06), `f1.x=${f1.x}`);
+  assert.ok(near(f2.x, lead.x - 2 * FOLLOW_GAP, 0.06), `f2.x=${f2.x}`);
   assert.ok(near(f1.y, 5.5, 1e-6) && near(f2.y, 5.5, 1e-6));
   assert.equal(f1.moving, true);
   assert.equal(f1.faceX, 1);

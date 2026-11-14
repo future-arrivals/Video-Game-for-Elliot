@@ -78,6 +78,63 @@ export function colourIn(im, seeds) {
   }
   g.putImageData(id, 0, 0); return c;
 }
+/** Line art with a paper body: every transparent pixel the outside cannot reach (flooding in from the
+ *  image border through transparent pixels) is painted `col` underneath the lines. Small gaps in the
+ *  lines (up to about 2*gap px on a 512 px working copy) are bridged so a body with a nick still fills.
+ *  Done once at load. Returns a canvas the same size as the image. */
+export function paperFilled(im, col = '#FBF8F0', gap = 3) {
+  const S = 512, k = Math.min(1, S / Math.max(im.width, im.height));
+  const w = Math.max(1, Math.round(im.width * k)), h = Math.max(1, Math.round(im.height * k));
+  const sm = mk(w, h), sg = sm.getContext('2d', { willReadFrequently: true });
+  sg.drawImage(im, 0, 0, w, h);
+  const d = sg.getImageData(0, 0, w, h).data, N = w * h;
+  const wall = new Uint8Array(N);
+  for (let i = 0; i < N; i++) wall[i] = d[i * 4 + 3] > 90 ? 1 : 0;
+  const fat = dilate(wall, w, h, gap);                       // closes small gaps in the lines
+  // flood the outside from the border through non-wall pixels
+  const out = new Uint8Array(N), st = new Int32Array(N); let sp = 0;
+  const seed = i => { if (!fat[i] && !out[i]) { out[i] = 1; st[sp++] = i; } };
+  for (let x = 0; x < w; x++) { seed(x); seed((h - 1) * w + x); }
+  for (let y = 0; y < h; y++) { seed(y * w); seed(y * w + w - 1); }
+  while (sp) {
+    const i = st[--sp], x = i % w;
+    if (x > 0) seed(i - 1); if (x < w - 1) seed(i + 1); if (i >= w) seed(i - w); if (i < N - w) seed(i + w);
+  }
+  const outside = dilate(out, w, h, gap);                    // give back what the fat lines took
+  const fill = mk(w, h), fg = fill.getContext('2d'), fd = fg.createImageData(w, h);
+  const r = parseInt(col.slice(1, 3), 16), g = parseInt(col.slice(3, 5), 16), b = parseInt(col.slice(5, 7), 16);
+  for (let i = 0; i < N; i++) if (!outside[i]) { fd.data[i * 4] = r; fd.data[i * 4 + 1] = g; fd.data[i * 4 + 2] = b; fd.data[i * 4 + 3] = 255; }
+  fg.putImageData(fd, 0, 0);
+  const c = mk(im.width, im.height), cg = c.getContext('2d'); cg.imageSmoothingQuality = 'high';
+  cg.drawImage(fill, 0, 0, im.width, im.height);
+  cg.drawImage(im, 0, 0);
+  return c;
+}
+// Square dilation of a 0/1 mask by r px (separable running max).
+function dilate(m, w, h, r) {
+  if (r <= 0) return m;
+  const a = new Uint8Array(w * h), o = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) {
+    let cnt = 0; const row = y * w;
+    for (let x = 0; x < Math.min(w, r); x++) cnt += m[row + x];
+    for (let x = 0; x < w; x++) {
+      if (x + r < w) cnt += m[row + x + r];
+      if (x - r - 1 >= 0) cnt -= m[row + x - r - 1];
+      a[row + x] = cnt > 0 ? 1 : 0;
+    }
+  }
+  for (let x = 0; x < w; x++) {
+    let cnt = 0;
+    for (let y = 0; y < Math.min(h, r); y++) cnt += a[y * w + x];
+    for (let y = 0; y < h; y++) {
+      if (y + r < h) cnt += a[(y + r) * w + x];
+      if (y - r - 1 >= 0) cnt -= a[(y - r - 1) * w + x];
+      o[y * w + x] = cnt > 0 ? 1 : 0;
+    }
+  }
+  return o;
+}
+
 /** His wrapped-candy drawing, coloured in (pink wrapper, red middle). Cached on assets. */
 export function candyArt(assets) {
   return assets.cache.candyArt || (assets.cache.candyArt = colourIn(assets.img.candy, [[.16, .42, '#E99DBB'], [.78, .55, '#E99DBB'], [.44, .55, '#D03C30']]));

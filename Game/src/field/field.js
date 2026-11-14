@@ -19,7 +19,7 @@
 import { isValidSave } from '../save.js';
 
 const RADIUS = 0.35;          // lead footprint, tiles
-const FOLLOW_GAP = 1.1;       // trail distance between party members
+export const FOLLOW_GAP = 1.75; // trail distance between party members (the monster's art is ~2.4 tiles wide)
 const FOLD_TIME = 0.5;        // seconds for the field hinge
 const IGNORE_TIME = 3;        // seconds a creature ignores the team after Run
 const CONTACT_X = 0.35;

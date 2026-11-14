@@ -6,8 +6,8 @@
 // Folded = bottom panel shifted up by `shift` units onto the top panel. Opening slides the panels apart
 // (the bottom stays on the ground, so the top rises) with a 5% stretch overshoot at the end.
 // Characters without usable hinge data use the A2 flip: squash to an edge, the other form springs out.
-import { INK, FONT, clamp, eOutCubic, eInOutCubic } from './core.js';
-import { bakeSprite, alphaBounds, tinted, radial } from './sprites.js';
+import { INK, PAPER, FONT, clamp, eOutCubic, eInOutCubic } from './core.js';
+import { bakeSprite, alphaBounds, tinted, radial, paperFilled } from './sprites.js';
 
 export const FOLDED_H = 78;                  // folded height on screen (logical px)
 
@@ -44,7 +44,8 @@ export function prepareActors(assets) {
     out.chars[id] = rec;
   }
   for (const [id, d] of Object.entries(CREATURES)) {
-    const im = assets.img[d.key]; const s = bakeSprite(im, d.h); const b = alphaBounds(im);
+    // his creatures are black line art with no fill: give them a paper body so they read on the scenery
+    const im = assets.img[d.key]; const s = bakeSprite(paperFilled(im, PAPER), d.h); const b = alphaBounds(im);
     out.creatures[id] = { s, ax: s.w / 2, foot: b.b * s.h, d };
   }
   out.shadow = radial(60, 18, [[0, 'rgba(70,50,30,.38)'], [.6, 'rgba(70,50,30,.16)'], [1, 'rgba(70,50,30,0)']]);
