@@ -299,3 +299,57 @@ All seven items:
 7. **More paper.** Slightly stronger grain, two or three fold creases across the page, sparse pencil grass-hatching patches on the ground.
 
 **Deliverable:** before-and-after sheets of the same three views (the start, the boulder alcove at x 18.5, the right end) in `Game/.shots/`, plus one battle backdrop before-and-after. Each item behind a named constant at the top of its file so any one can be dialled back. Frame cost measured before and after with `__game.timeFrames(300)`; it must not rise by more than 0.2 ms mean. `npm test`, `battle-check.mjs` and `play.mjs` still pass.
+
+---
+
+## Clarity batch (approved 14 Nov after the first hands-on try)
+
+The common thread in the feedback: the style says what is usable (ink) and what is scenery (pencil), but not what matters right now. Highlighter yellow becomes that third level: it already means "selected" on battle cards.
+
+Shared shape added for this batch (Task 7 draws it, Task 9 sets it):
+
+```js
+fieldState.target   // null, or { i, j, power: 'eat', by: 'monster', ready: bool }
+// The thing a power would act on. `ready` is true when the lead is the character named in `by`
+// and is standing next to the tile, facing it; false when it is in range but the lead is someone else
+// or is not facing it.
+```
+
+### Task 7 additions: lead prominence and the power outline (same agent as the depth pass)
+
+- **Lead ring.** A hand-wobbled highlighter-yellow (`#FFF1A8` fill at about 60%, `#E8C94A` ring) ellipse on the ground under the lead only, baked once, about 1.5 tiles wide. It sits under the contact shadow.
+- **Followers step back.** Followers are drawn at about 85% size and slightly paler (bake a paler copy of each sprite at load; no per-frame tinting).
+- **Swap pop.** For about 0.35 s after `party[0].id` changes, the new lead does a small scale pop (1.0 to 1.12 and back) and the ring draws itself in.
+- **Power outline.** When `fieldState.target` is set, draw the A2 dashed outline around that tile's object (the boulder), in ink, with a small round badge above it showing the portrait of `target.by`. When `ready` is true the badge also shows the Cross shape (`drawPsShape`) and bobs; when false it is still and paler. Until Task 9 lands, test this with a dev query parameter `target=20,1`.
+- **Eaten boulder.** A boulder missing from `fieldState.boulders` is simply not drawn (already true); leave a few pencil crumbs on that tile.
+
+### Task 8: Battle screen declutter
+
+**Files:** `src/render/battle/*`, `src/render/battleview.js`, `src/scenes/battlescene.js`, `src/scenes/battleplay.js`. Rules untouched.
+
+**Why:** about ten elements sit at equal strength in heavy black outline. Target: three things in full ink (your character, the enemy, the lifted card) and everything else quiet.
+
+1. **Pencil panels.** Every UI panel except a lifted card uses a pale pencil outline (`#A39C8E`, 2 px) on paper, not ink. The lifted card keeps ink plus highlighter yellow. Unlifted cards keep ink for their icon and digit only.
+2. **Group by owner.** Your hearts sit beside your character (bottom left), with your badges. The enemy's hearts and next move share one bubble beside the enemy.
+3. **Small strip.** The enemy's strip becomes a row of small icons under that bubble with the current one marked, not three labelled cards across the top. The current card's word and big digit stay in the bubble.
+4. **Hide what is not in use.** The type wheel appears only while a lifted card or the intent has a type bonus or penalty (the small arrow beside the digit stays). An empty move slot is not drawn. The Run ring is small and pencil until R2 is held.
+5. **Quiet backdrop.** No scarecrow or pumpkins within the action area; backdrop about 30% paler; the giant pumpkin stays.
+6. **Unstack the corner.** The card diamond must not overlap the enemy's disc or the enemy. Move or shrink as needed, keeping touch targets at least 64 px.
+7. **Teammate portraits** shrink to the field HUD's style (small portrait, heart, number) with the L1/R1 labels.
+8. **First frame.** The battle should not open on an empty page: actors are already sliding in on the first frame after the page turn.
+
+**Deliverable:** before-and-after of the opening state, a lifted card, a hit, the knocked-out state and the win. `battle-check.mjs` and `play.mjs` still pass (update hit-test coordinates in the checks if the layout moves).
+
+### Task 9: The Eat power (pulled forward from M2)
+
+**Why:** S1 shows a boulder in front of a candy with no way through. The design's answer is the Monster's Eat; it is the first moment where folding does something.
+
+**Read:** slice-design section 3 "Field rules" (Use, Eat, "Form after a power", helper portraits) and the S1 "Eat lesson".
+
+**Files:** `src/field/field.js` (split out `src/field/powers.js` to keep files under 450 lines), `test/field.test.js`, `src/scenes/fieldscene.js`, `tools/play.mjs`.
+
+- **Rule.** `fieldState.target` is recomputed every step: the first boulder within one tile of the lead in its facing direction, or else any boulder within 2 tiles (then `ready: false`). `ready` needs the lead to be the monster, adjacent, and facing it.
+- **Use (Cross)** with a ready target: if the lead is folded it unfolds first (the 0.5 s hinge), then eats; the boulder leaves `boulders`; the lead is left open; emits `{ t: 'eat', i, j }`. One press does both. With no ready target, Cross emits `{ t: 'nope' }` (the scene plays the boing and a wiggle) only when a target exists but is not ready; otherwise nothing.
+- **Scene.** `eat` plays a chomp (reuse `hit`) and a crumb burst; the save already stores boulders.
+- **Tests:** eat from (20,2) facing back removes (20,1) and the candy at (20,0) becomes reachable; pressing Cross with the fish leading changes nothing and emits `nope`; a folded monster ends open; the target is `ready: false` when the monster is adjacent but facing away; a save round-trips the eaten boulder.
+- **Playthrough:** add run E to `play.mjs`: walk to (20,2), face back, press Cross, walk up, candy count rises.
