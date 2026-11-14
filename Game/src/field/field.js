@@ -1,5 +1,6 @@
-// Field simulation (M1): movement, followers, fold, swap, the bat's patrol, contact,
-// candy, rest blanket, exits. Pure and deterministic; no DOM, no randomness.
+// Field simulation (M1): movement, followers, the bat's patrol, contact, after-battle.
+// Buttons (fold, swap, Use/Eat), the power target, candy, rest blanket and exits live in
+// powers.js. Pure and deterministic; no DOM, no randomness.
 //
 // createField({ stage, data, party, save }) -> FieldState (shape pinned in the M1 plan)
 // stepField(state, stage, input, dt) -> events     mutates `state`
@@ -15,16 +16,16 @@
 //   creatures: { [uid]: { spawn, speed, dist, ignore } } spawn = index into stage.spawns,
 //              speed = patrol tiles/s, dist = distance travelled along the patrol loop,
 //              ignore = seconds of 'ignore' left.
+//   eat:       { i, j } while an Eat waits for the lead's hinge to settle (see powers.js).
 
 import { isValidSave } from '../save.js';
+import { handleButtons, isBusy, advanceHinges, cancelPowers, computeTarget, checkCandy, checkTile } from './powers.js';
 
 const RADIUS = 0.35;          // lead footprint, tiles
 export const FOLLOW_GAP = 1.75; // trail distance between party members (the monster's art is ~2.4 tiles wide)
-const FOLD_TIME = 0.5;        // seconds for the field hinge
 const IGNORE_TIME = 3;        // seconds a creature ignores the team after Run
 const CONTACT_X = 0.35;
 const CONTACT_Y = 0.5;
-const CANDY_REACH = 0.5;
 const MAX_SUBSTEP = 1 / 30;   // seconds; large dt is simulated in pieces
 const MOVE_STEP = 0.05;       // tiles; collision sub-step
 const TRAIL_STEP = 0.1;       // tiles between breadcrumbs
@@ -67,6 +68,7 @@ export function createField({ stage, data, party, save = null }) {
     boulders,
     candyCount: useSave ? save.candyCount : 0,
     restAt,
+    target: null,
     _sim: { trail: [], lastTile: [0, 0], touching: [], blocked: false, creatures: {} },
   };
 
@@ -93,6 +95,7 @@ export function createField({ stage, data, party, save = null }) {
     state._sim.creatures[uid] = { spawn: idx, speed: creatureData[sp.kind]?.field?.patrol_speed ?? 0, dist: 0, ignore: 0 };
     resetCreature(state, stage, c, asleep.includes(uid) ? 'asleep' : 'patrol');
   });
+  state.target = computeTarget(state, stage);
 
   return state;
 }
@@ -122,33 +125,13 @@ export function stepField(state, stage, input, dt) {
   const events = [];
   const sim = state._sim;
   const pressed = (input && input.pressed) || {};
-  const lead0 = state.party[0];
-
-  if (pressed.square) {
-    lead0.form = lead0.form === 'open' ? 'folded' : 'open';
-    lead0.foldAnim = 1 - lead0.foldAnim;
-    events.push({ t: 'fold', form: lead0.form });
-  }
-  if (state.party.length > 1 && (pressed.r1 || pressed.l1) && !(pressed.r1 && pressed.l1)) {
-    const old = state.party[0];
-    if (pressed.r1) state.party.push(state.party.shift());
-    else state.party.unshift(state.party.pop());
-    const lead = state.party[0];
-    lead.x = old.x; lead.y = old.y; lead.faceX = old.faceX; lead.facing = old.facing;
-    lead.moving = old.moving;
-    lead.form = 'folded';
-    lead.foldAnim = 1;
-    if (old.form === 'open') {
-      old.form = 'folded';
-      old.foldAnim = 1 - old.foldAnim;
-    }
-    updateFollowers(state, false);
-    events.push({ t: 'swap', lead: lead.id });
-  }
+  const busy = isBusy(state);         // mid-eat: buttons and movement are dropped until the eat lands
+  if (handleButtons(state, stage, pressed, events)) updateFollowers(state, false);
+  const still = busy || isBusy(state);
 
   // input vector, length clamped to 1
-  let mx = Number(input?.moveX) || 0;
-  let my = Number(input?.moveY) || 0;
+  let mx = still ? 0 : Number(input?.moveX) || 0;
+  let my = still ? 0 : Number(input?.moveY) || 0;
   const len = Math.hypot(mx, my);
   if (len > 1) { mx /= len; my /= len; }
   const speed = input?.dash ? 5.5 : 4;
@@ -172,7 +155,7 @@ export function stepField(state, stage, input, dt) {
     updateFollowers(state, r.moved > EPS);
     for (const c of state.creatures) stepCreature(state, stage, c, h);
     checkCandy(state, events);
-    checkTile(state, stage, events);
+    checkTile(state, stage, events, (i, j) => rest(state, stage, i, j));
     if (checkContact(state, events)) break;
   } while (remaining > EPS);
 
@@ -181,13 +164,9 @@ export function stepField(state, stage, input, dt) {
   if (blocked && !sim.blocked) events.push({ t: 'bump' });
   sim.blocked = blocked;
 
-  for (const m of state.party) {
-    if (m.foldAnim < 1) {
-      m.foldAnim += Math.max(0, Number(dt) || 0) / FOLD_TIME;
-      if (m.foldAnim >= 1 - 1e-9) m.foldAnim = 1;
-    }
-  }
+  advanceHinges(state, Math.max(0, Number(dt) || 0), events);
   state.time += Math.max(0, Number(dt) || 0);
+  state.target = computeTarget(state, stage);
   return events;
 }
 
@@ -413,33 +392,7 @@ function stepCreature(state, stage, c, h) {
   face(c, p.dx, p.dy);
 }
 
-// ---------------------------------------------------------------- pickups, tiles, contact
-
-function checkCandy(state, events) {
-  const lead = state.party[0];
-  for (const cd of state.candy) {
-    if (cd.taken) continue;
-    if (Math.hypot(lead.x - (cd.i + 0.5), lead.y - (cd.j + 0.5)) <= CANDY_REACH) {
-      cd.taken = true;
-      state.candyCount += 1;
-      events.push({ t: 'candy', i: cd.i, j: cd.j });
-    }
-  }
-}
-
-function checkTile(state, stage, events) {
-  const sim = state._sim;
-  const lead = state.party[0];
-  const i = Math.floor(lead.x), j = Math.floor(lead.y);
-  if (sim.lastTile[0] === i && sim.lastTile[1] === j) return;
-  sim.lastTile = [i, j];
-  if (stage.rest.some((p) => p[0] === i && p[1] === j)) {
-    rest(state, stage, i, j);
-    events.push({ t: 'rest' });
-  }
-  const exit = stage.exits.find((e) => e.at[0] === i && e.at[1] === j);
-  if (exit) events.push({ t: 'exit', to: exit.to });
-}
+// ---------------------------------------------------------------- rest, contact
 
 function rest(state, stage, i, j) {
   for (const m of state.party) m.hearts = m.maxHearts;
@@ -487,8 +440,10 @@ export function applyBattleResult(state, stage, { outcome, creatureUid, hearts, 
     }
     const r = state.restAt;
     const [i, j] = r && r.stageId === stage.id ? [r.i, r.j] : stage.rest[0] ?? stage.start;
+    cancelPowers(state);
     placeTeam(state, stage, i + 0.5, j + 0.5); // sets lastTile to the blanket: no rest loop
     for (const k of state.creatures) resetCreature(state, stage, k, 'patrol');
+    state.target = computeTarget(state, stage);
     return;
   }
   if (hearts && typeof hearts === 'object') {

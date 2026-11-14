@@ -309,10 +309,11 @@ The common thread in the feedback: the style says what is usable (ink) and what 
 Shared shape added for this batch (Task 7 draws it, Task 9 sets it):
 
 ```js
-fieldState.target   // null, or { i, j, power: 'eat', by: 'monster', ready: bool }
+fieldState.target   // null, or { i, j, power: 'eat', by: 'monster', ready: bool[, nudgeAt] }
 // The thing a power would act on. `ready` is true when the lead is the character named in `by`
-// and is standing next to the tile, facing it; false when it is in range but the lead is someone else
-// or is not facing it.
+// and the tile is in reach (straight ahead, or the lead's tile is edge-adjacent, or the tile's centre is
+// within 1.3 tiles), whatever the facing; false when it is in range but the lead is someone else or too far.
+// `nudgeAt` is the fieldState.time of the last Cross that could not work: the badge hops for 0.4 s after it.
 ```
 
 ### Task 7 additions: lead prominence and the power outline (same agent as the depth pass)
@@ -348,7 +349,7 @@ fieldState.target   // null, or { i, j, power: 'eat', by: 'monster', ready: bool
 
 **Files:** `src/field/field.js` (split out `src/field/powers.js` to keep files under 450 lines), `test/field.test.js`, `src/scenes/fieldscene.js`, `tools/play.mjs`.
 
-- **Rule.** `fieldState.target` is recomputed every step: the first boulder within one tile of the lead in its facing direction, or else any boulder within 2 tiles (then `ready: false`). `ready` needs the lead to be the monster, adjacent, and facing it.
+- **Rule.** `fieldState.target` is recomputed every step: the boulder on the tile straight ahead of the lead, or else the nearest boulder within 2 tiles. `ready` needs the lead to be the monster and the boulder in reach (see the shared shape). Revised after review on 14 Nov: the first version also required exact facing, which gave a "nope" to a monster standing right beside the boulder; now Cross turns the lead to face it. While the unfold runs, movement and every button are dropped, not queued.
 - **Use (Cross)** with a ready target: if the lead is folded it unfolds first (the 0.5 s hinge), then eats; the boulder leaves `boulders`; the lead is left open; emits `{ t: 'eat', i, j }`. One press does both. With no ready target, Cross emits `{ t: 'nope' }` (the scene plays the boing and a wiggle) only when a target exists but is not ready; otherwise nothing.
 - **Scene.** `eat` plays a chomp (reuse `hit`) and a crumb burst; the save already stores boulders.
 - **Tests:** eat from (20,2) facing back removes (20,1) and the candy at (20,0) becomes reachable; pressing Cross with the fish leading changes nothing and emits `nope`; a folded monster ends open; the target is `ready: false` when the monster is adjacent but facing away; a save round-trips the eaten boulder.

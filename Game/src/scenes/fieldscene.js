@@ -13,7 +13,9 @@
 // pendingBattle, so closing the game mid-battle restarts it at round 1 with the going-in hearts.
 // The scene's inputMode is 'field'.
 // Pause: padLost or Options; the page dims (a controller picture if the pad went away) until any press or tap.
-// Autosave: candy, rest, battle end, and every 30 s of play.
+// Eat: a chomp ('hit') and a crumb burst on the eaten tile, then an autosave. Nope (Cross with a target
+// that is not ready): 'boing'; the stage view hops the helper badge from field.target.nudgeAt.
+// Autosave: candy, rest, eat, battle end, and every 30 s of play.
 // Dev query parameters: x, y (lead tile position), form (folded|open), party (1|3), lead (id),
 // bat (patrol|asleep|ignore), zoom, fresh (1 = ignore the save). Any of them starts without the save.
 import { W, H, INK, PEN, PAPER, FONT, wx, wy, clamp, eOutCubic, rng } from '../render/core.js';
@@ -30,6 +32,7 @@ const AUTOSAVE_EVERY = 30;   // seconds
 const EXIT_BUBBLE = 1.5;     // seconds
 const REST_CUE = 1.4;
 const CANDY_FX = .7;
+const CRUMB_FX = .6;
 const STEP_EVERY = .3;       // seconds between footstep taps
 const DEV_KEYS = ['x', 'y', 'form', 'party', 'lead', 'bat', 'fresh'];
 const ALL = ['monster', 'fish', 'icecream'];
@@ -76,6 +79,8 @@ export function createFieldScene({ assets, data, input = null, audio = null, sto
     for (const e of events) {
       if (e.t === 'candy') { play('candy'); fx.push({ kind: 'candy', t0: clock, x: wx(e.i + .5), y: wy(e.j + .7) - 22 }); save(); }
       else if (e.t === 'rest') { play('heal'); const r = field.restAt; fx.push({ kind: 'rest', t0: clock, x: wx(r.i + .5), y: wy(r.j + .5) }); save(); }
+      else if (e.t === 'eat') { play('hit'); fx.push({ kind: 'crumbs', t0: clock, x: wx(e.i + .5), y: wy(e.j + .5) - 20 }); save(); }
+      else if (e.t === 'nope') play('boing');
       else if (e.t === 'fold') play(e.form === 'open' ? 'open' : 'fold');
       else if (e.t === 'swap') play('select');
       else if (e.t === 'exit') { for (let i = fx.length - 1; i >= 0; i--) if (fx[i].kind === 'exit') fx.splice(i, 1); fx.push({ kind: 'exit', t0: clock }); }
@@ -133,6 +138,9 @@ export function createFieldScene({ assets, data, input = null, audio = null, sto
         const [x, y] = sc(f.x, f.y), u = age / CANDY_FX;
         ring(ctx, x, y + 22, u, 40, '#E99DBB');
         burst(ctx, x, y, u, 7 + Math.round(f.x), 9, ['#E99DBB', '#D03C30', '#FFF1A8'], 60, 30);
+      } else if (f.kind === 'crumbs' && age < CRUMB_FX) {
+        const [x, y] = sc(f.x, f.y);
+        burst(ctx, x, y, age / CRUMB_FX, 31 + Math.round(f.x), 10, ['#A39C8E', '#C9BFAE', '#7D7466'], 70, 60);
       } else if (f.kind === 'rest' && age < REST_CUE) {
         const [x, y] = sc(f.x, f.y), u = age / REST_CUE;
         ring(ctx, x, y, Math.min(.99, u * 1.4), 46, '#D03C30');

@@ -444,3 +444,150 @@ test('time advances and state stays JSON-safe', () => {
   assert.ok(near(state.time, 2, 1e-9));
   assert.deepEqual(JSON.parse(JSON.stringify(state)), state);
 });
+
+// ---------------------------------------------------------------- Eat (Task 9)
+
+// Stands the lead on (20,2) and walks it into the boulder so it faces back.
+function atBoulder(ids = ['monster'], { form } = {}) {
+  const s = setupAt(20.5, 2.5, ids);
+  if (form === 'open') { s.state.party[0].form = 'open'; s.state.party[0].foldAnim = 1; }
+  run(s.state, s.stage, inp({ moveY: -1 }), 0.1);
+  return s;
+}
+
+test('eat: the open monster facing back from (20,2) eats the boulder at (20,1); the candy at (20,0) is then reachable', () => {
+  const { state, stage } = atBoulder(['monster'], { form: 'open' });
+  assert.equal(state.party[0].facing, 'back');
+  assert.deepEqual(state.target, { i: 20, j: 1, power: 'eat', by: 'monster', ready: true });
+  const ev = stepField(state, stage, inp({ pressed: { cross: true } }), DT);
+  assert.deepEqual(ev.filter((e) => e.t === 'eat'), [{ t: 'eat', i: 20, j: 1 }]);
+  assert.deepEqual(state.boulders, []);
+  assert.equal(stage.isSolid(20, 1, state.boulders), false);
+  assert.equal(state.target, null, 'nothing left to eat');
+  assert.equal(state.party[0].form, 'open');
+  const before = state.candyCount;
+  const ev2 = run(state, stage, inp({ moveY: -1 }), 1);
+  assert.deepEqual(ev2.filter((e) => e.t === 'candy'), [{ t: 'candy', i: 20, j: 0 }]);
+  assert.equal(state.candyCount, before + 1);
+  assert.deepEqual(JSON.parse(JSON.stringify(state)), state);
+});
+
+test('eat: Cross with the fish leading next to the boulder changes nothing and emits nope', () => {
+  const { state, stage } = atBoulder(['fish', 'icecream', 'monster']);
+  assert.equal(state.party[0].id, 'fish');
+  assert.equal(state.target.ready, false);
+  assert.equal(state.target.by, 'monster');
+  assert.equal('nudgeAt' in state.target, false);
+  const party = JSON.stringify(state.party);
+  const t0 = state.time;
+  const ev = stepField(state, stage, inp({ pressed: { cross: true } }), DT);
+  assert.deepEqual(ev, [{ t: 'nope' }]);
+  assert.deepEqual(state.boulders, [{ i: 20, j: 1 }]);
+  assert.equal(JSON.stringify(state.party), party);
+  assert.equal(state.target.ready, false);
+  assert.equal(state.target.nudgeAt, t0);
+  // it survives recomputation while the target stays on (20,1), and a later nope moves it on
+  run(state, stage, inp(), 0.5);
+  assert.equal(state.target.nudgeAt, t0);
+  const t1 = state.time;
+  stepField(state, stage, inp({ pressed: { cross: true } }), DT);
+  assert.equal(state.target.nudgeAt, t1);
+  assert.deepEqual(JSON.parse(JSON.stringify(state)), state);
+  // Cross with no target at all: nothing
+  const far = setupAt(5.5, 7.5, ['fish', 'monster']);
+  assert.equal(far.state.target, null);
+  assert.deepEqual(stepField(far.state, far.stage, inp({ pressed: { cross: true } }), DT), []);
+});
+
+test('eat: a folded monster unfolds first; the eat lands after the 0.5 s hinge and leaves it open', () => {
+  const { state, stage } = atBoulder();
+  assert.equal(state.party[0].form, 'folded');
+  assert.equal(state.target.ready, true);
+  let ev = stepField(state, stage, inp({ pressed: { cross: true } }), DT);
+  assert.deepEqual(ev, [{ t: 'fold', form: 'open' }], 'the press unfolds; no eat yet');
+  assert.equal(state.party[0].form, 'open');
+  assert.deepEqual(state.boulders, [{ i: 20, j: 1 }]);
+  ev = run(state, stage, inp(), 0.5 - 2 * DT);
+  assert.equal(ev.filter((e) => e.t === 'eat').length, 0, 'not before the hinge settles');
+  assert.equal(state.boulders.length, 1);
+  ev = run(state, stage, inp(), 2 * DT);
+  assert.deepEqual(ev, [{ t: 'eat', i: 20, j: 1 }]);
+  assert.deepEqual(state.boulders, []);
+  assert.equal(state.party[0].form, 'open');
+  assert.equal(state.party[0].foldAnim, 1);
+});
+
+test('eat: right next to the boulder is ready whatever the facing (Cross turns to it); two tiles away is not ready; three away and the start are null', () => {
+  const { state, stage } = atBoulder(['monster'], { form: 'open' });
+  run(state, stage, inp({ moveY: 1 }), 0.02); // turn to face front, still on (20,2)
+  assert.equal(state.party[0].facing, 'front');
+  assert.equal(Math.floor(state.party[0].y), 2);
+  assert.deepEqual(state.target, { i: 20, j: 1, power: 'eat', by: 'monster', ready: true });
+  const ev = stepField(state, stage, inp({ pressed: { cross: true } }), 0);
+  assert.deepEqual(ev.filter((e) => e.t === 'eat'), [{ t: 'eat', i: 20, j: 1 }]);
+  assert.equal(ev.filter((e) => e.t === 'nope').length, 0);
+  assert.equal(state.party[0].facing, 'back', 'Cross turned the lead to face the boulder');
+  assert.deepEqual(state.boulders, []);
+  // two tiles away: still shown, not ready
+  const two = setupAt(20.5, 3.5);
+  assert.equal(two.state.target.ready, false);
+  assert.equal(two.state.target.i, 20);
+  // three away, and at the start: nothing
+  assert.equal(setupAt(20.5, 4.5).state.target, null);
+  assert.equal(setup().state.target, null);
+});
+
+test('eat: input waits during the hinge; a second Cross does not eat twice; a 2 s frame still ends in one eat', () => {
+  let { state, stage } = atBoulder(['monster', 'fish']);
+  const x = state.party[0].x, y = state.party[0].y;
+  const ev = stepField(state, stage, inp({ pressed: { cross: true } }), DT);
+  ev.push(...stepField(state, stage, inp({ moveX: 1, pressed: { cross: true } }), DT));
+  ev.push(...stepField(state, stage, inp({ moveX: -1, pressed: { square: true } }), DT));
+  ev.push(...stepField(state, stage, inp({ moveY: 1, pressed: { r1: true } }), DT));
+  assert.deepEqual(ev, [{ t: 'fold', form: 'open' }], 'presses during the hinge are dropped, not queued');
+  assert.deepEqual([state.party[0].x, state.party[0].y], [x, y], 'no movement during the hinge');
+  assert.equal(state.party[0].id, 'monster');
+  assert.equal(state.party[0].facing, 'back');
+  ev.push(...run(state, stage, inp({ pressed: { cross: true } }), 1));
+  assert.deepEqual(ev.filter((e) => e.t === 'eat'), [{ t: 'eat', i: 20, j: 1 }]);
+  assert.equal(ev.filter((e) => e.t === 'nope').length, 0, 'held Cross after the eat finds no target');
+  // after the eat the lead moves again
+  run(state, stage, inp({ moveY: -1 }), 0.2);
+  assert.ok(state.party[0].y < y - 0.5);
+
+  ({ state, stage } = atBoulder());
+  stepField(state, stage, inp({ pressed: { cross: true } }), DT);
+  const long = stepField(state, stage, inp({ moveX: 1, pressed: { cross: true } }), 2);
+  assert.deepEqual(long, [{ t: 'eat', i: 20, j: 1 }]);
+  assert.deepEqual(state.boulders, []);
+  assert.equal(state.party[0].form, 'open');
+  assert.equal(state.party[0].foldAnim, 1);
+  assert.deepEqual(stepField(state, stage, inp(), 2), []);
+});
+
+test('eat: standing beside the boulder column at (19.9, 2.4) is ready by reach; Cross eats and faces back', () => {
+  const { state, stage } = setupAt(19.9, 2.4, ['monster']);
+  state.party[0].form = 'open'; state.party[0].foldAnim = 1;
+  stepField(state, stage, inp(), 0);
+  assert.equal(Math.floor(state.party[0].x), 19);
+  assert.deepEqual(state.target, { i: 20, j: 1, power: 'eat', by: 'monster', ready: true });
+  const ev = stepField(state, stage, inp({ pressed: { cross: true } }), DT);
+  assert.deepEqual(ev.filter((e) => e.t === 'eat'), [{ t: 'eat', i: 20, j: 1 }]);
+  assert.deepEqual(state.boulders, []);
+  assert.equal(state.party[0].facing, 'back');
+});
+
+test('eat: diagonal at (19.5, 2.5), 1.41 tiles from the centre, is not ready; Cross gives nope', () => {
+  const { state, stage } = setupAt(19.5, 2.5, ['monster']);
+  assert.equal(state.target.i, 20);
+  assert.equal(state.target.ready, false);
+  assert.deepEqual(stepField(state, stage, inp({ pressed: { cross: true } }), DT).map((e) => e.t), ['nope']);
+  assert.equal(state.boulders.length, 1);
+});
+
+test('eat: edge-adjacent tile is ready whatever the facing, even far from the centre: (20.5, 2.9) facing right', () => {
+  const { state, stage } = setupAt(20.5, 2.9, ['monster']);
+  state.party[0].facing = 'right';
+  stepField(state, stage, inp(), 0);
+  assert.deepEqual(state.target, { i: 20, j: 1, power: 'eat', by: 'monster', ready: true });
+});

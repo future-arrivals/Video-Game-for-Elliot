@@ -37,6 +37,16 @@ const HELPERS = `
       const g = this.g; g.press(button); g.tick(.05); g.press(button);
       for (let t = 0; t < 4; t += 1 / 60) { g.tick(1 / 60); const b = g.battle(); if (b) this.lastPhase = b.phase; }
     },
+    // steers the lead to (x, y) in tile units, a short move at a time; returns true when within 0.06
+    walkTo(x, y, seconds = 15) {
+      const g = this.g;
+      for (let t = 0; t < seconds; t += 1 / 30) {
+        const l = g.state().party[0]; let dx = x - l.x, dy = y - l.y; const d = Math.hypot(dx, dy);
+        if (d < .06) return true;
+        const k = Math.min(1, d / (4 / 30)) / d; g.move(dx * k, dy * k, 1 / 30); g.tick(1 / 30);
+      }
+      return false;
+    },
     lead() { const l = this.g.state().party[0]; return { id: l.id, x: l.x, y: l.y, i: Math.floor(l.x), j: Math.floor(l.y), hearts: l.hearts, max: l.maxHearts }; },
     bat() { const c = this.g.state().creatures.find(k => k.kind === 'bat'); return c && { mode: c.mode, x: c.x, y: c.y }; },
   };
@@ -155,6 +165,28 @@ try {
     await ev(page, '__game.tick(3.1)');
     const b2 = await ev(page, '({ bat: __play.bat(), mode: __game.mode() })');
     check('D: the bat patrols again after 3 s', b2.bat.mode === 'patrol' && b2.mode === 'field', `${b2.bat.mode}, mode ${b2.mode}`);
+  });
+
+  // ---- Run E: Eat the boulder at (20,1) and take the candy behind it ------------------------------
+  await run('E', async page => {
+    await boot(page, 'bat=asleep');                     // the bat sleeps at (6,2): the walk along row 5 cannot meet it
+    const before = await ev(page, '__game.state().candyCount');
+    const got = await ev(page, '__play.walkTo(20.5, 5.5) && __play.walkTo(20.5, 2.5)');
+    const a = await ev(page, '__play.lead()');
+    check('E: the monster walks to (20,2)', got && a.id === 'monster' && a.i === 20 && a.j === 2 && (await ev(page, '__game.mode()')) === 'field', `tile (${a.i},${a.j}), lead ${a.id}`);
+    await ev(page, '__game.move(0, -1, .1); __game.tick(.1)');   // face back: nudges into the boulder
+    const t0 = await ev(page, '({ target: __game.state().target, facing: __game.state().party[0].facing, form: __game.state().party[0].form })');
+    check('E: facing back, the boulder is a ready Eat target', t0.facing === 'back' && t0.target && t0.target.i === 20 && t0.target.j === 1 && t0.target.ready === true && t0.form === 'folded', JSON.stringify(t0));
+    await ev(page, `__game.press('cross'); __game.tick(1 / 60)`);
+    const mid = await ev(page, '__game.state().boulders.length');
+    await ev(page, '__game.tick(.6)');
+    const e = await ev(page, '({ boulders: __game.state().boulders, form: __game.state().party[0].form, target: __game.state().target })');
+    check('E: one Cross unfolds, then eats after the hinge', mid === 1 && e.boulders.length === 0 && e.form === 'open' && e.target === null, `boulders during the hinge ${mid}, after ${e.boulders.length}, form ${e.form}, target ${JSON.stringify(e.target)}`);
+    await ev(page, '__game.move(0, -1, 1); __game.tick(1)');
+    const after = await ev(page, '({ candy: __game.state().candyCount, lead: __play.lead() })');
+    check('E: walking up takes the candy at (20,0)', after.candy === before + 1 && after.lead.j === 0, `${before} -> ${after.candy}, lead at (${after.lead.i},${after.lead.j})`);
+    const saved = await ev(page, `JSON.parse(localStorage.getItem('${SAVE_KEY}'))`);
+    check('E: the autosave has the boulder gone and the candy taken', saved && saved.boulders.length === 0 && saved.candyTaken.some(p => p[0] === 20 && p[1] === 0), saved ? `boulders ${JSON.stringify(saved.boulders)}, candyTaken ${JSON.stringify(saved.candyTaken)}` : 'no save');
   });
 } finally {
   await browser.close(); server.close();

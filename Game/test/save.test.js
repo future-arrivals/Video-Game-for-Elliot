@@ -128,3 +128,30 @@ test('pendingBattle: toSave records it, loadSave keeps it, a missing or bad one 
   // toSave ignores a malformed one
   assert.equal('pendingBattle' in toSave(state, {}, { kind: 'bat' }), false);
 });
+
+test('an eaten boulder survives a save round trip, and the target is not saved', () => {
+  const stage = parseStage(data.stages[0]);
+  const state = createField({ stage, data, party: [{ id: 'monster' }] });
+  state.party[0].x = 20.5; state.party[0].y = 2.5; state.party[0].form = 'open';
+  stepField(state, stage, inp(), 0);
+  for (let k = 0; k < 6; k++) stepField(state, stage, inp({ moveY: -1 }), 1 / 60);
+  stepField(state, stage, inp({ pressed: { cross: true } }), 1 / 60);
+  assert.deepEqual(state.boulders, []);
+  const save = toSave(state, {});
+  assert.deepEqual(save.boulders, []);
+  assert.equal('target' in save, false);
+  const storage = fakeStorage();
+  writeSave(storage, save);
+  const restored = createField({ stage, data, party: [{ id: 'monster' }], save: loadSave(storage) });
+  assert.deepEqual(restored.boulders, []);
+  assert.equal(stage.isSolid(20, 1, restored.boulders), false);
+  assert.equal(restored.target, null);
+  // walkable: the restored lead walks up through (20,1) and takes the candy at (20,0)
+  for (let k = 0; k < 60; k++) stepField(restored, stage, inp({ moveY: -1 }), 1 / 60);
+  assert.ok(restored.party[0].y < 1, `y=${restored.party[0].y}`);
+  assert.equal(restored.candy[1].taken, true);
+  // a save that happens to carry a stray target is still valid and the target is recomputed
+  const stray = { ...save, target: { i: 1, j: 1, power: 'eat', by: 'monster', ready: true } };
+  writeSave(storage, stray);
+  assert.equal(createField({ stage, data, party: [{ id: 'monster' }], save: loadSave(storage) }).target, null);
+});
