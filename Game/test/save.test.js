@@ -1,0 +1,98 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import data from '../src/data/slice.gen.js';
+import { parseStage } from '../src/field/stage.js';
+import { createField, stepField, applyBattleResult } from '../src/field/field.js';
+import { toSave, loadSave, writeSave, SAVE_KEY, SAVE_VERSION } from '../src/save.js';
+
+function fakeStorage(initial = {}) {
+  const m = new Map(Object.entries(initial));
+  return {
+    getItem: (k) => (m.has(k) ? m.get(k) : null),
+    setItem: (k, v) => { m.set(k, String(v)); },
+    map: m,
+  };
+}
+const inp = (o = {}) => ({ moveX: 0, moveY: 0, dash: false, pressed: {}, ...o });
+
+test('save key and version', () => {
+  assert.equal(SAVE_KEY, 'elliot-game-save-v1');
+  assert.equal(typeof SAVE_VERSION, 'number');
+});
+
+test('a save round-trips', () => {
+  const stage = parseStage(data.stages[0]);
+  const state = createField({ stage, data, party: [{ id: 'monster' }, { id: 'fish' }, { id: 'icecream' }] });
+  // take the (3,1) candy, beat the bat, swap, open, walk somewhere
+  state.party[0].x = 3.5; state.party[0].y = 2.5;
+  stepField(state, stage, inp(), 0);
+  for (let k = 0; k < 30; k++) stepField(state, stage, inp({ moveY: -1 }), 1 / 60);
+  assert.equal(state.candyCount, 1);
+  applyBattleResult(state, stage, { outcome: 'won', creatureUid: state.creatures[0].uid, hearts: { monster: 4 } });
+  stepField(state, stage, inp({ pressed: { r1: true } }), 0);
+  stepField(state, stage, inp({ pressed: { square: true } }), 1);
+  for (let k = 0; k < 60; k++) stepField(state, stage, inp({ moveX: 1, moveY: 0.2 }), 1 / 60);
+  state.restAt = { stageId: 'S1', i: 1, j: 7 };
+
+  const settings = { steadyCamera: true, volume: 0.5 };
+  const save = toSave(state, settings);
+  assert.equal(save.v, SAVE_VERSION);
+  assert.equal(save.stageId, 'S1');
+  assert.deepEqual(save.settings, settings);
+
+  const storage = fakeStorage();
+  assert.equal(writeSave(storage, save), true);
+  const loaded = loadSave(storage);
+  assert.deepEqual(loaded, JSON.parse(JSON.stringify(save)));
+
+  const restored = createField({ stage, data, party: [{ id: 'monster' }], save: loaded });
+  assert.deepEqual(restored.party.map((m) => [m.id, m.hearts, m.form]), state.party.map((m) => [m.id, m.hearts, m.form]));
+  assert.equal(restored.party[0].id, 'fish');
+  assert.equal(restored.party[0].form, 'open');
+  assert.equal(restored.party[0].foldAnim, 1);
+  assert.equal(restored.party[2].hearts, 4);
+  assert.ok(Math.abs(restored.party[0].x - state.party[0].x) < 1e-9);
+  assert.ok(Math.abs(restored.party[0].y - state.party[0].y) < 1e-9);
+  assert.equal(restored.party[0].faceX, state.party[0].faceX);
+  assert.equal(restored.candyCount, 1);
+  assert.deepEqual(restored.candy, state.candy);
+  assert.deepEqual(restored.boulders, state.boulders);
+  assert.deepEqual(restored.restAt, state.restAt);
+  assert.equal(restored.creatures[0].mode, 'asleep');
+  assert.deepEqual([restored.creatures[0].x, restored.creatures[0].y], [6.5, 2.5]);
+  // saving the restored state gives the same save
+  assert.deepEqual(toSave(restored, settings), save);
+  // restored state works
+  const ev = stepField(restored, stage, inp({ moveX: 1 }), 0.1);
+  assert.ok(Array.isArray(ev));
+});
+
+test('loadSave returns null for bad or missing data and never throws', () => {
+  const K = SAVE_KEY;
+  assert.equal(loadSave(fakeStorage()), null, 'nothing saved');
+  assert.equal(loadSave(fakeStorage({ [K]: '{not json' })), null, 'garbage');
+  assert.equal(loadSave(fakeStorage({ [K]: 'null' })), null, 'null JSON');
+  assert.equal(loadSave(fakeStorage({ [K]: '42' })), null, 'a number');
+  assert.equal(loadSave(fakeStorage({ [K]: '[]' })), null, 'an array');
+  assert.equal(loadSave(fakeStorage({ [K]: JSON.stringify({ v: 0, stageId: 'S1', party: [] }) })), null, 'old version');
+  assert.equal(loadSave(fakeStorage({ [K]: JSON.stringify({ v: SAVE_VERSION + 1, stageId: 'S1' }) })), null, 'newer version');
+  assert.equal(loadSave(fakeStorage({ [K]: JSON.stringify({ v: SAVE_VERSION }) })), null, 'right version, missing fields');
+  assert.equal(loadSave(null), null, 'no storage');
+  assert.equal(loadSave(undefined), null);
+  assert.equal(loadSave({ getItem() { throw new Error('SecurityError'); } }), null, 'throwing storage');
+  assert.equal(loadSave({}), null, 'storage without getItem');
+});
+
+test('writeSave does not throw when storage is blocked or full', () => {
+  assert.equal(writeSave({ setItem() { throw new Error('QuotaExceededError'); } }, { v: 1 }), false);
+  assert.equal(writeSave(null, { v: 1 }), false);
+});
+
+test('createField ignores a save for a different stage or with unknown characters', () => {
+  const stage = parseStage(data.stages[0]);
+  const fresh = createField({ stage, data, party: [{ id: 'monster' }] });
+  const bad = { ...toSave(fresh, {}), party: [{ id: 'nobody', hearts: 3, form: 'open' }] };
+  const s = createField({ stage, data, party: [{ id: 'monster' }], save: bad });
+  assert.deepEqual(s.party.map((m) => m.id), ['monster']);
+  assert.equal(s.party[0].hearts, 9);
+});
