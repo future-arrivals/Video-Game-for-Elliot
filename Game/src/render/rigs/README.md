@@ -135,3 +135,17 @@ Also: `__game.bench(300)` on the dev page reports pose and pose+draw time per fr
   line in the recipe, or accept and note it.
 - Group opacity on a part with overlapping children becomes per-layer alpha (overlaps show through while
   fading). Only visible during fades.
+
+## Notes from the Heartfin port (14 Nov)
+
+- Part names are the element ids in `rig.json`, not the demo script's short names. Heartfin's `finL`, `head`,
+  `seg1` are `part-fin-left`, `part-head`, `part-seg-1` in the rig. Look at `rig.json` for the real names.
+- `c.add` skips a scale of exactly 0. If the demo scales a part to 0 (`sx = 0`), pass `1e-6` instead.
+- A pivot that mixes a fixed x with the bounding-box centre y cannot be written as a rule: measure it once
+  with `getBBox` in a scratch script and paste the numbers into `pivots`.
+- A pseudo-part with no drawing (the demo's `'beat'`) has no rig part: keep it as a local variable in `pose`.
+- Each demo's confetti and crumbs differ: paste the demo's version, do not reuse the kit's.
+- Per-character look: `wordFill: '#hex'` sets the word-pop fill, `glow: [[stop, 'rgba()'], ...]` sets the glow
+  colours, `symbols: { name: 'path' }` adds fx shapes. There is one glow slot per pose.
+- Comparing in headless Chrome: call `bringToFront()` on each tab before its screenshot, and seek twice after
+  switching clips.

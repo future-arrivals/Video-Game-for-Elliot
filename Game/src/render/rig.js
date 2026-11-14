@@ -44,8 +44,9 @@
 //   c.alpha(part, a), c.hide(part), c.pivot(part) -> [x, y]
 // and sets c.zoom, c.open, c.shadow, c.glow, c.flash, c.shake, c.scroll, c.fx (array), c.word.
 import monster from './rigs/monster.js';
+import fish from './rigs/fish.js';
 
-const DEFS = { monster };
+const DEFS = { monster, fish };
 const INK = '#1a1a1a';
 
 /* ---------- loading ---------- */
@@ -165,7 +166,7 @@ function sprites(rig) {
   // the demos' #shadowG and #glowG radial gradients, baked once
   return (rig.sprites = {
     shadow: radial([[0, 'rgba(58,42,16,.5)'], [.6, 'rgba(58,42,16,.22)'], [1, 'rgba(58,42,16,0)']]),
-    glow: radial([[0, 'rgba(255,246,192,.95)'], [.5, 'rgba(255,226,122,.45)'], [1, 'rgba(255,226,122,0)']]),
+    glow: radial(rig.def.glow || [[0, 'rgba(255,246,192,.95)'], [.5, 'rgba(255,226,122,.45)'], [1, 'rgba(255,226,122,0)']]),   // def.glow: a character's own glow colours
   });
 }
 function tint(rig, c) { // atlas silhouette in one colour (the demo's flash colour matrix, baked per colour)
@@ -216,12 +217,11 @@ const SYMBOLS = {
   scrap: 'M-5,-3.5 L5,-3.5 Q6,-3.5 6,-2.5 L6,2.5 Q6,3.5 5,3.5 L-5,3.5 Q-6,3.5 -6,2.5 L-6,-2.5 Q-6,-3.5 -5,-3.5Z',
   spike: 'M0,-30 L7,-12 L26,-20 L15,-4 L34,2 L14,8 L22,28 L6,16 L0,34 L-6,16 L-22,28 L-14,8 L-34,2 L-15,-4 L-26,-20 L-7,-12Z',
 };
-let PATHS = null;
 const WORD_FONT = '900 52px Andika, "Avenir Next Rounded", "Arial Rounded MT Bold", Verdana, sans-serif';
 
 export function drawRigFx(ctx, rig, pose, sx, sy, scale, opts = {}) {
   if (!pose.fx.length && !pose.word) return;
-  if (!PATHS) PATHS = Object.fromEntries(Object.entries({ ...SYMBOLS, ...(rig.def.symbols || {}) }).map(([k, d]) => [k, new Path2D(d)]));
+  const PATHS = rig.paths || (rig.paths = Object.fromEntries(Object.entries({ ...SYMBOLS, ...(rig.def.symbols || {}) }).map(([k, d]) => [k, new Path2D(d)])));   // per rig: each character may add symbols
   const base = ctx.getTransform(), a0 = ctx.globalAlpha, flip = opts.flip ? -1 : 1, fs = scale / rig.stagePx;
   ctx.strokeStyle = INK; ctx.lineJoin = 'round'; ctx.lineCap = 'butt';
   for (const o of pose.fx) {
@@ -234,7 +234,7 @@ export function drawRigFx(ctx, rig, pose, sx, sy, scale, opts = {}) {
   if (w && w.a > .001) {
     ctx.setTransform(base); ctx.translate(sx + w.x * fs * flip, sy + w.y * fs); ctx.rotate(w.r * D2R * flip); ctx.scale(w.s * fs, w.s * fs);
     ctx.globalAlpha = a0 * w.a; ctx.font = WORD_FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-    ctx.lineWidth = 9; ctx.lineJoin = 'round'; ctx.strokeStyle = INK; ctx.fillStyle = '#FFF1A8';
+    ctx.lineWidth = 9; ctx.lineJoin = 'round'; ctx.strokeStyle = INK; ctx.fillStyle = rig.def.wordFill || '#FFF1A8';
     ctx.strokeText(w.text, 0, 0); ctx.fillText(w.text, 0, 0);
   }
   ctx.setTransform(base); ctx.globalAlpha = a0;

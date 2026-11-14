@@ -25,10 +25,11 @@ export const ASSET_LIST = {
   // high so the build never rescales an atlas (its JSON rectangles are in atlas pixels); palette: the build keeps
   // the 256-colour PNG as it is.
   rig_monster: { path: 'assets/rigs/monster/atlas.png', maxH: 1024, palette: true },
+  rig_fish: { path: 'assets/rigs/fish/atlas.png', maxH: 1024, palette: true },
 };
 
 /** Rig layout JSON per character (tools/rigparts.mjs). Dev: fetched; build: embedded as window.__RIGS__. */
-export const RIG_LIST = { monster: 'assets/rigs/monster/rig.json' };
+export const RIG_LIST = { monster: 'assets/rigs/monster/rig.json', fish: 'assets/rigs/fish/rig.json' };
 
 function load(key, src) {
   return new Promise((ok, fail) => {

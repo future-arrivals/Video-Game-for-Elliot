@@ -106,6 +106,7 @@ async function capture(spec) {
     const cl = svg.cloneNode(true);
     for (const e of [...cl.querySelectorAll(LEAF)]) if (!e.closest(DEFS) && e.getAttribute('data-rl') !== String(i)) e.remove();
     cl.removeAttribute('style'); cl.removeAttribute('class');
+    for (const m of cl.querySelectorAll('metadata')) m.remove();   // some demos carry metadata with an unbound XML prefix, which breaks serializing
     cl.setAttribute('viewBox', `${vx} ${vy} ${W / S} ${H / S}`); cl.setAttribute('width', W); cl.setAttribute('height', H);
     cl.setAttribute('preserveAspectRatio', 'none');
     const xml = new XMLSerializer().serializeToString(cl);
