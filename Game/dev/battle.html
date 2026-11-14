@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<base href="../">  <!-- asset paths in src/assets.js are relative to Game/ -->
+<link rel="icon" href="data:,">
+<title>Battle harness (dev)</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #EFE6D2; touch-action: none; }
+  canvas { position: absolute; display: block; background: #FBF8F0; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<script type="module">
+  import { startHarness } from './src/dev/battle-harness.js';
+  startHarness(document.getElementById('game'));
+</script>
+</body>
+</html>
