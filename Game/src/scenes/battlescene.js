@@ -1,7 +1,8 @@
 // Battle scene: input -> battle rules -> timed playback -> battle view. slice-design section 4.
 //   createBattleScene({ assets, data, battle, settings, audio, backdrop, onDone }) -> { update(dt, inputFrame), render(ctx, timeMs) }
 // `battle` is a BattleState from createBattle. settings: { quickPlay, reduceFlash }. backdrop: { stage } or null.
-// onDone({ outcome: 'won' | 'lost' | 'ran', hearts: { [id]: n } }) is called once, after the end sequence.
+// onDone({ outcome: 'won' | 'lost' | 'ran', hearts: { [id]: n }[, candyDrop: n (won only)] }) is called once, after the end sequence.
+// The scene's inputMode is 'battle' (main.js switches the input layer with it).
 //
 // Input: the first press of a button lifts its card and previews it (preview()); the same press again plays it
 // (quickPlay: one press plays). Cross / Circle / Triangle = move slots 0 / 1 / 2, Square = Fold/Open, L1 / R1 =
@@ -11,7 +12,7 @@
 // Clocks: `rt` real ms (flash, particles, shake) and `wt` world ms (motion, beats), which stops during hit-stop.
 import { cards, preview, resolve } from '../battle/battle.js';
 import { typeBonus } from '../battle/rules.js';
-import { prepareActors } from '../render/actors.js';
+import { prepareActors, hingeCurve } from '../render/actors.js';
 import { shake as shakeAt } from '../render/fx.js';
 import { clamp, eOutBack, eOutCubic } from '../render/core.js';
 import { drawBattle, bakeBackdrop, bakeOverlays, playerScale, heartSpot, actorSpot, hitTest, LAYOUT } from '../render/battleview.js';
@@ -19,7 +20,7 @@ import { CARD_W, CARD_H, SLOT_OF } from '../render/battle/layout.js';
 import { buildBeats } from './battleplay.js';
 
 const INTRO = 300, FOLD_MS = 800;
-const WIN_MS = 1600, LOSE_MS = 2000, RUN_MS = 750;
+const WIN_MS = 2300, WIN_SKIP = 1000, LOSE_MS = 2000, RUN_MS = 750;   // a press may cut the win short after WIN_SKIP
 
 export function createBattleScene({ assets, data, battle, settings = {}, audio = null, backdrop = null, onDone = () => {} }) {
   const sfx = name => { try { audio && audio.play(name); } catch { /* sound is optional */ } };
@@ -27,6 +28,7 @@ export function createBattleScene({ assets, data, battle, settings = {}, audio =
   const art = { backdrop: bakeBackdrop(stage || null), overlays: stage ? bakeOverlays(stage) : null };
   const A = prepareActors(assets);
   const types = data.type_chart.types.map(t => t.id);
+  const dropOf = kind => (data.creatures.find(c => c.id === kind) || {}).drop ? 1 : 0;   // one candy per win when it drops one
 
   let st = battle, disp = battle, dispI = battle;       // disp / dispI: the states whose cards / intent bubble are on screen
   let rt = 0, wt = 0, freezeUntil = 0, started = false, doneCalled = false;
@@ -71,6 +73,7 @@ export function createBattleScene({ assets, data, battle, settings = {}, audio =
     },
     syncCards: () => { disp = st; },
     syncIntent: () => { dispI = st; },
+    hingeMs: FOLD_MS,
   };
   function maxOfBar(bar) {
     if (bar === 'player') return st.party[S.active].maxHearts;
@@ -164,10 +167,11 @@ export function createBattleScene({ assets, data, battle, settings = {}, audio =
   function endUpdate(frame) {
     const el = wt - S.end.t0, k = S.end.kind;
     const limit = k === 'won' ? WIN_MS : k === 'lost' ? LOSE_MS : RUN_MS;
-    const skip = k === 'won' && el > 400 && frame && ((frame.pressed && Object.values(frame.pressed).some(Boolean)) || (frame.taps && frame.taps.length));
+    const skip = k === 'won' && el > WIN_SKIP && frame && ((frame.pressed && Object.values(frame.pressed).some(Boolean)) || (frame.taps && frame.taps.length));
     if ((el >= limit || skip) && !doneCalled) {
       doneCalled = true;
-      onDone({ outcome: k, hearts: Object.fromEntries(st.party.map(m => [m.id, m.hearts])) });
+      const hearts = Object.fromEntries(st.party.map(m => [m.id, m.hearts]));
+      onDone(k === 'won' ? { outcome: k, hearts, candyDrop: dropOf(st.enemy.id) } : { outcome: k, hearts });
     }
   }
 
@@ -196,12 +200,11 @@ export function createBattleScene({ assets, data, battle, settings = {}, audio =
     const sq = since(pa.squash);
     const squash = sq >= 0 && sq < 400 ? Math.sin(sq / 400 * Math.PI) * (sq < 200 ? 1 : .6) : 0;
     const hinge = since(fm.t0);
-    const hu = clamp(hinge / FOLD_MS), openness = fm.form === 'open' ? hu : 1 - hu;
-    const scale = playerScale(assets, id, openness) * (1 + .05 * Math.sin(hu * Math.PI));
+    const hu = clamp(hinge / FOLD_MS);
+    const scale = playerScale(assets, id, hingeCurve(fm.form, hu, 'battle').o);   // the size follows the hinge
     const koU = pa.ko != null ? clamp(since(pa.ko) / 500) : 0;
     // enemy
     let edx = 320 * (1 - eOutBack(intro, 1.6)) + lunge(ea.lunge, -1), edy = hop(ea.hop) + lunge(ea.lunge, .4);
-    const flop = end && end.kind === 'won' ? clamp(endMs / 500) : 0;
 
     const choosing = !playing && !end && wt > INTRO;
     const lp = lifted && lifted.p, la = lifted && lifted.action;
@@ -210,9 +213,9 @@ export function createBattleScene({ assets, data, battle, settings = {}, audio =
     const vm = {
       backdrop: art.backdrop, overlays: art.overlays, types, hasPortraits: st.party.length > 1,
       shake: shakes.reduce((a, s) => { const d = shakeAt(rt, s.t0, 300, s.amp, s.t0 % 7); return [a[0] + d[0], a[1] + d[1]]; }, [0, 0]),
-      enemy: { kind: st.enemy.id, dx: edx, dy: edy, curl: S.curl, flop, flash: flashA(ea.flash), pulse: pulseU(ea.pulse) },
+      enemy: { kind: st.enemy.id, dx: edx, dy: edy, curl: S.curl, win: end && end.kind === 'won' ? endMs : null, flash: flashA(ea.flash), pulse: pulseU(ea.pulse) },
       enemyBar: { max: st.enemy.maxHearts, shown: S.enemyHearts, lost: lp ? lp.enemyHeartsLost : 0 },
-      player: { member: { id, form: fm.form, foldAnim: clamp(hinge / FOLD_MS), faceX: 1, moving: false }, scale, dx: pdx, dy: pdy,
+      player: { member: { id, form: fm.form, foldAnim: clamp(hinge / FOLD_MS), faceX: 1, moving: false }, pace: 'battle', scale, dx: pdx, dy: pdy,
         ko: koU, flash: flashA(pa.flash), pulse: pulseU(pa.pulse), squash, alpha: S.sleepy[id] && pa.ko == null ? .5 : 1 },
       playerBar: { max: m.maxHearts, shown: S.hearts[id], lost: lp && !isSwitch ? lp.selfHeartsLost : 0, heal: lp && !isSwitch ? (lifted.heals[id] || 0) : 0 },
       strip: { strip: disp.enemy.strip, pointer: S.pointer, from: S.pointerFrom, u: since(S.pointerT0) / 300, dizzy: S.dizzy },
@@ -258,7 +261,7 @@ export function createBattleScene({ assets, data, battle, settings = {}, audio =
   function render(ctx) { drawBattle(ctx, assets, buildVM(), rt); }
 
   return {
-    update, render,
+    update, render, inputMode: 'battle',
     get state() { return st; },
     get playing() { return playing; },
     get lifted() { return lifted && { button: lifted.b, action: lifted.action, preview: lifted.p }; },

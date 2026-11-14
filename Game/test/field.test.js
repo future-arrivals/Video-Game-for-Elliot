@@ -335,6 +335,20 @@ test('battle outcome: won puts the creature to sleep at its spawn and carries he
   assert.deepEqual(JSON.parse(JSON.stringify(state)), state);
 });
 
+test('battle outcome: a won battle adds its dropped candy; ran and lost add none', () => {
+  for (const [outcome, want] of [['won', 1], ['ran', 0], ['lost', 0]]) {
+    const { state, stage } = setupAt(9.5, 2.5);
+    const uid = run(state, stage, inp(), 3).find((e) => e.t === 'battle').creatureUid;
+    const before = state.candyCount;
+    applyBattleResult(state, stage, { outcome, creatureUid: uid, hearts: { monster: 5 }, candyDrop: 1 });
+    assert.equal(state.candyCount - before, want, outcome);
+  }
+  const { state, stage } = setupAt(9.5, 2.5);
+  const uid = run(state, stage, inp(), 3).find((e) => e.t === 'battle').creatureUid;
+  applyBattleResult(state, stage, { outcome: 'won', creatureUid: uid, hearts: { monster: 5 } });
+  assert.equal(state.candyCount, 0, 'no candyDrop given: nothing added');
+});
+
 test('battle outcome: ran ignores the lead for 3 s, then patrols; no immediate re-trigger', () => {
   const { state, stage } = setupAt(9.5, 2.5);
   const ev = run(state, stage, inp(), 3);

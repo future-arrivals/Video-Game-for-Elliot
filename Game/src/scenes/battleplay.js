@@ -4,7 +4,8 @@
 //
 // P (from battlescene.js): { show, settings, rt(), wt(), fx(effect), sfx(name), hitStop(ms), shake(px),
 //   spot(which, part), heart(bar, i), barOf(memberId) -> 'player' | 'l1' | 'r1' | null, enemyKind,
-//   syncCards() (cards show the new state), syncIntent() (the intent bubble shows the new round's card) }
+//   syncCards() (cards show the new state), syncIntent() (the intent bubble shows the new round's card),
+//   hingeMs (how long the battle fold hinge takes) }
 
 const MOVE_COL = { claw: '#E58A3A', chomp: '#E58A3A', burp: '#A8C878', splash: '#8CC8DC', slap: '#E99DBB',
   bonk: '#E2B878', drop: '#E99DBB', smash: '#F6B0C8' };
@@ -80,15 +81,16 @@ export function buildBeats(events, P) {
         });
         break;
       }
-      case 'form':
+      case 'form': {
+        let synced = false;                             // the cards switch to the new form's moves when the hinge lands
         add(850, () => {
           S.forms[e.id] = { form: e.form, t0: P.wt() };
           P.sfx(e.form === 'open' ? 'open' : 'fold');
           const [x, y] = P.spot('player');
           P.fx({ kind: 'burst', x, y: y - 20, n: 14, cols: ['#FFE27A', '#E99DBB', '#8CC8DC'], spd: 110, dur: 700, seed: 31 + i, t0: P.rt() + 250 });
-          P.syncCards();
-        });
+        }, ms => { if (!synced && ms >= P.hingeMs) { synced = true; P.syncCards(); } });
         break;
+      }
       case 'fresh':
         add(e.on ? 260 : 120, () => { S.badges.fresh = e.on; if (e.on) S.pops.fresh = P.wt(); });
         break;

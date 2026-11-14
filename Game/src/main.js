@@ -2,20 +2,33 @@
 // The canvas letterboxes to 844:390 (centred on a paper-coloured page) on load and every resize; the
 // backing store is capped at device pixel ratio 2. Portrait: a "turn your phone" picture instead.
 // Loop: requestAnimationFrame, dt clamped to 50 ms. Each step polls one InputFrame and hands it to the scene.
+// Scenes: the field, a battle, and the page turn between them (input is polled but ignored during a turn).
+// A field 'battle' event: the field freezes, the battle sting plays, a 60 ms flash, then the field page turns
+// away (right to left) revealing the battle; its onDone applies the result to the field and turns back (left
+// to right). On boot, a battle the save says was running is started again the same way.
 // window.__game, for scripted checks:
-//   scene, setScene(s), frame(dt), timeFrames(n), state() (the FieldState),
+//   scene, setScene(s), frame(dt), timeFrames(n),
+//   state()              the FieldState (in every mode; the field is frozen during a battle)
+//   battle()             the BattleState during a battle (also while its pages turn), else null
+//   mode()               'field' | 'battle' | 'transition'
 //   press(name)          queue a one-frame button press ('cross', 'square', 'r1', 'options', ...; 'padLost' fakes a pad loss)
 //   move(x, y, seconds)  hold a movement vector for that long (simulated seconds)
+//   hold(name, on)       hold or release a trigger ('r2' = dash in the field, Run in a battle; 'l2')
 //   tick(seconds)        advance the simulation synchronously in 1/60 s steps, then draw once
 //   freeze = true        the real-time loop keeps drawing but stops stepping (for still screenshots)
 // These are merged into the same InputFrame the devices produce.
-import { W, H, INK, PEN, PAPER, setBakeScale } from './render/core.js';
+import { W, H, INK, PEN, PAPER, setBakeScale, clamp } from './render/core.js';
+import { pageReveal, flash } from './render/fx.js';
 import { loadAssets } from './assets.js';
 import data from './data/slice.gen.js';
 import { createInput } from './input/input.js';
 import { createAudio } from './audio.js';
 import { loadSave } from './save.js';
 import { createFieldScene } from './scenes/fieldscene.js';
+import { createBattleScene } from './scenes/battlescene.js';
+import { createBattle } from './battle/battle.js';
+
+const FLASH_MS = 60, SWEEP_MS = 440;          // page turn: style notes, about 0.5 s in all
 
 function openStorage() {
   try {
@@ -58,8 +71,9 @@ export async function startGame({ canvas }) {
   Object.assign(game, { input, audio, storage, settings, data });
 
   // scripted input, merged into the next frames
-  const inject = { presses: [], move: null };
+  const inject = { presses: [], move: null, holds: { l2: false, r2: false }, held: { l2: 0, r2: 0 } };
   game.press = name => { inject.presses.push(String(name)); };
+  game.hold = (name, on) => { if (name in inject.holds) inject.holds[name] = !!on; };
   game.move = (x, y, seconds) => { inject.move = { x: Number(x) || 0, y: Number(y) || 0, left: Number(seconds) || 0 }; };
   function pollFrame(dt) {
     const f = input.poll(dt);
@@ -71,25 +85,63 @@ export async function startGame({ canvas }) {
       f.moveX = inject.move.x; f.moveY = inject.move.y;
       inject.move.left -= dt; if (inject.move.left <= 1e-9) inject.move = null;
     }
+    for (const k of ['l2', 'r2']) {
+      inject.held[k] = inject.holds[k] ? inject.held[k] + dt : 0;
+      if (inject.held[k]) f.held = { ...f.held, [k]: Math.max((f.held && f.held[k]) || 0, inject.held[k]) };
+    }
+    if (inject.holds.r2) f.dash = true;
     if (Object.values(f.pressed).some(Boolean) || f.taps.length) audio.unlock();
     return f;
   }
   function step(dt) { game.scene.update(dt, pollFrame(dt)); }
 
   game.setScene = s => { game.scene = s; if (s && s.inputMode) input.setMode(s.inputMode); else input.setMode('field'); };
-  const field = createFieldScene({
-    assets, data, input, audio, storage, settings, query,
-    onBattle(info) {
-      console.log('battle', info);
-      // TEMP until the battle scene is joined: win at once with hearts unchanged.
-      field.resumeFromBattle({ outcome: 'won', creatureUid: info.creatureUid,
-        hearts: Object.fromEntries(info.party.map(m => [m.id, m.hearts])) });
-      // end TEMP
-    },
-  });
+  const field = createFieldScene({ assets, data, input, audio, storage, settings, query, onBattle: startBattle });
+  let battleScene = null;
+
+  // A field 'battle' event (or a battle restarted from the save).
+  function startBattle(info) {
+    const battle = createBattle({ data, party: info.party, lead: 0, enemy: info.kind, dizzy: !!info.sneak });
+    const scene = createBattleScene({ assets, data, battle, audio, backdrop: { stage: field.stage },
+      settings: { quickPlay: !!settings.quickPlay, reduceFlash: !!settings.reduceFlash },
+      onDone: r => endBattle(info, scene, r) });
+    battleScene = scene;
+    scene.update(0, idleFrame());                      // the battle's first step plays its sting: now, as the page turns
+    game.setScene(pageTurn(field, scene, 1, () => game.setScene(scene)));
+  }
+  // The battle's onDone (called from inside its update): apply the result, then turn the page back.
+  function endBattle(info, scene, r) {
+    field.resumeFromBattle({ outcome: r.outcome, creatureUid: info.creatureUid, hearts: r.hearts, candyDrop: r.candyDrop || 0 });
+    game.setScene(pageTurn(scene, field, -1, () => { battleScene = null; game.setScene(field); }));
+  }
+  // The page-turn scene: `from` stays frozen on screen, `to` is revealed under it. No input reaches either.
+  function pageTurn(from, to, dir, onEnd) {
+    let ms = 0, frozenAt = null, ended = false;
+    const lead = dir > 0 ? FLASH_MS : 0;             // the flash only on the way in
+    return {
+      transition: true, inputMode: from.inputMode,
+      update(dt) {
+        ms += dt * 1000;
+        if (ms >= lead + SWEEP_MS && !ended) { ended = true; onEnd(); }
+      },
+      render(ctx, timeMs) {
+        if (frozenAt == null) frozenAt = timeMs;
+        to.render(ctx, frozenAt);
+        pageReveal(ctx, clamp((ms - lead) / SWEEP_MS), dir, g => from.render(g, frozenAt));
+        if (ms < lead) flash(ctx, ms * 120 / FLASH_MS);   // one flash, under 0.7 opacity, gone in 60 ms
+      },
+    };
+  }
+  function idleFrame() {
+    return { moveX: 0, moveY: 0, dash: false, pressed: {}, held: { l2: 0, r2: 0 }, taps: [], longPress: [], holding: [], source: 'keyboard', gamepadConnected: false };
+  }
+
   game.fieldScene = field;
   game.setScene(field);
   game.state = () => field.field;
+  game.battle = () => (battleScene ? battleScene.state : null);
+  game.mode = () => (game.scene && game.scene.transition ? 'transition' : game.scene === field ? 'field' : 'battle');
+  if (field.pendingBattle) field.startPendingBattle(field.pendingBattle);   // closed mid-battle: start it again
 
   function draw(timeMs) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);

@@ -4,10 +4,14 @@
 //   scene.update(dt, inputFrame), scene.render(ctx, timeMs)
 //   scene.field           the live FieldState (src/field/field.js)
 //   scene.stage           the parsed Stage
-//   scene.resumeFromBattle({ outcome, creatureUid, hearts })   hearts: { id: n } or [{ id, hearts }]
+//   scene.resumeFromBattle({ outcome, creatureUid, hearts, candyDrop })   hearts: { id: n } or [{ id, hearts }]
+//   scene.pendingBattle    { creatureUid, kind } when the save says the game was closed mid-battle (else null)
+//   scene.startPendingBattle(p)   restarts that battle (as if the creature had just been met); false if it can't
 //
 // A 'battle' event calls onBattle({ creatureUid, kind, sneak, party: [{ id, hearts }] (marching order) })
-// and the field stops stepping until resumeFromBattle is called.
+// and the field stops stepping until resumeFromBattle is called. The save written at that moment carries
+// pendingBattle, so closing the game mid-battle restarts it at round 1 with the going-in hearts.
+// The scene's inputMode is 'field'.
 // Pause: padLost or Options; the page dims (a controller picture if the pad went away) until any press or tap.
 // Autosave: candy, rest, battle end, and every 30 s of play.
 // Dev query parameters: x, y (lead tile position), form (folded|open), party (1|3), lead (id),
@@ -36,7 +40,10 @@ export function createFieldScene({ assets, data, input = null, audio = null, sto
   query = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams() }) {
   const stage = parseStage(data.stages[0]);
   const dev = DEV_KEYS.some(k => query.has(k));
-  const field = makeField(stage, data, query, dev ? null : loadSave(storage), settings);
+  const saved = dev ? null : loadSave(storage);
+  const field = makeField(stage, data, query, saved, settings);
+  const pendingBattle = saved && saved.pendingBattle && field.creatures.some(c => c.uid === saved.pendingBattle.creatureUid && c.kind === saved.pendingBattle.kind)
+    ? { ...saved.pendingBattle } : null;
   const view = createStageView(stage, assets);
   const cam = createCamera(stage);
   const zoomQ = query.has('zoom') ? Number(query.get('zoom')) || 1 : 1;
@@ -72,12 +79,7 @@ export function createFieldScene({ assets, data, input = null, audio = null, sto
       else if (e.t === 'fold') play(e.form === 'open' ? 'open' : 'fold');
       else if (e.t === 'swap') play('select');
       else if (e.t === 'exit') { for (let i = fx.length - 1; i >= 0; i--) if (fx[i].kind === 'exit') fx.splice(i, 1); fx.push({ kind: 'exit', t0: clock }); }
-      else if (e.t === 'battle') {
-        waiting = { creatureUid: e.creatureUid };
-        const party = field.party.map(m => ({ id: m.id, hearts: m.hearts }));
-        if (onBattle) onBattle({ creatureUid: e.creatureUid, kind: e.kind, sneak: !!e.sneak, party });
-        break;
-      }
+      else if (e.t === 'battle') { beginBattle(e.creatureUid, e.kind, !!e.sneak); break; }
       // 'bump': nothing loud
     }
     if (lead.moving) { stepTimer -= dt; if (stepTimer <= 0) { play('step'); stepTimer = STEP_EVERY; } } else stepTimer = 0;
@@ -87,10 +89,23 @@ export function createFieldScene({ assets, data, input = null, audio = null, sto
     for (let i = fx.length - 1; i >= 0; i--) if (clock - fx[i].t0 > 3) fx.splice(i, 1);
   }
 
-  function resumeFromBattle({ outcome, creatureUid, hearts } = {}) {
+  function beginBattle(creatureUid, kind, sneak) {
+    waiting = { creatureUid };
+    writeSave(storage, toSave(field, settings, { creatureUid, kind }));
+    const party = field.party.map(m => ({ id: m.id, hearts: m.hearts }));
+    if (onBattle) onBattle({ creatureUid, kind, sneak, party });
+  }
+  function startPendingBattle(p = pendingBattle) {
+    const c = p && field.creatures.find(k => k.uid === p.creatureUid && k.kind === p.kind);
+    if (!c || waiting) return false;
+    beginBattle(c.uid, c.kind, false);
+    return true;
+  }
+
+  function resumeFromBattle({ outcome, creatureUid, hearts, candyDrop = 0 } = {}) {
     let h = hearts;
     if (Array.isArray(h)) h = Object.fromEntries(h.filter(m => m && typeof m.id === 'string').map(m => [m.id, m.hearts]));
-    applyBattleResult(field, stage, { outcome, creatureUid: creatureUid ?? waiting?.creatureUid, hearts: h });
+    applyBattleResult(field, stage, { outcome, creatureUid: creatureUid ?? waiting?.creatureUid, hearts: h, candyDrop });
     waiting = null;
     if (outcome === 'lost') snapCam();
     save();
@@ -100,8 +115,14 @@ export function createFieldScene({ assets, data, input = null, audio = null, sto
     renderStage(ctx, view, field, cam, timeMs);
     drawFx(ctx);
     if (input && input.drawTouch && !paused) input.drawTouch(ctx, 'field');
-    drawFieldHud(ctx, assets, field, lastFrame);
+    drawFieldHud(ctx, assets, field, lastFrame, { leadBox: leadScreenBox(), timeMs });
     if (paused) drawPaused(ctx, paused.pad, timeMs);
+  }
+
+  function leadScreenBox() {                     // the lead's sprite on screen, for fading the HUD tags it covers
+    const l = field.party[0], sz = memberSize(assets, l), x = wx(l.x), y = wy(l.y);
+    const [x0, y0] = toScreen(cam, x - sz.w / 2, y - sz.h), [x1, y1] = toScreen(cam, x + sz.w / 2, y);
+    return [x0, y0, x1, y1];
   }
 
   function drawFx(ctx) {
@@ -125,7 +146,7 @@ export function createFieldScene({ assets, data, input = null, audio = null, sto
   }
 
   return {
-    update, render, resumeFromBattle,
+    update, render, resumeFromBattle, startPendingBattle, pendingBattle, inputMode: 'field',
     get field() { return field; }, stage, view, cam,
     get paused() { return !!paused; }, get waiting() { return !!waiting; },
     save,

@@ -3,7 +3,9 @@
 //
 // Save (v1): { v, stageId, party: [{ id, hearts, form }] (lead first),
 //   lead: { x, y, faceX, facing }, candyTaken: [[i, j]], boulders: [[i, j]],
-//   asleep: [creatureUid], restAt: { stageId, i, j }, candyCount, settings }
+//   asleep: [creatureUid], restAt: { stageId, i, j }, candyCount, settings[, pendingBattle: { creatureUid, kind }] }
+// pendingBattle is present only while a battle is running: on load the game restarts that battle at round 1
+// with the hearts saved here (the hearts the team had going in).
 
 export const SAVE_KEY = 'elliot-game-save-v1';
 export const SAVE_VERSION = 1;
@@ -12,7 +14,9 @@ const isObj = (o) => o !== null && typeof o === 'object' && !Array.isArray(o);
 const isNum = (n) => typeof n === 'number' && Number.isFinite(n);
 const isPair = (p) => Array.isArray(p) && p.length === 2 && Number.isInteger(p[0]) && Number.isInteger(p[1]);
 
-export function toSave(fieldState, settings) {
+const isPending = (p) => isObj(p) && typeof p.creatureUid === 'string' && typeof p.kind === 'string';
+
+export function toSave(fieldState, settings, pendingBattle = null) {
   const lead = fieldState.party[0];
   return {
     v: SAVE_VERSION,
@@ -25,6 +29,7 @@ export function toSave(fieldState, settings) {
     restAt: { stageId: fieldState.restAt.stageId, i: fieldState.restAt.i, j: fieldState.restAt.j },
     candyCount: fieldState.candyCount,
     settings: settings ?? {},
+    ...(isPending(pendingBattle) ? { pendingBattle: { creatureUid: pendingBattle.creatureUid, kind: pendingBattle.kind } } : {}),
   };
 }
 
@@ -53,7 +58,9 @@ export function loadSave(storage) {
     const raw = storage.getItem(SAVE_KEY);
     if (typeof raw !== 'string') return null;
     const s = JSON.parse(raw);
-    return isValidSave(s) ? s : null;
+    if (!isValidSave(s)) return null;
+    if ('pendingBattle' in s && !isPending(s.pendingBattle)) delete s.pendingBattle;   // a bad one is dropped, the rest kept
+    return s;
   } catch {
     return null;
   }

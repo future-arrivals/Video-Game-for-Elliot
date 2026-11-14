@@ -135,7 +135,8 @@ export function renderStage(ctx, view, fs, cam, timeMs) {
     const u = (t / 6000) % 1, zf = 1 + (cam.z - 1) * .25, bs = A.creatures.bat.s;
     const bx = (view.far.X0 + 200 + u * (view.far.c.width / R.DPR - 400) - cam.cx * .25) * zf + W / 2;
     const by = (24 + Math.sin(u * 30) * 6 - 195 - (cam.cy - 195) * .25) * zf + H / 2;
-    blit(ctx, bs, bx, by, .45, .45 * (1 + Math.sin(t * .03) * .1), 0, .5);
+    const fk = 20.7 / bs.h;                                // about 21 px tall, whatever size the sprite is baked at
+    blit(ctx, bs, bx, by, fk, fk * (1 + Math.sin(t * .03) * .1), 0, .5);
   }
   drawLayer(ctx, view.mid, cam);
   // playfield, world px

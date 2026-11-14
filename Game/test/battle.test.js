@@ -309,3 +309,17 @@ test('dizzy', () => {
   const r2 = play(r1.state, 'Chomp');
   assert.equal(r2.state.party[0].hearts, 8, 'second card hits as normal');
 });
+
+test('Gulp against a Dizzy enemy emits gulp with stored 0', () => {
+  let s = createBattle({ data, party: [{ id: 'monster', hearts: 9 }], lead: 0, enemy: 'bat', dizzy: true });
+  s = { ...s, party: s.party.map((m) => ({ ...m, form: 'open' })) };
+  const slot = s.party[0].moves.filter((mv) => mv.form === 'open').findIndex((mv) => mv.id === 'gulp');
+  const r = resolve(s, { t: 'move', slot });
+  const g = r.events.filter((e) => e.t === 'gulp');
+  assert.deepEqual(g, [{ t: 'gulp', stored: 0 }]);
+  assert.equal(r.state.party[0].tummy, 0);
+  assert.equal(r.state.party[0].hearts, 9);
+  assert.equal(r.state.dizzy, false);
+  const order = r.events.map((e) => e.t);
+  assert.ok(order.indexOf('enemyCard') < order.indexOf('gulp'));
+});

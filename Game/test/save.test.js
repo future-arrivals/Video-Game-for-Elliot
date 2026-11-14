@@ -96,3 +96,35 @@ test('createField ignores a save for a different stage or with unknown character
   assert.deepEqual(s.party.map((m) => m.id), ['monster']);
   assert.equal(s.party[0].hearts, 9);
 });
+
+test('pendingBattle: toSave records it, loadSave keeps it, a missing or bad one is tolerated', () => {
+  const stage = parseStage(data.stages[0]);
+  const state = createField({ stage, data, party: [{ id: 'monster' }, { id: 'fish' }] });
+  state.party[0].hearts = 6;
+  const plain = toSave(state, {});
+  assert.equal('pendingBattle' in plain, false, 'no battle: no field at all');
+  const pb = { creatureUid: state.creatures[0].uid, kind: 'bat' };
+  const save = toSave(state, {}, pb);
+  assert.deepEqual(save.pendingBattle, pb);
+  const storage = fakeStorage();
+  writeSave(storage, save);
+  const loaded = loadSave(storage);
+  assert.deepEqual(loaded.pendingBattle, pb);
+  assert.equal(loaded.party[0].hearts, 6, 'the going-in hearts come back with it');
+  // a field built from it is the same as from the plain save
+  const restored = createField({ stage, data, party: [{ id: 'monster' }], save: loaded });
+  assert.equal(restored.party[0].hearts, 6);
+  // missing: still a valid save
+  writeSave(storage, plain);
+  assert.notEqual(loadSave(storage), null);
+  assert.equal(loadSave(storage).pendingBattle, undefined);
+  // malformed: dropped, the save itself kept
+  writeSave(storage, { ...plain, pendingBattle: { creatureUid: 7 } });
+  const bad = loadSave(storage);
+  assert.notEqual(bad, null);
+  assert.equal('pendingBattle' in bad, false);
+  writeSave(storage, { ...plain, pendingBattle: 'yes' });
+  assert.equal('pendingBattle' in loadSave(storage), false);
+  // toSave ignores a malformed one
+  assert.equal('pendingBattle' in toSave(state, {}, { kind: 'bat' }), false);
+});

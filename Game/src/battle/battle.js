@@ -211,6 +211,7 @@ export function resolve(state, action) {
   const number = intentAgainst(st, m, m.form);
   if (st.dizzy) {
     ev.push({ t: 'enemyCard', index: st.pointer, word: card.word, number: 0, dizzy: true });
+    if (gulping) ev.push({ t: 'gulp', stored: 0 });       // nothing to eat, but the Gulp still happened
     st.dizzy = false;
   } else {
     ev.push({ t: 'enemyCard', index: st.pointer, word: card.word, number });

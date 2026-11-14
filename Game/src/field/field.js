@@ -3,7 +3,7 @@
 //
 // createField({ stage, data, party, save }) -> FieldState (shape pinned in the M1 plan)
 // stepField(state, stage, input, dt) -> events     mutates `state`
-// applyBattleResult(state, stage, { outcome, creatureUid, hearts })
+// applyBattleResult(state, stage, { outcome, creatureUid, hearts, candyDrop })   candyDrop: candy a won battle adds
 //
 // Private bookkeeping lives under state._sim (JSON-safe):
 //   trail:     [[x, y], ...] newest first; trail[0] is always the lead's position, later
@@ -467,7 +467,7 @@ function checkContact(state, events) {
 
 // ---------------------------------------------------------------- after a battle
 
-export function applyBattleResult(state, stage, { outcome, creatureUid, hearts } = {}) {
+export function applyBattleResult(state, stage, { outcome, creatureUid, hearts, candyDrop = 0 } = {}) {
   const c = state.creatures.find((k) => k.uid === creatureUid);
   if (outcome === 'lost') {
     for (const m of state.party) {
@@ -491,6 +491,7 @@ export function applyBattleResult(state, stage, { outcome, creatureUid, hearts }
   if (!c) return;
   if (outcome === 'won') {
     resetCreature(state, stage, c, 'asleep');
+    if (Number.isInteger(candyDrop) && candyDrop > 0) state.candyCount += candyDrop;
   } else if (outcome === 'ran') {
     c.mode = 'ignore';
     state._sim.creatures[c.uid].ignore = IGNORE_TIME;

@@ -6,7 +6,7 @@
 // Folded = bottom panel shifted up by `shift` units onto the top panel. Opening slides the panels apart
 // (the bottom stays on the ground, so the top rises) with a 5% stretch overshoot at the end.
 // Characters without usable hinge data use the A2 flip: squash to an edge, the other form springs out.
-import { INK, PAPER, FONT, clamp, eOutCubic, eInOutCubic } from './core.js';
+import { INK, PAPER, FONT, mk, clamp, eOutCubic, eInOutCubic } from './core.js';
 import { bakeSprite, alphaBounds, tinted, radial, paperFilled } from './sprites.js';
 
 export const FOLDED_H = 78;                  // folded height on screen (logical px)
@@ -20,7 +20,10 @@ const CHARS = {
   // ice cream: the folded form is a separate drawing on the outside of the flap -> A2 flip
   icecream: { folded: 'icecream_folded', open: 'icecream_unfolded', vbF: [0, 0, 361, 431], vbO: [0, 0, 531, 838] },
 };
-const CREATURES = { bat: { key: 'bat', h: 46, fly: 16 }, spider: { key: 'spider', h: 40, fly: 0 }, ghost: { key: 'ghost', h: 56, fly: 10 } };
+// h: field height (logical px); fly: field hover height. Sprites are baked at BATTLE_H (the battle draws them
+// about 120 px tall) and drawn scaled down in the field, so the battle enemy stays sharp.
+const BATTLE_H = 130;
+const CREATURES = { bat: { key: 'bat', h: 60, fly: 20 }, spider: { key: 'spider', h: 52, fly: 0 }, ghost: { key: 'ghost', h: 73, fly: 13 } };
 
 /** Bakes every actor sprite once. Stores into assets.cache.actors. */
 export function prepareActors(assets) {
@@ -40,13 +43,16 @@ export function prepareActors(assets) {
       open: { s: sO, ax: d.hinge ? (ax - d.vbO[0]) * k : sO.w / 2, foot: bO.b * sO.h, dark: tinted(sO, 'rgba(90,60,40,.35)') },
       axU: ax,
     };
-    if (d.hinge) rec.parts = Object.fromEntries(['top', 'under', 'bottom'].map(p => [p, bakeSprite(assets.img[d.hinge[p]], sO.h)]));
+    if (d.hinge) {
+      rec.parts = Object.fromEntries(['top', 'under', 'bottom'].map(p => [p, bakeSprite(assets.img[d.hinge[p]], sO.h)]));
+      rec.parts.under = creased(rec.parts.under, d);
+    }
     out.chars[id] = rec;
   }
   for (const [id, d] of Object.entries(CREATURES)) {
     // his creatures are black line art with no fill: give them a paper body so they read on the scenery
-    const im = assets.img[d.key]; const s = bakeSprite(paperFilled(im, PAPER), d.h); const b = alphaBounds(im);
-    out.creatures[id] = { s, ax: s.w / 2, foot: b.b * s.h, d };
+    const im = assets.img[d.key]; const s = bakeSprite(paperFilled(im, PAPER), BATTLE_H); const b = alphaBounds(im);
+    out.creatures[id] = { s, ax: s.w / 2, foot: b.b * s.h, d, k: d.h / BATTLE_H };     // k: field draw scale
   }
   out.shadow = radial(60, 18, [[0, 'rgba(70,50,30,.38)'], [.6, 'rgba(70,50,30,.16)'], [1, 'rgba(70,50,30,0)']]);
   return (assets.cache.actors = out);
@@ -61,27 +67,53 @@ export function memberSize(assets, member) {
 
 function drawRec(ctx, v, s = v.s) { ctx.drawImage(s.c, -v.ax, -v.foot, s.w, s.h); }
 
-// openness curve: 0 folded .. 1 open; stretch is the extra vertical scale (5% overshoot when opening)
-function openness(form, u) {
-  if (form === 'open') {
-    const o = u < .75 ? 1.05 * eOutCubic(u / .75) : 1.05 - .05 * eInOutCubic((u - .75) / .25);
-    return { o: Math.min(1, o), sy: Math.max(1, o) };
-  }
-  const o = 1 - eInOutCubic(u);
-  return { o, sy: u > .85 ? 1 - .06 * Math.sin((u - .85) / .15 * Math.PI) : 1 };
+// The crease shadow where the inside meets the top panel, baked into the inside panel itself (source-atop),
+// so it only darkens the paper of the panel. (Drawn as a plain rectangle it showed as a pale strip beside
+// the body wherever the body is narrower than the rectangle.)
+function creased(sp, d) {
+  const h = d.hinge, vb = d.vbO, c = mk(sp.c.width, sp.c.height), g = c.getContext('2d'), k = c.height / vb[3];
+  g.drawImage(sp.c, 0, 0); g.globalCompositeOperation = 'source-atop';
+  const y0 = (h.topLine - vb[1]) * k, y1 = y0 + 12 * k;
+  const gr = g.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, 'rgba(90,60,40,.24)'); gr.addColorStop(1, 'rgba(90,60,40,0)');
+  g.fillStyle = gr; g.fillRect(c.width * .2, y0, c.width * .6, y1 - y0);
+  return { c, w: sp.w, h: sp.h };
 }
 
-function drawHinge(ctx, r, form, u) {
-  const { o, sy } = openness(form, u); const h = r.d.hinge, vb = r.d.vbO, P = r.parts;
+// Hinge curves. u 0..1 is the hinge clock (foldAnim). Returns { o: 0 folded .. 1 open, sx, sy } where sx, sy
+// scale the drawing about its feet (stretch and squash).
+// 'field' (0.5 s): ease-out open with a 5% stretch overshoot at the end; ease-in-out close with a small dip.
+// 'battle' (0.8 s): a short anticipation squash, a fast open, an overshoot stretch, then a damped settle;
+//   closing mirrors it (a little stretch up, a fast snap shut, a squash that settles).
+export function hingeCurve(form, u, pace = 'field') {
+  u = clamp(u);
+  if (pace === 'battle') {
+    const wobble = v => Math.exp(-v * 5.5) * Math.cos(v * Math.PI * 2.6);             // 1 -> damped -> 0
+    if (form === 'open') {
+      if (u < .14) { const q = Math.sin(u / .14 * Math.PI / 2); return { o: 0, sy: 1 - .12 * q, sx: 1 + .1 * q }; }
+      if (u < .4) { const v = (u - .14) / .26, o = 1.12 * (1 - (1 - v) * (1 - v) * (1 - v)); const sy = Math.max(1 - .12 * (1 - v) * (1 - v), o > 1 ? o : 1); return { o: Math.min(1, o), sy, sx: 1 / (2 - sy) }; }
+      const sy = 1 + .12 * wobble((u - .4) / .6); return { o: 1, sy, sx: sy >= 1 ? 1 / (2 - sy) : 1 + (1 - sy) * .8 };
+    }
+    if (u < .12) { const q = Math.sin(u / .12 * Math.PI / 2); return { o: 1, sy: 1 + .05 * q, sx: 1 - .03 * q }; }
+    if (u < .36) { const v = (u - .12) / .24; return { o: 1 - v * v, sy: 1 + .05 * (1 - v), sx: 1 / (1.95 - .05 * v) }; }
+    const sy = 1 - .12 * wobble((u - .36) / .64); return { o: 0, sy, sx: sy >= 1 ? 1 / (2 - sy) : 1 + (1 - sy) * .8 };
+  }
+  if (form === 'open') {
+    const o = u < .75 ? 1.05 * eOutCubic(u / .75) : 1.05 - .05 * eInOutCubic((u - .75) / .25);
+    const sy = Math.max(1, o); return { o: Math.min(1, o), sy, sx: 1 / (2 - sy) };
+  }
+  const o = 1 - eInOutCubic(u), sy = u > .85 ? 1 - .06 * Math.sin((u - .85) / .15 * Math.PI) : 1;
+  return { o, sy, sx: 1 / (2 - sy) };
+}
+
+function drawHinge(ctx, r, form, u, pace) {
+  const { o, sx, sy } = hingeCurve(form, u, pace); const h = r.d.hinge, vb = r.d.vbO, P = r.parts;
   const off = h.shift * (1 - o);
-  ctx.scale(1 / (2 - sy), sy);                                       // slight thinning while stretched
+  ctx.scale(sx, sy);
   ctx.scale(r.k, r.k); ctx.translate(-r.axU, -(r.openFootU + off));
   const gap = h.bottomLine + off - h.topLine;
   if (gap > .5) {
     ctx.save(); ctx.beginPath(); ctx.rect(vb[0] - 50, h.topLine, vb[2] + 100, gap); ctx.clip();
     ctx.drawImage(P.under.c, vb[0], vb[1], vb[2], vb[3]); ctx.restore();
-    // the crease shadow where the inside meets the top panel
-    ctx.fillStyle = 'rgba(90,60,40,.18)'; ctx.fillRect(vb[0] + vb[2] * .25, h.topLine, vb[2] * .5, Math.min(gap, 10));
   }
   ctx.drawImage(P.bottom.c, vb[0], vb[1] + off, vb[2], vb[3]);
   ctx.drawImage(P.top.c, vb[0], vb[1], vb[2], vb[3]);
@@ -100,7 +132,8 @@ function drawFlip(ctx, r, form, u) {
 }
 
 /** Draws a party member with feet at (sx, sy) in the current transform.
- *  opts: { alpha = 1, shadow = true, lead = false (draws the back/front facing marker) } */
+ *  opts: { alpha = 1, shadow = true, lead = false (draws the back/front facing marker),
+ *          pace = 'field' | 'battle' (which hinge curve; see hingeCurve) } */
 export function drawMember(ctx, assets, member, sx, sy, timeMs, opts = {}) {
   const A = prepareActors(assets); const r = A.chars[member.id]; if (!r) return;
   const settled = member.foldAnim >= 1, u = clamp(member.foldAnim);
@@ -113,7 +146,7 @@ export function drawMember(ctx, assets, member, sx, sy, timeMs, opts = {}) {
   ctx.save(); if (opts.alpha != null && opts.alpha < 1) ctx.globalAlpha *= opts.alpha;
   ctx.translate(sx, sy - lift); if (tilt) ctx.rotate(tilt); ctx.scale(member.faceX < 0 ? -1 : 1, 1);
   if (settled) drawRec(ctx, v);
-  else if (r.parts) drawHinge(ctx, r, member.form, u);
+  else if (r.parts) drawHinge(ctx, r, member.form, u, opts.pace);
   else drawFlip(ctx, r, member.form, u);
   ctx.restore();
 }
@@ -125,27 +158,38 @@ function drawFacingMarker(ctx, x, y, facing) {
   ctx.fill(); ctx.stroke(); ctx.restore();
 }
 
-/** Draws a creature with feet (its ground spot) at (sx, sy). Asleep: lies tilted with a small Z. */
-export function drawCreature(ctx, assets, creature, sx, sy, timeMs) {
+/** Draws a creature with feet (its ground spot) at (sx, sy), at its field size (CREATURES[kind].h; scale the
+ *  context to draw it bigger, the sprite is baked for the battle size). Asleep: lies tilted with a small Z.
+ *  opts: { still: true } stands it on the ground without hovering, flapping or Zs (the battle's knocked-over pose);
+ *        { shadow: false } leaves out its ground shadow. */
+export function drawCreature(ctx, assets, creature, sx, sy, timeMs, opts = {}) {
   const A = prepareActors(assets); const r = A.creatures[creature.kind]; if (!r) return;
+  const k = r.k, w = r.s.w * k, h = r.s.h * k;
   const seed = (creature.uid ? String(creature.uid).length * 3.1 : 0) + sx * .01;
-  const asleep = creature.mode === 'asleep';
-  const lift = asleep ? 0 : r.d.fly + Math.sin(timeMs * .006 + seed) * (r.d.fly ? 5 : 0);
-  const sw = r.s.w * (asleep ? .8 : r.d.fly ? .5 : .7);
-  ctx.globalAlpha = r.d.fly && !asleep ? .7 : 1;
-  ctx.drawImage(A.shadow.c, sx - sw / 2, sy - 6, sw, 12); ctx.globalAlpha = 1;
+  const asleep = creature.mode === 'asleep', still = !!opts.still;
+  const lift = asleep || still ? 0 : r.d.fly + Math.sin(timeMs * .006 + seed) * (r.d.fly ? 5 : 0);
+  const sw = w * (asleep || still ? .8 : r.d.fly ? .5 : .7);
+  if (opts.shadow !== false) {
+    ctx.globalAlpha = r.d.fly && !asleep && !still ? .7 : 1;
+    ctx.drawImage(A.shadow.c, sx - sw / 2, sy - 6, sw, 12); ctx.globalAlpha = 1;
+  }
   ctx.save(); ctx.translate(sx, sy - lift);
   if (asleep) { ctx.rotate(.5 * (creature.faceX < 0 ? -1 : 1)); ctx.scale(1, .92); }
-  else if (r.d.fly) ctx.scale(1, 1 + Math.sin(timeMs * .03 + seed) * .07);          // wing flap
-  ctx.scale(creature.faceX < 0 ? -1 : 1, 1);
+  else if (r.d.fly && !still) ctx.scale(1, 1 + Math.sin(timeMs * .03 + seed) * .07);          // wing flap
+  ctx.scale(creature.faceX < 0 ? -k : k, k);
   drawRec(ctx, r); ctx.restore();
   if (asleep) {
     ctx.save(); ctx.fillStyle = INK; ctx.textAlign = 'center';
     for (let i = 0; i < 2; i++) {
       const u = ((timeMs / 1600) + i * .5) % 1;
       ctx.globalAlpha = Math.sin(u * Math.PI); ctx.font = `800 ${10 + u * 8}px ${FONT}`;
-      ctx.fillText('Z', sx + r.s.w * .3 + u * 12, sy - r.s.h * .7 - u * 24);
+      ctx.fillText('Z', sx + w * .3 + u * 12, sy - h * .7 - u * 24);
     }
     ctx.restore();
   }
+}
+
+/** A creature's field-size box { w, h } (logical px). */
+export function creatureSize(assets, kind) {
+  const r = prepareActors(assets).creatures[kind]; return r ? { w: r.s.w * r.k, h: r.s.h * r.k } : { w: 50, h: 50 };
 }

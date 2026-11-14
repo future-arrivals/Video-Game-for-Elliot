@@ -3,8 +3,8 @@
 //
 // View-model (all optional parts may be null):
 // { backdrop (canvas from bakeBackdrop), overlays ({ light, leaf } from bakeOverlays), shake: [dx, dy],
-//   enemy: { kind, dx, dy, curl, flop, flash, pulse }, enemyBar: { max, shown, lost },
-//   player: { member: { id, form, foldAnim, faceX, moving }, scale, dx, dy, ko, flash, pulse, squash, alpha },
+//   enemy: { kind, dx, dy, curl, win (ms since the win or null), flash, pulse }, enemyBar: { max, shown, lost },
+//   player: { member: { id, form, foldAnim, faceX, moving }, pace, scale, dx, dy, ko, flash, pulse, squash, alpha },
 //   playerBar: { max, shown, lost, heal }, hasPortraits,
 //   strip: { strip, pointer, from, u, dizzy }, bubble: { word, number, arrow, dizzy, changed, pop, webIcon },
 //   cards: { cross, circle, triangle, square } (see ui.card), portraits: [ui.portrait args], badges: ui.badges args,

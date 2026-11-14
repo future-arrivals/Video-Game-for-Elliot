@@ -79,10 +79,11 @@ export function card(g, shape, c, t) {
   const p = LAYOUT.cards[shape];
   let x = p.x, y = p.y;
   g.save();
+  const a0 = g.globalAlpha;                              // the UI fade the caller set (alphas below multiply it)
   if (c.empty) {
     const r = rectPath(CARD_W, CARD_H, 300 + shape.length, 1.4);
     g.translate(x, y); g.setLineDash([6, 6]); g.strokeStyle = PEN; g.lineWidth = 2; g.stroke(r.p); g.setLineDash([]);
-    g.globalAlpha = .45; psBadge(g, shape, CARD_W, 0, 12, true); g.restore(); return;
+    g.globalAlpha = a0 * .45; psBadge(g, shape, CARD_W, 0, 12, true); g.restore(); return;
   }
   if (c.lifted) y -= 9;
   if (c.press) y += 4 * Math.sin(c.press * Math.PI);
@@ -95,7 +96,7 @@ export function card(g, shape, c, t) {
   const off = !c.enabled;
   g.fillStyle = off ? '#E4DED2' : c.lifted ? '#FFF1A8' : PAPER; g.fill(r.p);
   g.strokeStyle = off ? '#A8A091' : INK; g.lineWidth = c.lifted ? 4.5 : 3; g.stroke(r.p);
-  if (off) g.globalAlpha = .45;
+  if (off) g.globalAlpha = a0 * .45;
   drawIcon(g, c.icon, 22, 30, 15);
   word(g, c.word, 42, 17, c.word.length > 5 ? 13 : 15);
   if (c.number != null) {
@@ -106,8 +107,8 @@ export function card(g, shape, c, t) {
     } else digit(g, c.number, 72, 39, 32);
     typeArrow(g, c.arrow, 96, 40, 7);
   }
-  g.globalAlpha = 1;
-  if (c.webbed) { g.save(); g.globalAlpha = .75; drawWeb(g, CARD_W / 2 + 20, CARD_H / 2 + 4, 26); g.restore(); }
+  g.globalAlpha = a0;
+  if (c.webbed) { g.save(); g.globalAlpha = a0 * .75; drawWeb(g, CARD_W / 2 + 20, CARD_H / 2 + 4, 26); g.restore(); }
   psBadge(g, shape, CARD_W - 2, 2, 13, off);
   g.restore();
 }
@@ -120,7 +121,7 @@ export function strip(g, s, t) {
     tag(g, x, L.y, L.cw, L.ch, 400 + i, cur ? '#FFF1A8' : PAPER, cur ? INK : '#bdb29c', cur ? 3 : 1.5);
     drawIcon(g, c.word.toLowerCase(), x + 18, L.y + 23, 12);
     word(g, c.word, x + 33, L.y + 23, c.word.length > 4 ? 11 : 12);
-    if (c.form === 'folded') { g.save(); g.globalAlpha = .9; drawIcon(g, 'fold', x + L.cw - 8, L.y + 8, 6); g.restore(); }
+    if (c.form === 'folded') { g.save(); g.globalAlpha *= .9; drawIcon(g, 'fold', x + L.cw - 8, L.y + 8, 6); g.restore(); }
     if (cur && s.dizzy) for (let k = 0; k < 3; k++) { const a = t * .004 + k * 2.1; drawSparkle(g, x + L.cw / 2 + Math.cos(a) * 26, L.y + 6 + Math.sin(a) * 6, 6); }
   });
   // pointer: an ink arrow under the current card, sliding from the previous one
@@ -155,7 +156,7 @@ const BEATS = { sweet: 'spooky', spooky: 'chompy', chompy: 'sweet' };
 /** The three-icon type wheel. types: [ids in data order]. mark: { [type]: true } rings the ones in play. */
 export function typeWheel(g, types, mark) {
   const L = LAYOUT.wheel, pos = {};
-  g.save(); g.globalAlpha = .95;
+  g.save(); g.globalAlpha *= .95;
   g.beginPath(); g.arc(L.x, L.y, L.r + 6, 0, 7); g.fillStyle = 'rgba(251,248,240,.85)'; g.fill(); g.strokeStyle = '#cfc5b1'; g.lineWidth = 1.5; g.stroke();
   types.forEach((ty, i) => { const a = -Math.PI / 2 + i * Math.PI * 2 / 3; pos[ty] = [L.x + Math.cos(a) * L.r * .72, L.y + Math.sin(a) * L.r * .72]; });
   g.strokeStyle = PEN; g.fillStyle = PEN; g.lineWidth = 1.6;
@@ -184,16 +185,17 @@ export function portrait(g, p, t) {
   g.translate(0, dy);
   tag(g, L.x, L.y, L.w, L.h, p.side === 'l1' ? 71 : 72, p.lifted ? '#FFF1A8' : p.pulse ? '#FFF6CF' : PAPER, p.lifted || p.pulse ? INK : '#cfc5b1', p.lifted || p.pulse ? 3 : 1.5);
   const s = p.sprite, h = 40, w = s.w * h / s.h;
-  g.save(); if (p.sleepy) g.globalAlpha = .35;
+  g.save(); if (p.sleepy) g.globalAlpha *= .35;
   g.drawImage(s.c, L.x + L.w / 2 - w / 2 + (p.side === 'l1' ? 8 : -8), L.y + 6, w, h); g.restore();
   if (p.sleepy) { g.save(); g.fillStyle = INK; g.font = `900 22px ${FONT}`; g.textAlign = 'center'; g.fillText('z', L.x + L.w / 2 + 18, L.y + 22 + Math.sin(t * .004) * 3); g.restore(); }
   // shoulder label
   g.save(); g.font = `800 13px ${FONT}`; g.fillStyle = '#6b655b'; g.textAlign = p.side === 'l1' ? 'left' : 'right'; g.textBaseline = 'middle';
   g.fillText(p.side.toUpperCase(), p.side === 'l1' ? L.x + 6 : L.x + L.w - 6, L.y + 14); g.restore();
   const n = p.bar.max, gap = Math.min(8.5, (L.w - 12) / n);
-  if (p.sleepy) g.globalAlpha = .5;
+  const a0 = g.globalAlpha;
+  if (p.sleepy) g.globalAlpha = a0 * .5;
   heartsRow(g, L.x + 6 + gap / 2 + (L.w - 12 - gap * n) / 2, L.y + L.h - 14, 7.5, gap, p.bar, t, p.side.length * 5);
-  if (p.webbed) { g.globalAlpha = .85; drawWeb(g, L.x + L.w / 2, L.y + L.h / 2, 30); }
+  if (p.webbed) { g.globalAlpha = a0 * .85; drawWeb(g, L.x + L.w / 2, L.y + L.h / 2, 30); }
   g.restore();
 }
 

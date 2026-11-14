@@ -9,6 +9,7 @@ import { drawMember, drawCreature, prepareActors } from '../actors.js';
 import { LAYOUT } from './layout.js';
 import { digit } from './ui.js';
 import { drawWeb } from './icons.js';
+import { candyArt } from '../sprites.js';
 
 const PUMPKIN = { S1: .75, S2: .8, S3: .85, S4: .9, S5: 1, S6: 1.25, S7: 1.25 };
 const HORIZON = 166;
@@ -81,22 +82,74 @@ function outlinePulse(ctx, x, y, rx, ry, u) {
   ctx.beginPath(); ctx.ellipse(x, y, rx * (1 + u * .25), ry * (1 + u * .25), 0, 0, 7); ctx.stroke(); ctx.restore();
 }
 
-/** The enemy on its disc. e: { kind, dx, dy, curl 0..1, flop 0..1, flash, pulse, asleep } */
+/** The enemy on its disc. e: { kind, dx, dy, curl 0..1, flash, pulse, win (ms since the win, or null) }
+ *  Win beat: the creature drops onto the disc, tips over dizzy with little circling stars, and a wrapped candy
+ *  pops out of it and lands on the disc in front. */
 export function drawEnemy(ctx, assets, e, t) {
   const A = prepareActors(assets), r = A.creatures[e.kind]; if (!r) return;
-  const L = LAYOUT.enemy, k = L.h / r.s.h, x = L.x + (e.dx || 0), y = L.y + (e.dy || 0);
+  const L = LAYOUT.enemy, k = L.h / (r.s.h * r.k), x = L.x + (e.dx || 0), y = L.y + (e.dy || 0);
+  const win = e.win != null && e.win >= 0 ? e.win : null;
   const draw = g => {
     g.save(); g.translate(x, y);
-    if (e.flop) { g.rotate(-1.25 * eOutBack(clamp(e.flop), 1.4)); }
-    g.scale(k * (1 + (e.curl || 0) * .12), k * (1 - (e.curl || 0) * .3));
-    drawCreature(g, assets, { uid: 'battle', kind: e.kind, faceX: -1, mode: e.flop > .5 ? 'asleep' : 'patrol' }, 0, 0, t);
+    if (win != null) {
+      const fall = r.d.fly * k * (1 - clamp(win / 220) ** 2);              // a flyer drops onto the disc first
+      const tip = 1.3 * eOutBack(clamp((win - 140) / 420), 1.8);            // then tips over backwards (pivot: its feet)
+      const sw = r.s.w * r.k * k * .9;                                        // the shadow stays flat on the disc
+      g.drawImage(A.shadow.c, -sw / 2, -8, sw, 16);
+      g.translate(0, -fall); g.rotate(tip);
+      g.scale(k * (1 + .08 * Math.sin(clamp(win / 220) * Math.PI)), k);
+      drawCreature(g, assets, { uid: 'battle', kind: e.kind, faceX: -1, mode: 'patrol' }, 0, 0, t, { still: true, shadow: false });
+    } else {
+      g.scale(k * (1 + (e.curl || 0) * .12), k * (1 - (e.curl || 0) * .3));
+      drawCreature(g, assets, { uid: 'battle', kind: e.kind, faceX: -1, mode: 'patrol' }, 0, 0, t);
+    }
     g.restore();
   };
   withFlash(ctx, e.flash, draw);
   outlinePulse(ctx, x, y - L.h * .55, 70, 74, e.pulse);
+  if (win != null) { dizzyStars(ctx, x + 34, y - L.h * .42, win, t); droppedCandy(ctx, assets, x, y, win); }
 }
 
-/** The active character, large in the near foreground. p: { member, dx, dy, scale, ko 0..1, flash, pulse, squash, alpha } */
+// Three little stars circling over the knocked-over creature's head (from 450 ms into the win).
+function dizzyStars(ctx, x, y, win, t) {
+  const a = clamp((win - 450) / 200); if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha = a; ctx.lineJoin = 'round';
+  for (let i = 0; i < 3; i++) {
+    const ang = t * .005 + i * Math.PI * 2 / 3, sx = x + Math.cos(ang) * 38, sy = y + Math.sin(ang) * 11, s = 7 + 2 * Math.sin(ang);
+    ctx.beginPath();
+    for (let j = 0; j < 10; j++) { const rr = j % 2 ? s * .45 : s, q = j * Math.PI / 5 - Math.PI / 2; ctx.lineTo(sx + Math.cos(q) * rr, sy + Math.sin(q) * rr); }
+    ctx.closePath(); ctx.fillStyle = '#FFE27A'; ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// The dropped candy: pops up out of the creature at 300 ms, arcs onto the disc in front, bounces once, glints.
+function droppedCandy(ctx, assets, x, y, win) {
+  const ms = win - 300; if (ms < 0) return;
+  const im = candyArt(assets), w = 58, h = w * im.height / im.width;
+  const x0 = x, y0 = y - 70, x1 = x - 78, y1 = y + 6;
+  let cx, cy, rot, sq = 0;
+  if (ms < 520) {                                       // the arc
+    const u = ms / 520; cx = lerp(x0, x1, u); cy = lerp(y0, y1, u) - Math.sin(u * Math.PI) * 90 * (1 - u * .3); rot = -u * (Math.PI * 2 + .2);
+  } else {                                              // one small bounce, then rest
+    const v = (ms - 520) / 260; cx = x1; rot = -.2 + .25 * Math.sin(clamp(v) * Math.PI);
+    cy = y1 - (v < 1 ? Math.sin(v * Math.PI) * 16 : 0); sq = v < .15 ? (1 - v / .15) * .25 : 0;
+  }
+  ctx.save(); ctx.translate(cx, cy); ctx.scale(1 + sq, 1 - sq); ctx.translate(0, -h / 2); ctx.rotate(rot);
+  ctx.drawImage(im, -w / 2, -h / 2, w, h); ctx.restore();
+  if (ms >= 520) {
+    ring(ctx, x1, y1 + 2, (ms - 520) / 420, 46, '#E99DBB');
+    const g = (ms - 760) % 1400;                        // a glint every 1.4 s
+    if (ms > 760 && g < 360) {
+      const u = g / 360, s = 10 * Math.sin(u * Math.PI), gx = x1 + 18, gy = y1 - h * .8;
+      ctx.save(); ctx.fillStyle = '#FFFDF4'; ctx.strokeStyle = INK; ctx.lineWidth = 1.5; ctx.beginPath();
+      ctx.moveTo(gx, gy - s); ctx.quadraticCurveTo(gx, gy, gx + s, gy); ctx.quadraticCurveTo(gx, gy, gx, gy + s);
+      ctx.quadraticCurveTo(gx, gy, gx - s, gy); ctx.quadraticCurveTo(gx, gy, gx, gy - s); ctx.fill(); ctx.stroke(); ctx.restore();
+    }
+  }
+}
+
+/** The active character, large in the near foreground. p: { member, dx, dy, scale, ko 0..1, flash, pulse, squash, alpha, pace } */
 export function drawPlayer(ctx, assets, p, t) {
   const L = LAYOUT.player, x = L.x + (p.dx || 0), y = L.y + (p.dy || 0);
   const draw = g => {
@@ -104,7 +157,7 @@ export function drawPlayer(ctx, assets, p, t) {
     if (p.ko) { g.translate(30 * eOutCubic(clamp(p.ko)), 0); g.rotate(1.3 * eOutCubic(clamp(p.ko))); g.globalAlpha = 1 - .35 * clamp(p.ko); }
     const sq = p.squash || 0; g.scale(p.scale * (1 + sq * .1), p.scale * (1 - sq * .08));
     if (p.alpha != null && p.alpha < 1) g.globalAlpha = p.alpha;
-    drawMember(g, assets, p.member, 0, 0, t, { shadow: !p.ko });
+    drawMember(g, assets, p.member, 0, 0, t, { shadow: !p.ko, pace: p.pace || 'battle' });
     g.restore();
   };
   withFlash(ctx, p.flash, draw);

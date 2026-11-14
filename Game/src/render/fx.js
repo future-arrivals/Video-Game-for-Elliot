@@ -42,6 +42,40 @@ export function pageTurn(ctx, u, dir = 1) {
   ctx.fillStyle = gr; ctx.beginPath(); ctx.moveTo(x - 30, 0); ctx.lineTo(x + 60, 0); ctx.lineTo(x - 30, H); ctx.lineTo(x - 120, H); ctx.fill();
   ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x - 90, H); ctx.stroke(); ctx.restore();
 }
+/** Scene-change page turn (screen space). The old page is lifted away along a slanted edge that sweeps across
+ *  (dir 1: from the right edge to the left, dir -1: left to right), revealing the new page underneath.
+ *  The caller has already drawn the new page; drawOld(ctx) draws the old page and is clipped here to the part
+ *  not yet turned. Then the turning sheet's curled back and its shadow are drawn along the edge. u 0..1 (eased here). */
+export function pageReveal(ctx, u, dir, drawOld) {
+  const SL = 90, CURL = 46;                              // edge slant over the screen height; width of the curled back
+  const e = eInOutCubic(clamp(u));
+  const x = dir > 0 ? lerp(W + SL + CURL + 10, -CURL - 10, e) : lerp(-SL - CURL - 10, W + SL + CURL + 10, e);
+  const top = x, bot = x - SL * dir;                    // the edge runs from (top, 0) to (bot, H)
+  if (u < 1) {
+    ctx.save(); ctx.beginPath();
+    if (dir > 0) { ctx.moveTo(-10, -10); ctx.lineTo(top, -10); ctx.lineTo(bot, H + 10); ctx.lineTo(-10, H + 10); }
+    else { ctx.moveTo(W + 10, -10); ctx.lineTo(top, -10); ctx.lineTo(bot, H + 10); ctx.lineTo(W + 10, H + 10); }
+    ctx.closePath(); ctx.clip(); drawOld(ctx); ctx.restore();
+  }
+  if (u <= 0 || u >= 1) return;
+  const w = CURL * (.55 + .45 * Math.sin(e * Math.PI)), d = dir;   // the curl is widest mid-turn
+  ctx.save();
+  // soft shadow the lifted sheet casts on the new page
+  const gs = ctx.createLinearGradient(top, 0, top + d * (w + 40), 0);
+  gs.addColorStop(0, 'rgba(60,40,20,.28)'); gs.addColorStop(1, 'rgba(60,40,20,0)');
+  ctx.fillStyle = gs; ctx.beginPath(); ctx.moveTo(top, 0); ctx.lineTo(top + d * (w + 40), 0); ctx.lineTo(bot + d * (w + 40), H); ctx.lineTo(bot, H); ctx.closePath(); ctx.fill();
+  // the curled-back sheet: the back of the paper, shaded toward the fold
+  const gb = ctx.createLinearGradient(top, 0, top + d * w, 0);
+  gb.addColorStop(0, '#E9E1CF'); gb.addColorStop(.7, PAPER); gb.addColorStop(1, '#F3EDE0');
+  ctx.fillStyle = gb; ctx.beginPath(); ctx.moveTo(top, 0);
+  ctx.quadraticCurveTo(top + d * w * 1.25, H * .1, top + d * w, 0); ctx.lineTo(bot + d * w, H);
+  ctx.quadraticCurveTo(bot + d * w * 1.25, H * .9, bot, H); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.moveTo(top + d * w, 0); ctx.lineTo(bot + d * w, H); ctx.stroke();          // the sheet's outer edge
+  ctx.strokeStyle = 'rgba(90,60,40,.45)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(top, 0); ctx.lineTo(bot, H); ctx.stroke();                          // the crease
+  ctx.restore();
+}
 /** Letterbox bars, k 0..1 (46 px each at 1). */
 export function letterbox(ctx, k) { if (k <= 0) return; const h = 46 * k; ctx.fillStyle = '#16121c'; ctx.fillRect(0, 0, W, h); ctx.fillRect(0, H - h, W, h); }
 /** Letterbox in over 180 ms (ease-out-cubic), out over 220 ms (ease-in-out). ms since in / since out. */
