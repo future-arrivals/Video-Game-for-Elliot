@@ -181,3 +181,12 @@ The owner's other session built 15 animation demos (`Art/Demos/*_animation_demo.
 ## Order and cost
 
 Wave A is three Opus tasks and one Sonnet task and needs no visual sign-off: every claim is a Node test. Wave B is three Opus tasks plus the Sonnet list and ends with a look at the pictures. From the clarity batch (three Opus agents, one correction round, two Sonnet tasks: about 35% of a 5-hour window including review), expect Wave A at about 30% of a window and Wave B at about 45%.
+
+## Progress log (lead session)
+
+- **Task 0** done and committed (8ee0cbc). **Sounds** done and committed (8ca701d).
+- **Task 3** (creatures) reported done, NOT yet committed: `src/field/creatures.js`, `test/creatures.test.js` (12 pass). Two setup changes to apply once Task 1 has finished with these files:
+  1. `test/field.test.js`, "contact emits exactly one battle", the "contact needs matching depth" part: test `touches()` directly (`touches({x:9.5,y:3.2},{x:9.5,y:2.5}) === false`, `touches({x:9.5,y:3.0},{x:9.5,y:2.5}) === true`; import `touches`).
+  2. `tools/play.mjs` run C: replace `__play.meet()` with `__play.walkTo(16.5, 4.5)` so the bat spots the lead and the battle is not a sneak attack.
+  Follow-ups for Task 2 or a Sonnet task: `blocksSight` / `blocksMove` at the top of creatures.js should learn the new blockers (closed gates, posts, `Q`, do-over pumpkin, waiting friends; walkers follow `canStand`; ghost and bat pass `#`). The spider's 1 s pause at each patrol end is not implemented. `OVER_HEDGES` lets the bat fly over hedges.
+- **Task 1** (stages, world, save) and **Task 7a** (rig runtime + Munch) running.
