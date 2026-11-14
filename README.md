@@ -126,7 +126,7 @@ Only these are needed before building. The full list, in three short sessions, i
 ## Next step
 
 1. Play it by hand: on the Mac with the controller, then on the phone and cast to the TV. Nobody has yet. Listen to the sounds too (seven are new and unheard).
-2. Milestone 2 leftovers: a pause menu with a do-over (the pause screen is only a dimmed card), the hero unfold when a friend joins, a rung bell that still shows its helper badge, Heartfin's tall open form covering the pumpkin door, the spider's dark mouth and web thread, animations for the bat and ghost (the bat has no demo). The design's puzzle 2 route "2d" does not work on the real map (2b does).
+2. Milestone 2 leftovers: a pause menu with a do-over (the pause screen is only a dimmed card), the hero unfold when a friend joins, a rung bell that still shows its helper badge, Heartfin's tall open form covering the pumpkin door, the spider's dark mouth and web thread, animations for the bat (no demo exists) and the ghost (a rig is built from the Spook demo but left off, because Spook is a different ghost drawing from the one in the game: the owner chooses; see the M2 plan's last log entry). The design's puzzle 2 route "2d" does not work on the real map (2b does).
 3. Animations in battles: the party plays idle, hurt (when hit) and happy (on a win) with the demos' stars and word pops; only Munch was looked at. Attack clips are not used yet, enemies still use still pictures, and the hurt and happy clips are long (about 3.5 s) and may want trimming.
 4. Then milestone 3 (the boss and comics), and milestone 4 after his first playtest.
 

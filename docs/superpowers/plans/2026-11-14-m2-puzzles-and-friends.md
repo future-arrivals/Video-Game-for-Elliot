@@ -236,3 +236,7 @@ Wave A is three Opus tasks and one Sonnet task and needs no visual sign-off: eve
 - `drawMember` takes `opts.clip = { name, t }`; `RIG.battleFx` draws the clip's particles and word pop. Battle scenery passes hurt on a damaging hit and happy on a win; `vm.player` gained `hurtMs`, `winMs`, `calm` (built in battlescene.js). `HURT_CLIP_OWNS_FLASH` keeps it to one flash per hit.
 - Only Munch was screenshotted in battle; Heartfin and Scoops in battle and `RIG.on = false` are unchecked.
 - Final state: 134 tests, 14 battle checks, 71 playthrough checks pass on the dev page and the built file (1549 KB).
+
+### 16:45, ghost rig built but left off (owner's call)
+- The only ghost demo (`spook_animation_demo.html`) animates a different drawing (`ghost_2.svg`, teardrop body) from the game's ghost (`ghost.svg`, wavy tail and tongue). The rig is ported (idle, float, hurt) and registered as `ghost` but not enabled.
+- To enable: add `ghost: { still: 'idle', move: 'float', imgUnits: 244, hover: true }` to `RIG.creatures` in `actors.js`. The S5 ghosts would then look like Spook. Compare `Game/.shots/rig/ghost/walk-off.png` and `walk-on.png`.

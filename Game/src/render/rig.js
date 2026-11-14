@@ -47,8 +47,9 @@ import monster from './rigs/monster.js';
 import fish from './rigs/fish.js';
 import icecream, { icecream_folded } from './rigs/icecream.js';
 import spider from './rigs/spider.js';
+import ghost from './rigs/ghost.js';
 
-const DEFS = { monster, fish, icecream, icecream_folded, spider };
+const DEFS = { monster, fish, icecream, icecream_folded, spider, ghost };
 const INK = '#1a1a1a';
 
 /* ---------- loading ---------- */

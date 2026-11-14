@@ -221,7 +221,7 @@ export function drawCreature(ctx, assets, creature, sx, sy, timeMs, opts = {}) {
     const t = timeMs / 1000 + seed, moving = creature.mode === 'patrol' || creature.mode === 'chase' || creature.mode === 'return';
     let pose = rigPoses.get(rig);          // form: 1 = the spider rig's "grounded" (no thread, body lowered to the ground)
     pose = rigPose(rig, moving ? rc.move : rc.still, t, { T: t, form: 1 }, pose); rigPoses.set(rig, pose);
-    drawRig(ctx, rig, pose, sx, sy, r.d.h / rc.imgUnits, { flip: creature.faceX < 0, shadow: false, glow: false });
+    drawRig(ctx, rig, pose, sx, sy - (rc.hover ? r.d.fly : 0), r.d.h / rc.imgUnits, { flip: creature.faceX < 0, shadow: false, glow: false });   // hover: the rig floats by the creature's fly height (its own bob replaces the bitmap's)
     return;
   }
   ctx.save(); ctx.translate(sx, sy - lift);
