@@ -277,3 +277,25 @@ Requirements: the layout in section 4 (enemy strip with a pointer, intent bubble
 Requirements: a `battle` event from the field starts the page-turn (0.6 s) into a battle built from the field's party and hearts; `onDone` turns the page back and calls `resumeFromBattle`. Closing the game mid-battle and reopening restarts that battle at round 1 with the hearts the team had going in. Synthesized sounds (Web Audio, started on the first press or tap): step, fold, hit, heal, candy, battle sting, win fanfare, lose, illegal "boing". `tools/play.mjs` drives `window.__game` through: walk to the bat, win with Claw x3, check the bat is asleep and hearts are 9; then a second run that loses on purpose and checks the team is on the blanket with full hearts. Rebuild the single file.
 
 **Done when:** `node tools/play.mjs` passes against both the dev page and the built file.
+
+---
+
+### Task 7: Visual depth pass (approved 14 Nov; run after M1 is committed)
+
+**Why:** the field reads as "simple yet cluttered, lacking a little depth". Causes seen in the screenshots: scenery is scattered evenly at one size and strength; the ground is one flat tone front to back; every fill is perfectly flat.
+
+**Files:** `src/render/stageview.js`, `src/render/props.js`, `src/render/layers.js` (and `core.js` for a shared helper if needed). Bake-time only: no new per-frame drawing passes, no canvas `filter` or `shadowBlur` per frame.
+
+**The rule that must survive:** black ink and full colour means "you can use this"; pale pencil means scenery. Texture goes into ink fills and the paper. Scenery only gets quieter, never stronger.
+
+All seven items:
+
+1. **Cluster the scenery.** Replace the even scatter with five or six patches along the back and front edges. About 40% fewer props overall. Keep a clear band of about 1.5 rows around the path and one tile around anything playable (candy, boulders, hedges, the blanket, spawns, the start).
+2. **Quiet the scenery.** Pale orange saturation and pencil line strength down by about a quarter.
+3. **Fade with distance.** Props in back rows are smaller (about 0.8x at row 0), paler and cooler; front rows larger (about 1.1x at row 8) and warmer. A soft baked ground gradient to match: hazier at the horizon, warmer toward the camera.
+4. **Paper-on-paper shadows.** A baked smudge shadow under each scenery prop and hedge; a cut-paper edge with a soft shadow where the ground sheet sits on the hedge row.
+5. **A stronger frame.** Two or three larger pre-blurred clumps in the bottom corners (never covering the path or the touch buttons' targets); a second hill line on the far sheet.
+6. **Marker streaks.** Faint overlapping strokes baked inside ink fills (hedges, boulder, blanket, path), about 6 to 10% darker than the fill, slightly irregular in direction and length, seeded.
+7. **More paper.** Slightly stronger grain, two or three fold creases across the page, sparse pencil grass-hatching patches on the ground.
+
+**Deliverable:** before-and-after sheets of the same three views (the start, the boulder alcove at x 18.5, the right end) in `Game/.shots/`, plus one battle backdrop before-and-after. Each item behind a named constant at the top of its file so any one can be dialled back. Frame cost measured before and after with `__game.timeFrames(300)`; it must not rise by more than 0.2 ms mean. `npm test`, `battle-check.mjs` and `play.mjs` still pass.
