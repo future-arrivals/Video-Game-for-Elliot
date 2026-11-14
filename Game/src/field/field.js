@@ -1,4 +1,5 @@
-// Field simulation (M1): movement, followers, the bat's patrol, contact, after-battle.
+// Field simulation (M1): movement, followers, contact, after-battle. Creatures (the bat's patrol)
+// live in creatures.js.
 // Buttons (fold, swap, Use/Eat), the power target, candy, rest blanket and exits live in
 // powers.js. Pure and deterministic; no DOM, no randomness.
 //
@@ -20,6 +21,7 @@
 
 import { isValidSave } from '../save.js';
 import { handleButtons, isBusy, advanceHinges, cancelPowers, computeTarget, checkCandy, checkTile } from './powers.js';
+import { resetCreature, stepCreature } from './creatures.js';
 
 const RADIUS = 0.35;          // lead footprint, tiles
 export const FOLLOW_GAP = 1.75; // trail distance between party members (the monster's art is ~2.4 tiles wide)
@@ -153,7 +155,7 @@ export function stepField(state, stage, input, dt) {
     blocked = blocked || r.blocked;
     updateTrail(state);
     updateFollowers(state, r.moved > EPS);
-    for (const c of state.creatures) stepCreature(state, stage, c, h);
+    for (const c of state.creatures) stepCreature(state, stage, c, h, events);
     checkCandy(state, events);
     checkTile(state, stage, events, (i, j) => rest(state, stage, i, j));
     if (checkContact(state, events)) break;
@@ -297,101 +299,6 @@ function updateFollowers(state, leadMoved) {
   }
 }
 
-// ---------------------------------------------------------------- creatures
-
-function patrolPoints(stage, c, sim) {
-  const sp = stage.spawns[sim.creatures[c.uid].spawn];
-  return (sp?.patrol ?? []).map(([i, j]) => [i + 0.5, j + 0.5]);
-}
-
-function loopLength(pts) {
-  let L = 0;
-  for (let k = 0; k < pts.length; k++) {
-    const a = pts[k], b = pts[(k + 1) % pts.length];
-    L += Math.hypot(b[0] - a[0], b[1] - a[1]);
-  }
-  return L;
-}
-
-// Point and heading at distance d along the closed patrol loop.
-function pointOnLoop(pts, d) {
-  const L = loopLength(pts);
-  d = ((d % L) + L) % L;
-  let acc = 0;
-  for (let k = 0; k < pts.length; k++) {
-    const a = pts[k], b = pts[(k + 1) % pts.length];
-    const seg = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    if (seg > 0 && acc + seg > d) {
-      const f = (d - acc) / seg;
-      return { x: a[0] + (b[0] - a[0]) * f, y: a[1] + (b[1] - a[1]) * f, dx: b[0] - a[0], dy: b[1] - a[1] };
-    }
-    acc += seg;
-  }
-  const a = pts[0], b = pts[1 % pts.length];
-  return { x: a[0], y: a[1], dx: b[0] - a[0], dy: b[1] - a[1] };
-}
-
-// Distance along the loop of the point nearest to (x, y).
-function distOnLoop(pts, x, y) {
-  let best = Infinity, bestD = 0, acc = 0;
-  for (let k = 0; k < pts.length; k++) {
-    const a = pts[k], b = pts[(k + 1) % pts.length];
-    const vx = b[0] - a[0], vy = b[1] - a[1];
-    const seg2 = vx * vx + vy * vy;
-    const f = seg2 > 0 ? clamp(((x - a[0]) * vx + (y - a[1]) * vy) / seg2, 0, 1) : 0;
-    const px = a[0] + vx * f, py = a[1] + vy * f;
-    const dd = Math.hypot(x - px, y - py);
-    if (dd < best - 1e-12) { best = dd; bestD = acc + f * Math.sqrt(seg2); }
-    acc += Math.sqrt(seg2);
-  }
-  return bestD;
-}
-
-function face(c, dx, dy) {
-  if (Math.abs(dx) > EPS) c.faceX = dx > 0 ? 1 : -1;
-  if (Math.abs(dx) > EPS || Math.abs(dy) > EPS) {
-    c.facing = Math.abs(dx) >= Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy < 0 ? 'back' : 'front');
-  }
-}
-
-// Back to its spawn in `mode`, facing along its patrol.
-function resetCreature(state, stage, c, mode) {
-  const sim = state._sim;
-  const cs = sim.creatures[c.uid];
-  const sp = stage.spawns[cs.spawn];
-  c.x = sp.at[0] + 0.5;
-  c.y = sp.at[1] + 0.5;
-  c.mode = mode;
-  cs.ignore = 0;
-  const pts = patrolPoints(stage, c, sim);
-  if (pts.length >= 2 && loopLength(pts) > 0) {
-    cs.dist = distOnLoop(pts, c.x, c.y);
-    const p = pointOnLoop(pts, cs.dist);
-    face(c, p.dx, p.dy);
-  } else {
-    cs.dist = 0;
-  }
-}
-
-function stepCreature(state, stage, c, h) {
-  const sim = state._sim;
-  const cs = sim.creatures[c.uid];
-  if (c.mode === 'asleep') return;
-  if (c.mode === 'ignore') {
-    cs.ignore -= h;
-    if (cs.ignore <= EPS) { cs.ignore = 0; c.mode = 'patrol'; }
-  }
-  const pts = patrolPoints(stage, c, sim);
-  if (pts.length < 2 || cs.speed <= 0) return;
-  const L = loopLength(pts);
-  if (L <= 0) return;
-  cs.dist = (cs.dist + cs.speed * h) % L;
-  const p = pointOnLoop(pts, cs.dist);
-  c.x = p.x;
-  c.y = p.y;
-  face(c, p.dx, p.dy);
-}
-
 // ---------------------------------------------------------------- rest, contact
 
 function rest(state, stage, i, j) {
@@ -419,11 +326,12 @@ function checkContact(state, events) {
     if (c.mode === 'asleep') continue;
     if (touches(lead, c)) {
       touching.push(c.uid);
-      if (!hit && c.mode === 'patrol' && !sim.touching.includes(c.uid)) hit = c;
+      if (!hit && (c.mode === 'patrol' || c.mode === 'chase' || c.mode === 'return') && !sim.touching.includes(c.uid)) hit = c;
     }
   }
   sim.touching = touching;
-  if (hit) events.push({ t: 'battle', creatureUid: hit.uid, kind: hit.kind, sneak: false });
+  // A sneak attack: the creature was on patrol and had not seen the lead (creatures.js sets `sees`; undefined = M1 behaviour).
+  if (hit) events.push({ t: 'battle', creatureUid: hit.uid, kind: hit.kind, sneak: hit.mode === 'patrol' && hit.sees === false });
   return !!hit;
 }
 
