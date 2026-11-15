@@ -26,7 +26,7 @@ const WIN_MS = 2300, WIN_SKIP = 1000, LOSE_MS = 2000, RUN_MS = 750;   // a press
 export function createBattleScene({ assets, data, battle, settings = {}, audio = null, backdrop = null, onDone = () => {} }) {
   const sfx = name => { try { audio && audio.play(name); } catch { /* sound is optional */ } };
   const stage = backdrop && backdrop.stage;
-  const art = { backdrop: bakeBackdrop(stage || null), overlays: stage ? bakeOverlays(stage) : null };
+  const art = { backdrop: bakeBackdrop(stage || null, { boss: !!battle.boss }), overlays: stage ? bakeOverlays(stage) : null };
   const A = prepareActors(assets);
   const types = data.type_chart.types.map(t => t.id);
   const dropOf = kind => (data.creatures.find(c => c.id === kind) || {}).drop ? 1 : 0;   // one candy per win when it drops one
