@@ -194,6 +194,8 @@ export function createAudio() {
       try { applyVolume(); } catch { /* ignore */ }
     },
     get unlocked() { return !!ctx && ctx.state === 'running'; },
+    get context() { return ctx; },       // for music.js: the shared AudioContext (null before unlock)
+    get musicOut() { return music; },    // for music.js: the music volume node
   };
 }
 

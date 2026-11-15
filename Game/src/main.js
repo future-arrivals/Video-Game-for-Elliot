@@ -24,6 +24,7 @@ import { loadAssets } from './assets.js';
 import data from './data/slice.gen.js';
 import { createInput } from './input/input.js';
 import { createAudio } from './audio.js';
+import { createMusic } from './music.js';
 import { loadSave, SAVE_KEY } from './save.js';
 import { createTitleScene } from './scenes/title.js';
 import { createFieldScene } from './scenes/fieldscene.js';
@@ -67,6 +68,16 @@ export async function startGame({ canvas }) {
   const input = createInput(canvas, { toLogical });
   const audio = createAudio();
   const storage = openStorage();
+  // Music: the M key toggles it (remembered under its own key). It starts only once audio is unlocked.
+  const MUSIC_OFF_KEY = 'elliot_music_off';
+  const musicOff = () => { try { return !!storage && storage.getItem(MUSIC_OFF_KEY) === '1'; } catch { return false; } };
+  const music = createMusic(audio, { enabled: !musicOff() });
+  addEventListener('keydown', e => {
+    if (e.code !== 'KeyM' || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+    audio.unlock();
+    music.setEnabled(!music.enabled);
+    try { storage && (music.enabled ? storage.removeItem(MUSIC_OFF_KEY) : storage.setItem(MUSIC_OFF_KEY, '1')); } catch { /* never mind */ }
+  });
   const query = new URLSearchParams(location.search);
   const settings = { steadyCam: false, ...(loadSave(storage)?.settings || {}) };
   if (query.has('steady')) settings.steadyCam = query.get('steady') !== '0';
@@ -194,9 +205,25 @@ export async function startGame({ canvas }) {
     return game.state();
   };
 
+  // The music follows the screen: title, field (spooky in S5 and S7), battle, boss (phase 2 = intensity 1). A page turn keeps the track.
+  function updateMusic() {
+    try {
+      const m = game.mode();
+      if (m === 'transition') return;
+      if (m === 'title') music.setTrack('title');
+      else if (m === 'battle') {
+        const boss = battleScene && battleScene.state && battleScene.state.boss;
+        music.setTrack(boss ? 'boss' : 'battle'); music.setIntensity(boss && boss.phase === 2 ? 1 : 0);
+      } else {
+        const id = field.stage && field.stage.id;
+        music.setTrack(id === 'S5' || id === 'S7' ? 'spooky' : 'field'); music.setIntensity(0);
+      }
+    } catch { /* music never breaks the game */ }
+  }
   let last = performance.now();
   function tick(now) {
     const dt = Math.min(.05, Math.max(0, (now - last) / 1000)); last = now;
+    updateMusic();
     if (!game.freeze) step(dt);
     draw(now); game.frames++;
     requestAnimationFrame(tick);
